@@ -1,0 +1,934 @@
+---
+title: "Notion 4.3 — Arbres de décision et Random Forest"
+subtitle: "Des modèles non-linéaires puissants et intuitifs"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_3_arbres_random_forest_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_3_arbres_random_forest_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notions 4.1 et 4.2  
+**Objectif** : maîtriser les modèles à base d'arbres, comprendre leurs forces et faiblesses, utiliser les Random Forests en production
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **intuitivement** le fonctionnement d'un arbre de décision
+- Utiliser `DecisionTreeClassifier` et `DecisionTreeRegressor`
+- **Visualiser** un arbre et interpréter ses décisions
+- Contrôler la **profondeur** pour éviter l'overfitting
+- Comprendre la **logique du bagging** et des **Random Forests**
+- Extraire la **feature importance** d'un modèle
+- Choisir entre modèle linéaire et modèle à base d'arbres
+
+## 🎯 Pourquoi ces modèles ?
+
+Les modèles linéaires ont une limite fondamentale : **ils sont linéaires**. Si tes données ont des relations complexes, courbes, avec des interactions entre variables, la régression linéaire rate tout ça.
+
+Les **arbres de décision** et leurs évolutions (Random Forest, Gradient Boosting) capturent **naturellement** :
+- Les relations **non-linéaires**
+- Les **interactions** entre variables
+- Les effets **de seuil** ("si âge > 50 alors...")
+
+En plus, ils gèrent **automatiquement** :
+- Les variables catégorielles (peu de preprocessing)
+- Les valeurs manquantes (selon l'implémentation)
+- Les échelles différentes (pas besoin de standardiser !)
+
+Les arbres et leurs dérivés sont **les modèles les plus utilisés en compétition Kaggle** et dans de nombreuses applications industrielles.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor, plot_tree
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Intuition : qu'est-ce qu'un arbre de décision ?
+
+## 🎨 L'idée : une série de questions oui/non
+
+Un arbre de décision **imite** la façon dont un humain prendrait une décision : en posant des **questions successives**.
+
+**Exemple** : décider si un client va rembourser son prêt.
+
+```
+                    [Revenu > 3000 € ?]
+                   /                    \
+                 Oui                    Non
+                  │                       │
+         [Âge > 25 ans ?]         [A un CDI ?]
+          /            \            /         \
+        Oui            Non         Oui         Non
+         │              │           │            │
+      ✅ OK          ❓ Mid.      ❓ Mid.     ❌ Risqué
+```
+
+**Chaque nœud** pose une question sur une feature. **Chaque feuille** donne une prédiction.
+
+## 🤔 Comment l'arbre "apprend" ?
+
+L'algorithme cherche **à chaque nœud** :
+
+1. **Quelle feature** utiliser pour séparer ?
+2. **Quel seuil** appliquer ?
+
+Pour choisir, il cherche la séparation qui **maximise la "pureté"** des groupes résultants.
+
+## 📊 Mesure de pureté : Gini et Entropy
+
+Si après un split, un groupe contient 100% de "bons payeurs" → **pure**.  
+Si un groupe contient 50/50 → **très impure**.
+
+Deux mesures courantes pour les arbres de classification :
+
+### Gini
+
+$$Gini = 1 - \sum_{i=1}^{k} p_i^2$$
+
+où `p_i` est la proportion de classe `i` dans le groupe.
+
+- Gini = 0 : groupe pur (une seule classe)
+- Gini = 0.5 : deux classes équi-réparties (maximum en binaire)
+
+### Entropy
+
+$$Entropy = -\sum_{i=1}^{k} p_i \log_2(p_i)$$
+
+Même idée, calcul légèrement différent. En pratique, les deux donnent des résultats très similaires. **Gini par défaut** (plus rapide à calculer).
+
+## 🧪 Mini-démo : Gini à la main
+
+```{python}
+# Exemple : un groupe de 10 clients
+# 8 bons payeurs (classe 0), 2 mauvais (classe 1)
+
+def gini(p1):
+    """Gini pour une proba binaire p1."""
+    p0 = 1 - p1
+    return 1 - (p0**2 + p1**2)
+
+# Scénarios
+print(f"Gini 100%/0%  : {gini(0):.3f}  (pur)")
+print(f"Gini 80%/20%  : {gini(0.2):.3f}")
+print(f"Gini 50%/50%  : {gini(0.5):.3f}  (maximum d'impureté)")
+print(f"Gini 10%/90%  : {gini(0.9):.3f}")
+```
+
+## 🎯 Premier arbre avec scikit-learn
+
+```{python}
+# Dataset simple : prédire si un étudiant réussit (classification binaire)
+np.random.seed(42)
+n = 200
+df = pd.DataFrame({
+    "heures_etude": np.random.uniform(0, 20, n),
+    "note_continu": np.random.uniform(0, 20, n),
+})
+# Règle non-linéaire (intentionnelle : un modèle linéaire ratera)
+score = 0.3 * df["heures_etude"] * df["note_continu"] + np.random.normal(0, 3, n)
+df["reussit"] = (score > score.median()).astype(int)
+
+# Train/test
+X = df[["heures_etude", "note_continu"]]
+y = df["reussit"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Arbre simple
+arbre = DecisionTreeClassifier(max_depth=3, random_state=42)
+arbre.fit(X_train, y_train)
+
+print(f"Accuracy train : {arbre.score(X_train, y_train):.3f}")
+print(f"Accuracy test  : {arbre.score(X_test, y_test):.3f}")
+```
+
+## 🌳 Visualiser l'arbre
+
+**Le truc génial avec les arbres** : on peut les **afficher graphiquement** et **voir exactement comment ils décident**.
+
+```{python}
+#| label: fig-tree-viz
+#| fig-cap: "Un arbre de décision de profondeur 3"
+
+fig, ax = plt.subplots(figsize=(18, 8))
+plot_tree(arbre, 
+          feature_names=X.columns,
+          class_names=["Échec", "Réussite"],
+          filled=True,
+          rounded=True,
+          fontsize=10,
+          ax=ax)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture de l'arbre** :
+
+- **Nœud racine** (en haut) : 160 observations dans le train. L'arbre choisit de splitter sur `note_continu <= X` parce que ça maximise la pureté.
+- **À chaque nœud** : `feature <= seuil ?`. Oui → gauche, non → droite.
+- **Couleur** : l'intensité indique la classe dominante (orange = Échec, bleu = Réussite).
+- **Feuilles** : les nœuds terminaux qui donnent la prédiction finale.
+
+## 🎨 Frontière de décision : arbre vs régression logistique
+
+```{python}
+#| label: fig-boundary-tree-vs-logreg
+#| fig-cap: "Arbre vs Régression logistique : frontières très différentes"
+
+# Comparaison visuelle
+from sklearn.linear_model import LogisticRegression
+
+logreg = LogisticRegression().fit(X_train, y_train)
+
+# Grille
+x_min, x_max = df["heures_etude"].min() - 1, df["heures_etude"].max() + 1
+y_min, y_max = df["note_continu"].min() - 1, df["note_continu"].max() + 1
+xx, yy = np.meshgrid(np.linspace(x_min, x_max, 200), np.linspace(y_min, y_max, 200))
+grille = np.c_[xx.ravel(), yy.ravel()]
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+for ax, nom, mod in zip(axes, 
+                         ["Régression logistique", "Arbre de décision (depth=3)"],
+                         [logreg, arbre]):
+    Z = mod.predict(grille).reshape(xx.shape)
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap="RdBu", levels=[-0.5, 0.5, 1.5])
+    
+    for label, color in zip([0, 1], ["red", "blue"]):
+        mask = y == label
+        ax.scatter(df.loc[mask, "heures_etude"], df.loc[mask, "note_continu"],
+                   c=color, s=25, alpha=0.6, edgecolor="black")
+    
+    ax.set_xlabel("heures_etude")
+    ax.set_ylabel("note_continu")
+    ax.set_title(nom)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation cruciale** :
+
+- La **régression logistique** trace une **droite** (frontière linéaire)
+- L'**arbre de décision** trace des **rectangles** (séparations parallèles aux axes)
+
+Les deux peuvent bien ou mal fonctionner selon la forme réelle des données. C'est pourquoi **on teste plusieurs modèles**.
+
+## ✏️ Exercice 1 — Ton premier arbre
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+np.random.seed(0)
+n = 300
+
+# Problème : prédire si un client va résilier son abonnement
+clients = pd.DataFrame({
+    "anciennete_mois": np.random.exponential(15, n).clip(1, 80),
+    "nb_appels_service_client": np.random.poisson(2, n),
+    "satisfaction": np.random.uniform(1, 10, n),
+    "prix_forfait": np.random.choice([10, 20, 30, 50], n),
+})
+
+# Règle complexe (non-linéaire avec interaction)
+churn_score = (
+    0.3 * (clients["satisfaction"] < 5).astype(int)
+    + 0.2 * (clients["nb_appels_service_client"] > 3).astype(int)
+    + 0.15 * (clients["anciennete_mois"] < 6).astype(int)
+    - 0.1 * (clients["prix_forfait"] == 10).astype(int)
+    + np.random.uniform(0, 0.3, n)
+)
+clients["churn"] = (churn_score > 0.35).astype(int)
+```
+
+1. Sépare X et y, fais un train/test split **stratifié** (80/20).
+2. Entraîne un `DecisionTreeClassifier(max_depth=4, random_state=42)`.
+3. Affiche les accuracies train et test.
+4. Visualise l'arbre avec `plot_tree()`.
+5. Quelle est la **première variable** utilisée pour splitter (nœud racine) ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(0)
+n = 300
+clients = pd.DataFrame({
+    "anciennete_mois": np.random.exponential(15, n).clip(1, 80),
+    "nb_appels_service_client": np.random.poisson(2, n),
+    "satisfaction": np.random.uniform(1, 10, n),
+    "prix_forfait": np.random.choice([10, 20, 30, 50], n),
+})
+churn_score = (
+    0.3 * (clients["satisfaction"] < 5).astype(int)
+    + 0.2 * (clients["nb_appels_service_client"] > 3).astype(int)
+    + 0.15 * (clients["anciennete_mois"] < 6).astype(int)
+    - 0.1 * (clients["prix_forfait"] == 10).astype(int)
+    + np.random.uniform(0, 0.3, n)
+)
+clients["churn"] = (churn_score > 0.35).astype(int)
+
+# 1-2. Split et arbre
+X = clients.drop(columns="churn")
+y = clients["churn"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+arbre = DecisionTreeClassifier(max_depth=4, random_state=42)
+arbre.fit(X_train, y_train)
+
+# 3. Scores
+print(f"Accuracy train : {arbre.score(X_train, y_train):.3f}")
+print(f"Accuracy test  : {arbre.score(X_test, y_test):.3f}")
+```
+
+```{python}
+# 4. Visualisation
+fig, ax = plt.subplots(figsize=(20, 10))
+plot_tree(arbre, 
+          feature_names=X.columns,
+          class_names=["Non churn", "Churn"],
+          filled=True,
+          rounded=True,
+          fontsize=9,
+          ax=ax)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 5. Variable racine
+# On regarde l'attribut tree_.feature[0] qui est l'index de la feature racine
+feature_racine = X.columns[arbre.tree_.feature[0]]
+seuil_racine = arbre.tree_.threshold[0]
+print(f"Variable racine : {feature_racine}")
+print(f"Seuil : {seuil_racine:.2f}")
+```
+
+**Interprétation** : l'arbre a trouvé tout seul que `satisfaction` (ou `nb_appels_service_client`) est la variable la plus prédictive du churn — ce qui colle à la réalité.
+:::
+
+# 2. Arbres de régression
+
+Les arbres marchent aussi pour la **régression** (prédire une valeur continue).
+
+**Différence** : au lieu de prédire une classe majoritaire dans chaque feuille, on prédit la **moyenne** des valeurs cibles dans la feuille.
+
+**Mesure d'impureté** : on utilise **MSE** ou **MAE** (au lieu de Gini).
+
+```{python}
+# Exemple de régression : prédire le prix d'un appartement
+np.random.seed(42)
+n = 200
+
+df_immo = pd.DataFrame({
+    "surface": np.random.uniform(30, 150, n),
+    "etage": np.random.randint(0, 10, n),
+})
+
+# Relation non-linéaire (avec effet de seuil : premium au-dessus de 80m²)
+df_immo["prix"] = (
+    2000 * df_immo["surface"]
+    + 1000 * df_immo["etage"]
+    + np.where(df_immo["surface"] > 80, 50_000, 0)  # prime > 80m²
+    + np.random.normal(0, 10_000, n)
+).round().astype(int)
+
+X = df_immo.drop(columns="prix")
+y = df_immo["prix"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Arbre de régression
+arbre_reg = DecisionTreeRegressor(max_depth=4, random_state=42)
+arbre_reg.fit(X_train, y_train)
+
+# Comparaison avec régression linéaire
+lr = LinearRegression().fit(X_train, y_train)
+
+print("Sur le test :")
+print(f"  Régression linéaire : R² = {lr.score(X_test, y_test):.3f}")
+print(f"  Arbre de régression : R² = {arbre_reg.score(X_test, y_test):.3f}")
+```
+
+Si l'arbre bat nettement la régression linéaire, c'est probablement parce qu'il capture mieux le **seuil** à 80m².
+
+# 3. Overfitting : le défaut principal des arbres
+
+## 🚨 Un arbre laissé libre overfit TOUJOURS
+
+Si on ne contrôle pas sa profondeur, l'arbre va créer **une feuille par observation** jusqu'à avoir 100% d'accuracy sur le train… **et être mauvais sur le test**.
+
+```{python}
+#| label: fig-overfit-tree
+#| fig-cap: "Impact de la profondeur sur l'overfitting"
+
+# Comparer plusieurs profondeurs
+profondeurs = [1, 2, 3, 5, 10, 20, None]  # None = pas de limite
+resultats = []
+
+X = clients.drop(columns="churn")
+y = clients["churn"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+for d in profondeurs:
+    arbre = DecisionTreeClassifier(max_depth=d, random_state=42)
+    arbre.fit(X_train, y_train)
+    resultats.append({
+        "max_depth": d if d else "None",
+        "acc_train": arbre.score(X_train, y_train),
+        "acc_test": arbre.score(X_test, y_test),
+        "profondeur_reelle": arbre.get_depth(),
+        "nb_feuilles": arbre.get_n_leaves()
+    })
+
+res_df = pd.DataFrame(resultats)
+print(res_df.round(3).to_string(index=False))
+```
+
+```{python}
+# Visualisation
+fig, ax = plt.subplots(figsize=(10, 5))
+
+x_pos = range(len(profondeurs))
+labels = [str(d) if d else "None" for d in profondeurs]
+
+ax.plot(x_pos, res_df["acc_train"], "o-", linewidth=2, label="Train", color="steelblue")
+ax.plot(x_pos, res_df["acc_test"], "s-", linewidth=2, label="Test", color="coral")
+
+ax.set_xticks(x_pos)
+ax.set_xticklabels(labels)
+ax.set_xlabel("max_depth")
+ax.set_ylabel("Accuracy")
+ax.set_title("Overfitting : l'accuracy test décroche quand l'arbre devient trop profond")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on voit** :
+
+- Aux faibles profondeurs (1-3) : les accuracies train et test augmentent ensemble → **bon ajustement**
+- Aux profondeurs moyennes (4-6) : petit écart, encore acceptable
+- Aux grandes profondeurs : **accuracy train → 1.0, accuracy test stagne ou baisse** → **overfitting massif**
+
+## 🛠️ Les hyperparamètres de régularisation
+
+Pour contrôler l'overfitting d'un arbre, on utilise :
+
+| Hyperparamètre | Effet |
+|---|---|
+| `max_depth` | Limite la profondeur (essaie 3 à 10) |
+| `min_samples_split` | Nombre minimum d'observations pour faire un split (défaut: 2, essayer 20-50) |
+| `min_samples_leaf` | Nombre minimum d'observations par feuille (défaut: 1, essayer 10-20) |
+| `max_leaf_nodes` | Nombre maximum de feuilles |
+| `ccp_alpha` | Élagage par complexité (post-pruning) |
+
+**En pratique** : `max_depth` + `min_samples_leaf` suffisent dans 90% des cas.
+
+# 4. Random Forest : la sagesse de la foule
+
+## 🎯 L'idée centrale
+
+Un seul arbre overfit. Alors pourquoi ne pas entraîner **plusieurs arbres** et **moyenner leurs prédictions** ?
+
+C'est le principe du **bagging** (bootstrap aggregating) :
+
+1. **Créer N arbres** (typiquement 100-500)
+2. Chaque arbre est entraîné sur :
+   - Un **échantillon bootstrap** des données (tirage avec remise)
+   - Un **sous-ensemble aléatoire des features** à chaque split
+3. **Moyenner** les prédictions (régression) ou **voter** (classification)
+
+```{python}
+#| label: fig-rf-concept
+#| fig-cap: "Concept du Random Forest : plusieurs arbres qui votent"
+
+fig, ax = plt.subplots(figsize=(14, 5))
+ax.set_xlim(0, 12)
+ax.set_ylim(0, 6)
+ax.axis("off")
+
+# Dataset
+ax.add_patch(plt.Rectangle((0.5, 2.5), 1.5, 1, facecolor="#a8d5e2", edgecolor="black"))
+ax.text(1.25, 3, "Dataset", ha="center", va="center", fontweight="bold")
+
+# N arbres
+for i, y_pos in enumerate([0.5, 2.5, 4.5]):
+    ax.add_patch(plt.Rectangle((4, y_pos), 1.5, 1, facecolor="#f9c74f", edgecolor="black"))
+    ax.text(4.75, y_pos + 0.5, f"Arbre {i+1}", ha="center", va="center", fontsize=10)
+    # Flèche dataset → arbre
+    ax.annotate("", xy=(4, y_pos + 0.5), xytext=(2, 3), 
+                arrowprops=dict(arrowstyle="->", lw=1.5, alpha=0.5))
+
+ax.text(4.75, 5.7, "...", ha="center", fontsize=14)
+ax.text(2.5, 4.5, "bootstrap\n+ features\naléatoires", ha="center", fontsize=9, style="italic")
+
+# Prédictions individuelles
+for i, y_pos in enumerate([0.5, 2.5, 4.5]):
+    ax.text(6.5, y_pos + 0.5, f"→ prédit {['Oui', 'Oui', 'Non'][i]}", fontsize=9)
+
+# Vote / moyenne
+ax.add_patch(plt.Rectangle((8.5, 2.5), 1.5, 1, facecolor="#f77f00", edgecolor="black"))
+ax.text(9.25, 3, "VOTE\n(majorité)", ha="center", va="center", fontweight="bold", color="white", fontsize=10)
+
+for y_pos in [0.5, 2.5, 4.5]:
+    ax.annotate("", xy=(8.5, 3), xytext=(7.3, y_pos + 0.5),
+                arrowprops=dict(arrowstyle="->", lw=1.2, alpha=0.5))
+
+# Prédiction finale
+ax.add_patch(plt.Rectangle((10.5, 2.5), 1.5, 1, facecolor="#90be6d", edgecolor="black"))
+ax.text(11.25, 3, "Prédiction\nfinale", ha="center", va="center", fontweight="bold")
+
+ax.annotate("", xy=(10.5, 3), xytext=(10, 3),
+            arrowprops=dict(arrowstyle="->", lw=2))
+
+ax.set_title("Random Forest : chaque arbre vote, on prend la majorité", fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🚀 Pourquoi ça marche ?
+
+C'est **le principe de la sagesse de la foule** : un groupe d'arbres moyens donne de meilleures prédictions qu'un seul arbre, à condition que leurs erreurs soient **décorrélées**.
+
+Le bagging garantit cette décorrélation en :
+- Montrant des **échantillons différents** à chaque arbre
+- Limitant les **features visibles** à chaque split
+
+Résultat : chaque arbre seul **overfit**, mais la moyenne **généralise très bien**.
+
+## 🛠️ Utilisation avec scikit-learn
+
+```{python}
+# Random Forest sur le même dataset
+rf = RandomForestClassifier(
+    n_estimators=100,   # 100 arbres
+    max_depth=5,        # chaque arbre limité à profondeur 5
+    random_state=42,
+    n_jobs=-1           # utilise tous les CPU
+)
+
+rf.fit(X_train, y_train)
+print(f"Random Forest accuracy train : {rf.score(X_train, y_train):.3f}")
+print(f"Random Forest accuracy test  : {rf.score(X_test, y_test):.3f}")
+
+# Comparaison avec un arbre simple
+arbre_simple = DecisionTreeClassifier(max_depth=5, random_state=42).fit(X_train, y_train)
+print(f"\nArbre simple accuracy test   : {arbre_simple.score(X_test, y_test):.3f}")
+print(f"Random Forest accuracy test    : {rf.score(X_test, y_test):.3f}")
+```
+
+Le Random Forest est **presque toujours meilleur** qu'un arbre seul.
+
+## 🎯 Feature importance
+
+**Énorme avantage** des arbres : on peut voir quelles features sont les **plus importantes** pour les prédictions.
+
+```{python}
+# Feature importance
+importances = pd.DataFrame({
+    "feature": X.columns,
+    "importance": rf.feature_importances_
+}).sort_values("importance", ascending=False)
+
+print(importances.to_string(index=False))
+```
+
+```{python}
+#| label: fig-importance
+#| fig-cap: "Importance des features dans le Random Forest"
+
+fig, ax = plt.subplots(figsize=(10, 4))
+importances_sorted = importances.sort_values("importance")
+ax.barh(importances_sorted["feature"], importances_sorted["importance"],
+        color="steelblue", edgecolor="black")
+ax.set_xlabel("Importance")
+ax.set_title("Feature Importance — Random Forest")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-warning}
+## ⚠️ L'importance est toujours positive
+Contrairement aux coefficients linéaires, la feature importance ne te dit pas **dans quel sens** la feature influence la prédiction. Juste qu'elle est **importante**.
+
+Pour avoir le sens, il faut utiliser des outils comme **SHAP** (qu'on verra plus tard).
+:::
+
+## ✏️ Exercice 2 — Random Forest complet
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Reprends le dataset `clients` (churn) de l'exercice 1.
+
+1. Entraîne **3 modèles** sur les mêmes train/test :
+   - `DecisionTreeClassifier(max_depth=5)`
+   - `RandomForestClassifier(n_estimators=100, max_depth=5)`
+   - `LogisticRegression()` (de référence)
+2. Compare les **accuracies test**. Lequel gagne ?
+3. Pour le meilleur des trois, affiche la **feature importance** (pour l'arbre ou la forêt) ou les **coefficients** (pour la logistique).
+4. L'arbre et le Random Forest identifient-ils la même variable la plus importante ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Split
+X = clients.drop(columns="churn")
+y = clients["churn"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 1. Les 3 modèles
+modeles = {
+    "DecisionTree (d=5)": DecisionTreeClassifier(max_depth=5, random_state=42),
+    "RandomForest (100 arbres)": RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42, n_jobs=-1),
+    "LogisticRegression": LogisticRegression(max_iter=1000),
+}
+
+resultats = []
+for nom, mod in modeles.items():
+    mod.fit(X_train, y_train)
+    resultats.append({
+        "modèle": nom,
+        "acc_train": mod.score(X_train, y_train),
+        "acc_test": mod.score(X_test, y_test),
+        "gap": mod.score(X_train, y_train) - mod.score(X_test, y_test)
+    })
+
+print(pd.DataFrame(resultats).round(3).to_string(index=False))
+```
+
+```{python}
+# 3-4. Feature importance
+arbre = modeles["DecisionTree (d=5)"]
+rf = modeles["RandomForest (100 arbres)"]
+
+imp_arbre = pd.Series(arbre.feature_importances_, index=X.columns).sort_values(ascending=False)
+imp_rf = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+print("Feature importance — Decision Tree :")
+print(imp_arbre.round(3).to_string())
+
+print("\nFeature importance — Random Forest :")
+print(imp_rf.round(3).to_string())
+
+print(f"\nVariable #1 selon l'arbre : {imp_arbre.index[0]}")
+print(f"Variable #1 selon le RF   : {imp_rf.index[0]}")
+```
+
+**Observations** :
+
+- Le Random Forest bat généralement l'arbre simple
+- Ces deux modèles à base d'arbres peuvent battre la régression logistique sur des relations non-linéaires
+- L'arbre et le RF s'accordent généralement sur la variable la plus importante (les interactions sont similaires)
+:::
+
+# 5. Arbres vs modèles linéaires : quel choix ?
+
+Voici un tableau de décision pour choisir :
+
+| Critère | Modèle linéaire | Arbres / RF |
+|---|---|---|
+| **Interprétation** | Très facile (coefficients) | Moyenne (feature importance) |
+| **Linéaire** | ✅ | Marche mais peut compliquer |
+| **Non-linéaire** | ❌ (sauf feature engineering) | ✅✅ |
+| **Interactions entre features** | Il faut les créer à la main | ✅✅ (automatiquement) |
+| **Besoin de scaling** | Oui (important) | Non (robuste) |
+| **Besoin d'encoding** | OneHot requis | OneHot ou label OK |
+| **Outliers** | Très sensible | Plutôt robuste |
+| **Overfitting** | Rare (sauf beaucoup de features) | **Très fréquent** si non régularisé |
+| **Petit dataset** (< 1000) | ✅ Meilleur | Risque d'overfitting |
+| **Gros dataset** (> 100k) | OK | ✅ Souvent meilleur |
+| **Probabilités calibrées** | ✅ | Moyennement calibrées |
+
+## 💡 Stratégie pragmatique
+
+1. **Toujours commencer par** une régression linéaire/logistique comme **baseline**.
+2. **Ensuite essayer** un Random Forest.
+3. Si le RF bat la régression **significativement** → **garder le RF**.
+4. Sinon → **garder le modèle linéaire** (plus simple, plus rapide, plus interprétable).
+
+# 6. Les hyperparamètres du Random Forest
+
+Pour tuner un Random Forest, les hyperparamètres à connaître :
+
+| Hyperparamètre | Effet |
+|---|---|
+| `n_estimators` | Nombre d'arbres (plus = mieux mais plus lent, 100-500 typique) |
+| `max_depth` | Profondeur max de chaque arbre (None = illimité, 5-15 typique) |
+| `max_features` | Nombre de features vues à chaque split ("sqrt" par défaut, bon choix) |
+| `min_samples_leaf` | Taille min d'une feuille (défaut 1, essayer 5-20) |
+| `n_jobs` | CPU parallèles (`-1` = tous) |
+| `random_state` | Reproductibilité |
+
+**Règle de pouce** :
+- `n_estimators=200, max_depth=10, min_samples_leaf=5` est un **excellent point de départ**
+- Pour plus de performance : tuning via GridSearchCV (Notion 4.6)
+
+# 🏁 Exercice bilan — Battre la régression logistique
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+On reprend un dataset de **classification non-linéaire**. Ta mission : battre la régression logistique avec un Random Forest.
+
+```python
+# Dataset : prédire si un client va faire défaut sur un prêt
+# Avec des relations non-linéaires intentionnelles
+np.random.seed(123)
+n = 800
+
+credit = pd.DataFrame({
+    "age": np.random.uniform(20, 70, n),
+    "revenu_mensuel": np.random.gamma(2, 1500, n),
+    "duree_emploi_annees": np.random.exponential(5, n).clip(0, 30),
+    "ratio_dette": np.random.uniform(0, 1, n),
+    "nb_cartes_credit": np.random.poisson(3, n),
+})
+
+# Règle complexe avec interactions (un modèle linéaire va ramer)
+risque = (
+    # Effet non-linéaire de l'âge (pic de risque en milieu)
+    0.3 * np.exp(-((credit["age"] - 35) / 10)**2)
+    # Interaction revenu × ratio_dette
+    + 0.5 * (credit["revenu_mensuel"] < 2000) * (credit["ratio_dette"] > 0.5)
+    # Effet seuil
+    + 0.2 * (credit["duree_emploi_annees"] < 1)
+    + np.random.uniform(0, 0.3, n)
+)
+credit["defaut"] = (risque > 0.5).astype(int)
+```
+
+**À faire** :
+
+1. Analyse rapide : taux de défaut, distribution des variables.
+2. Split stratifié 80/20.
+3. Entraîne **3 modèles** :
+   - `LogisticRegression` (baseline)
+   - `DecisionTreeClassifier(max_depth=5, random_state=42)`
+   - `RandomForestClassifier(n_estimators=200, max_depth=10, min_samples_leaf=5, random_state=42)`
+4. Compare les accuracies **train et test** pour chacun.
+5. **Baseline naïve** : quel score obtient-on en prédisant toujours "pas de défaut" ?
+6. Affiche la **feature importance** du Random Forest. Quelles sont les 3 variables les plus importantes ?
+7. Conclure : le Random Forest apporte-t-il un vrai gain ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Création du dataset
+np.random.seed(123)
+n = 800
+
+credit = pd.DataFrame({
+    "age": np.random.uniform(20, 70, n),
+    "revenu_mensuel": np.random.gamma(2, 1500, n),
+    "duree_emploi_annees": np.random.exponential(5, n).clip(0, 30),
+    "ratio_dette": np.random.uniform(0, 1, n),
+    "nb_cartes_credit": np.random.poisson(3, n),
+})
+
+risque = (
+    0.3 * np.exp(-((credit["age"] - 35) / 10)**2)
+    + 0.5 * (credit["revenu_mensuel"] < 2000) * (credit["ratio_dette"] > 0.5)
+    + 0.2 * (credit["duree_emploi_annees"] < 1)
+    + np.random.uniform(0, 0.3, n)
+)
+credit["defaut"] = (risque > 0.5).astype(int)
+
+print(f"Taux de défaut : {credit['defaut'].mean()*100:.1f}%")
+```
+
+```{python}
+# 2. Split
+X = credit.drop(columns="defaut")
+y = credit["defaut"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3-4. Modèles
+modeles = {
+    "LogisticRegression": LogisticRegression(max_iter=1000),
+    "DecisionTree (d=5)": DecisionTreeClassifier(max_depth=5, random_state=42),
+    "RandomForest (200 arbres)": RandomForestClassifier(
+        n_estimators=200, max_depth=10, min_samples_leaf=5, 
+        random_state=42, n_jobs=-1
+    ),
+}
+
+resultats = []
+for nom, mod in modeles.items():
+    mod.fit(X_train, y_train)
+    resultats.append({
+        "modèle": nom,
+        "acc_train": mod.score(X_train, y_train),
+        "acc_test": mod.score(X_test, y_test),
+        "gap": mod.score(X_train, y_train) - mod.score(X_test, y_test)
+    })
+
+print(pd.DataFrame(resultats).round(3).to_string(index=False))
+```
+
+```{python}
+# 5. Baseline
+baseline = (y_test == 0).mean()
+print(f"Baseline (prédire 'pas de défaut') : {baseline:.3f}")
+```
+
+```{python}
+# 6. Feature importance
+rf = modeles["RandomForest (200 arbres)"]
+imp = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=False)
+
+print("Feature importance du Random Forest :")
+print(imp.round(3).to_string())
+print(f"\nTop 3 variables : {imp.head(3).index.tolist()}")
+```
+
+```{python}
+# 7. Conclusion
+acc_lr = resultats[0]["acc_test"]
+acc_rf = resultats[2]["acc_test"]
+gain = (acc_rf - acc_lr) * 100
+
+print(f"Logistic Regression : {acc_lr:.3f}")
+print(f"Random Forest       : {acc_rf:.3f}")
+print(f"Gain du RF          : {gain:+.1f} points")
+
+if gain > 2:
+    print("\n✅ Le Random Forest apporte un vrai gain, on le garde.")
+else:
+    print("\n⚠️ Gain marginal — on peut garder la logistique pour la simplicité.")
+```
+
+**Interprétation** : sur ce dataset volontairement non-linéaire (avec interactions et effets de seuil), le Random Forest devrait battre significativement la régression logistique. C'est le genre de situation où les modèles à base d'arbres brillent.
+
+La feature importance révèle que les variables comme `revenu_mensuel`, `ratio_dette` et `age` sont cruciales pour ce modèle.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Arbres de décision
+
+| Concept | Résumé |
+|---|---|
+| **Principe** | Séquence de questions oui/non sur les features |
+| **Apprentissage** | Split à chaque nœud pour maximiser la pureté (Gini/Entropy/MSE) |
+| **Avantages** | Non-linéaire, interprétable, pas besoin de scaling, gère les catégorielles |
+| **Défauts** | **Overfitting massif** si non régularisé |
+| **Solution** | Limiter `max_depth` et/ou `min_samples_leaf` |
+
+## 📋 Random Forest
+
+| Concept | Résumé |
+|---|---|
+| **Principe** | N arbres indépendants qui votent à la majorité |
+| **Bagging** | Chaque arbre voit un échantillon bootstrap et un sous-ensemble de features |
+| **Avantages** | Très robuste, feature importance, peu d'overfitting |
+| **Défauts** | Plus lent qu'un arbre simple, moins interprétable |
+| **Hyperparamètres clés** | `n_estimators`, `max_depth`, `min_samples_leaf` |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours comparer à la baseline** (régression linéaire/logistique)
+2. **Un arbre seul** n'est JAMAIS un bon choix en production → utiliser un RF
+3. **Régulariser systématiquement** (`max_depth`, `min_samples_leaf`)
+4. **Extraire la feature importance** pour communiquer avec les non-techniciens
+5. **`random_state`** toujours fixé pour la reproductibilité
+
+## 🚨 Les pièges à éviter
+
+1. **Arbre sans limite de profondeur** → overfitting garanti
+2. **Ne pas stratifier** en classification → biais dans les splits
+3. **Supposer que feature importance = sens d'influence** → c'est juste l'importance !
+4. **Négliger la régression linéaire comme baseline** → on oublie que parfois elle gagne
+5. **Comparer train uniquement** → toujours regarder test aussi
+
+## 🚀 La suite
+
+Dans la [**Notion 4.4 — Gradient Boosting**](notion_4_4_gradient_boosting.qmd), on va voir **l'évolution des Random Forests** : des modèles qui **apprennent de leurs erreurs** au fur et à mesure. C'est **la famille de modèles qui gagne le plus de compétitions Kaggle** aujourd'hui.
+
+On verra :
+- Le concept de **boosting** (vs bagging)
+- `GradientBoostingClassifier` de scikit-learn
+- **XGBoost** et **LightGBM** : les vrais champions
+- Les hyperparamètres magiques (`learning_rate`, `n_estimators`)
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends ton dataset attrition RH du TP Module 3. Compare :
+
+1. Logistique (baseline du Module 4.2)
+2. Decision Tree avec `max_depth=5`
+3. Random Forest avec `n_estimators=200, max_depth=10`
+
+Quelle amélioration le RF apporte-t-il ? Extrait la feature importance — est-ce que les variables les plus importantes correspondent à ton **intuition métier** (heures sup, ancienneté, satisfaction...) ?
+
+C'est exactement le genre de **validation métier** qu'on fait en entreprise : on vérifie que le modèle identifie des patterns qui **font sens**.
+:::
