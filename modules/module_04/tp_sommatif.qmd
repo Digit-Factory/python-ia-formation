@@ -1,0 +1,1029 @@
+---
+title: "TP sommatif Module 4 — Détection de fraude bancaire"
+subtitle: "Compétition ML : construire le meilleur détecteur sur un dataset déséquilibré"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 8 à 10 heures  
+**Prérequis** : Toutes les notions du Module 4 (4.1 à 4.6) + Module 3 complet  
+**Objectif** : réaliser un projet ML complet de classification sur un problème métier déséquilibré, de l'exploration jusqu'à un modèle tuné et validé
+:::
+
+# 🎯 Contexte
+
+Tu es **data scientist** chez **SecurePay**, une fintech française qui gère les paiements en ligne. Le CFO te convoque :
+
+> « On subit 120 000 € de pertes par mois à cause des fraudes qu'on rate. 
+> Notre système actuel bloque déjà les cas évidents, mais il manque les fraudes **subtiles**. 
+> J'aimerais **un modèle ML** qui détecte au mieux ces fraudes, sans trop gêner les clients légitimes.  
+> Tu as 10 000 transactions historiques labellisées, avec leur statut. 
+> Fais-moi un modèle, et surtout, **explique-moi ce qu'il fait**. »
+
+## 💰 L'équation métier
+
+Chaque fraude ratée (**faux négatif**) coûte en moyenne **1 000 €** (remboursement au client + enquête).  
+Chaque fausse alerte (**faux positif**) coûte **10 €** (gêne client, relance, risque de perte du client).
+
+**Donc** : rater une fraude coûte **100 fois plus cher** qu'une fausse alerte.  
+→ Ton modèle doit maximiser le **recall**, mais avec une **precision raisonnable**.
+
+# 📊 Le dataset
+
+Le fichier `transactions_fraude.csv` contient ~10 000 transactions avec 15 colonnes :
+
+| Colonne | Description |
+|---|---|
+| `id_transaction` | Identifiant unique |
+| `id_client` | Identifiant du client |
+| `montant` | Montant de la transaction (€) |
+| `heure` | Heure de la transaction (0-23) |
+| `jour_semaine` | Jour de la semaine (0=lundi) |
+| `delai_depuis_derniere_min` | Minutes depuis la transaction précédente |
+| `nb_transactions_1h` | Nombre de transactions dans l'heure passée |
+| `nb_transactions_24h` | Nombre de transactions dans les 24h |
+| `distance_domicile_km` | Distance du point de vente au domicile |
+| `pays` | Pays de la transaction (France / UE / Hors-UE) |
+| `type_commercant` | Catégorie du commerçant |
+| `canal_paiement` | Type de paiement (carte, en ligne, etc.) |
+| `age_compte_annees` | Ancienneté du compte (années) |
+| `score_ip` | Score de l'adresse IP (pour e-commerce, 0-100) |
+| `est_fraude` | **CIBLE** : 0 = légitime, 1 = fraude |
+
+::: {.callout-warning}
+## ⚠️ Ce dataset contient (volontairement) les pièges classiques
+- **Classes très déséquilibrées** (~1.2% de fraudes)
+- Quelques **doublons parfaits**
+- **Valeurs manquantes** sur certaines colonnes
+- **Outliers de montant** (erreurs de saisie)
+- **Variables mixtes** (numériques + catégorielles)
+:::
+
+# 🗺️ Plan de travail
+
+Le TP est structuré en **6 parties** alignées sur le parcours d'un data scientist :
+
+1. **Exploration et nettoyage** (mobilise Module 3)
+2. **Baseline** : modèle simple de référence
+3. **Modèles avancés** : RF, XGBoost, LightGBM
+4. **Tuning et cross-validation**
+5. **Évaluation complète** : toutes les bonnes métriques
+6. **Décision business** : choix du seuil optimal et rapport
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split, cross_val_score, StratifiedKFold, GridSearchCV
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    roc_auc_score, average_precision_score,
+    confusion_matrix, classification_report,
+    roc_curve, precision_recall_curve, auc
+)
+
+import xgboost as xgb
+import lightgbm as lgb
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+
+print("✅ Environnement prêt")
+```
+
+```{python}
+#| echo: false
+# Chargement silencieux
+df = pd.read_csv("ressources_tp/transactions_fraude.csv")
+```
+
+```{python}
+#| eval: false
+# Charger le dataset
+df = pd.read_csv("ressources_tp/transactions_fraude.csv")
+print(f"Dataset chargé : {df.shape}")
+```
+
+---
+
+# Partie 1 — Exploration et nettoyage
+
+## ✏️ Étape 1.1 — Aperçu initial
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche les dimensions du DataFrame
+2. Affiche `df.head()` et `df.info()`
+3. Calcule le **taux de fraude** (`est_fraude.mean()`)
+4. **Avertissement majeur** : quel serait l'accuracy d'un modèle qui prédit TOUJOURS "pas fraude" ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+print(f"Dimensions : {df.shape}")
+print()
+df.head()
+```
+
+```{python}
+df.info()
+```
+
+```{python}
+taux_fraude = df["est_fraude"].mean()
+print(f"Taux de fraude : {taux_fraude * 100:.2f}%")
+print(f"Nombre de fraudes : {df['est_fraude'].sum()}")
+print(f"\nAccuracy 'modèle' toujours-0 : {(1 - taux_fraude) * 100:.2f}%")
+```
+
+**Révélation** : un modèle qui prédit toujours "pas fraude" atteint **~99% d'accuracy**. Il est **totalement inutile**.
+
+➡️ L'accuracy ne sera pas notre métrique principale. On utilisera **F1, PR-AUC et recall**.
+:::
+
+## ✏️ Étape 1.2 — Diagnostic du dataset
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Combien de **doublons** parfaits dans le dataset ?
+2. Quelles colonnes ont des **valeurs manquantes** et en quel nombre ?
+3. Pour `montant`, affiche les statistiques — y a-t-il des **outliers évidents** (valeurs très élevées) ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Doublons
+print(f"Doublons : {df.duplicated().sum()}")
+
+# 2. NaN
+print("\nNaN par colonne :")
+print(df.isna().sum()[df.isna().sum() > 0])
+
+# 3. Outliers montant
+print("\nStats montant :")
+print(df["montant"].describe())
+print(f"\nPercentiles 99/99.9 : {df['montant'].quantile([0.99, 0.999]).values}")
+```
+
+**Observations** :
+- ~15 doublons → à supprimer
+- Valeurs manquantes sur `distance_domicile_km` et `score_ip` (2%)
+- Outliers : le max du montant est énormément plus grand que le 99e percentile → erreurs de saisie probables
+:::
+
+## ✏️ Étape 1.3 — Exploration bivariée ciblée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Compare les fraudes aux transactions légitimes sur **4 variables** :
+
+1. `montant` — boxplot comparatif
+2. `heure` — taux de fraude par heure de la journée (bar chart)
+3. `pays` — taux de fraude par pays
+4. `nb_transactions_1h` — taux de fraude par nombre de transactions récentes
+
+Quelles variables semblent les plus discriminantes ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fig, axes = plt.subplots(2, 2, figsize=(14, 8))
+
+# 1. Boxplot montant
+sns.boxplot(data=df, x="est_fraude", y="montant", ax=axes[0, 0],
+            showfliers=False, palette=["steelblue", "crimson"],
+            hue="est_fraude", legend=False)
+axes[0, 0].set_title("Montants : fraudes vs légitimes")
+axes[0, 0].set_xticklabels(["Légitime", "Fraude"])
+
+# 2. Taux de fraude par heure
+taux_heure = df.groupby("heure")["est_fraude"].mean() * 100
+taux_heure.plot(kind="bar", ax=axes[0, 1], color="crimson", edgecolor="black")
+axes[0, 1].set_title("Taux de fraude par heure (%)")
+axes[0, 1].axhline(df["est_fraude"].mean() * 100, color="black", 
+                    linestyle="--", alpha=0.5, label="Moyenne globale")
+axes[0, 1].legend()
+axes[0, 1].set_xlabel("Heure")
+axes[0, 1].tick_params(axis="x", rotation=0)
+
+# 3. Taux de fraude par pays
+taux_pays = df.groupby("pays")["est_fraude"].mean() * 100
+taux_pays.sort_values().plot(kind="barh", ax=axes[1, 0], color="coral", edgecolor="black")
+axes[1, 0].set_title("Taux de fraude par pays (%)")
+
+# 4. Nombre de transactions 1h
+taux_nb = df.groupby("nb_transactions_1h")["est_fraude"].mean() * 100
+taux_nb.head(10).plot(kind="bar", ax=axes[1, 1], color="purple", edgecolor="black")
+axes[1, 1].set_title("Taux de fraude par nb transactions 1h (%)")
+axes[1, 1].tick_params(axis="x", rotation=0)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- **Heures nocturnes** (1h-5h) : taux de fraude **beaucoup plus élevé**
+- **Hors-UE** : taux 5-10× supérieur à la France
+- **Transactions rapides** (> 3 en 1h) : signal fort
+- Montants : les fraudes ont des profils variés mais tendent vers les montants moyens à élevés
+
+Ces variables sont **très discriminantes** → le modèle va pouvoir apprendre.
+:::
+
+## ✏️ Étape 1.4 — Nettoyage
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. **Supprimer les doublons**
+2. **Gérer les outliers** : capper `montant` au percentile 99.5
+3. Laisser les NaN pour l'instant — le pipeline les gérera via imputation
+
+Affiche la taille finale du dataset.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Doublons
+n_avant = len(df)
+df = df.drop_duplicates().reset_index(drop=True)
+print(f"Doublons supprimés : {n_avant - len(df)}")
+
+# 2. Capping montant
+p995 = df["montant"].quantile(0.995)
+n_outliers = (df["montant"] > p995).sum()
+df["montant"] = df["montant"].clip(upper=p995)
+print(f"Outliers cappés : {n_outliers}")
+
+# Stats finales
+print(f"\nTaille finale : {df.shape}")
+print(f"Taux de fraude : {df['est_fraude'].mean() * 100:.2f}%")
+```
+:::
+
+---
+
+# Partie 2 — Baseline et preprocessing
+
+## ✏️ Étape 2.1 — Préparer les features
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Identifier les **features à utiliser** et les **types** :
+   - Identifier les colonnes à **exclure** (`id_transaction`, `id_client` — identifiants, non prédictifs)
+   - Identifier les **numériques** vs **catégorielles**
+2. Séparer `X` (features) et `y` (`est_fraude`)
+3. Faire un **split stratifié** 80/20 avec `random_state=42`
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Colonnes
+cols_id = ["id_transaction", "id_client"]
+cols_num = ["montant", "heure", "jour_semaine", "delai_depuis_derniere_min",
+            "nb_transactions_1h", "nb_transactions_24h", "distance_domicile_km",
+            "age_compte_annees", "score_ip"]
+cols_cat = ["pays", "type_commercant", "canal_paiement"]
+
+# 2. X et y
+X = df.drop(columns=cols_id + ["est_fraude"])
+y = df["est_fraude"]
+
+# 3. Split stratifié
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+print(f"X_train : {X_train.shape}")
+print(f"X_test  : {X_test.shape}")
+print(f"\nTaux fraude train : {y_train.mean() * 100:.2f}%")
+print(f"Taux fraude test  : {y_test.mean() * 100:.2f}%")
+```
+:::
+
+## ✏️ Étape 2.2 — Construire le preprocessor
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Construis un `ColumnTransformer` qui :
+
+- Applique **imputation médiane + StandardScaler** aux colonnes numériques
+- Applique **OneHotEncoder(handle_unknown="ignore")** aux colonnes catégorielles
+
+*Indice* : utilise `SimpleImputer(strategy="median")` dans un mini-pipeline pour les numériques.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.impute import SimpleImputer
+
+# Pipeline pour numériques : imputation + scaling
+num_pipeline = Pipeline([
+    ("imputer", SimpleImputer(strategy="median")),
+    ("scaler", StandardScaler())
+])
+
+# ColumnTransformer
+preprocessor = ColumnTransformer([
+    ("num", num_pipeline, cols_num),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cols_cat),
+])
+
+print("✅ Preprocessor construit")
+```
+:::
+
+## ✏️ Étape 2.3 — Baseline : régression logistique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Construis un **pipeline complet** : `preprocessor + LogisticRegression(max_iter=1000)`
+2. Entraîne sur le train
+3. Évalue sur le test **avec 5 métriques** : accuracy, precision, recall, F1, ROC-AUC
+
+Compare l'accuracy avec la baseline naïve. Pourquoi est-elle bonne mais trompeuse ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Pipeline
+pipe_lr = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", LogisticRegression(max_iter=1000, random_state=42))
+])
+
+# Entraînement
+pipe_lr.fit(X_train, y_train)
+
+# Prédictions
+y_pred_lr = pipe_lr.predict(X_test)
+y_proba_lr = pipe_lr.predict_proba(X_test)[:, 1]
+
+# Évaluation
+def evaluer(y_true, y_pred, y_proba, nom="Modèle"):
+    print(f"=== {nom} ===")
+    print(f"Accuracy  : {accuracy_score(y_true, y_pred):.4f}")
+    print(f"Precision : {precision_score(y_true, y_pred, zero_division=0):.4f}")
+    print(f"Recall    : {recall_score(y_true, y_pred):.4f}")
+    print(f"F1-score  : {f1_score(y_true, y_pred, zero_division=0):.4f}")
+    print(f"ROC-AUC   : {roc_auc_score(y_true, y_proba):.4f}")
+    print(f"PR-AUC    : {average_precision_score(y_true, y_proba):.4f}")
+    return {
+        "accuracy": accuracy_score(y_true, y_pred),
+        "precision": precision_score(y_true, y_pred, zero_division=0),
+        "recall": recall_score(y_true, y_pred),
+        "f1": f1_score(y_true, y_pred, zero_division=0),
+        "roc_auc": roc_auc_score(y_true, y_proba),
+        "pr_auc": average_precision_score(y_true, y_proba),
+    }
+
+resultats_lr = evaluer(y_test, y_pred_lr, y_proba_lr, "Logistic Regression (baseline)")
+```
+
+**Analyse** :
+
+- L'accuracy est ~99% → **correspondant au taux de "non-fraude"**
+- Le **recall** est probablement faible (le modèle détecte peu de fraudes)
+- C'est la **preuve par l'exemple** que l'accuracy est trompeuse ici
+:::
+
+---
+
+# Partie 3 — Modèles avancés
+
+## ✏️ Étape 3 — Random Forest, XGBoost, LightGBM
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Entraîne **3 modèles avancés** avec des hyperparamètres raisonnables **et** le paramètre `class_weight` (ou `scale_pos_weight`) pour gérer le déséquilibre.
+
+1. `RandomForestClassifier(n_estimators=200, max_depth=10, class_weight='balanced', random_state=42, n_jobs=-1)`
+2. `xgb.XGBClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, scale_pos_weight=80, random_state=42, eval_metric='logloss')`  
+   *(scale_pos_weight = ratio négatifs/positifs ≈ 80)*
+3. `lgb.LGBMClassifier(n_estimators=200, max_depth=5, learning_rate=0.1, class_weight='balanced', random_state=42, verbose=-1)`
+
+Évalue chacun sur le test et **compare** dans un tableau.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Ratio pour XGBoost : neg/pos
+ratio_pos_weight = (y_train == 0).sum() / (y_train == 1).sum()
+print(f"Ratio négatifs/positifs : {ratio_pos_weight:.0f}")
+```
+
+```{python}
+# Les 3 modèles avancés
+modeles = {
+    "Logistic Regression": Pipeline([
+        ("preprocess", preprocessor),
+        ("clf", LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42))
+    ]),
+    "Random Forest": Pipeline([
+        ("preprocess", preprocessor),
+        ("clf", RandomForestClassifier(n_estimators=200, max_depth=10, 
+                                        class_weight="balanced", random_state=42, n_jobs=-1))
+    ]),
+    "XGBoost": Pipeline([
+        ("preprocess", preprocessor),
+        ("clf", xgb.XGBClassifier(n_estimators=200, max_depth=5, learning_rate=0.1,
+                                   scale_pos_weight=ratio_pos_weight,
+                                   random_state=42, eval_metric="logloss"))
+    ]),
+    "LightGBM": Pipeline([
+        ("preprocess", preprocessor),
+        ("clf", lgb.LGBMClassifier(n_estimators=200, max_depth=5, learning_rate=0.1,
+                                    class_weight="balanced",
+                                    random_state=42, verbose=-1))
+    ]),
+}
+
+# Entraîner et évaluer
+tableau = []
+for nom, pipe in modeles.items():
+    pipe.fit(X_train, y_train)
+    y_pred = pipe.predict(X_test)
+    y_proba = pipe.predict_proba(X_test)[:, 1]
+    tableau.append({
+        "modèle": nom,
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision": precision_score(y_test, y_pred, zero_division=0),
+        "recall": recall_score(y_test, y_pred),
+        "f1": f1_score(y_test, y_pred, zero_division=0),
+        "roc_auc": roc_auc_score(y_test, y_proba),
+        "pr_auc": average_precision_score(y_test, y_proba),
+    })
+
+pd.DataFrame(tableau).round(3).to_string(index=False)
+```
+
+**Analyse** :
+
+- L'accuracy reste élevée pour tous → confirme qu'elle n'est pas discriminante
+- **PR-AUC** et **recall** font la différence
+- XGBoost et LightGBM sont généralement les meilleurs avec un bon gain vs Logistique
+:::
+
+## 💡 `class_weight='balanced'` : qu'est-ce que ça fait ?
+
+Quand le dataset est déséquilibré, le modèle **apprend à prédire la classe majoritaire par défaut**. Le paramètre `class_weight='balanced'` dit : « pondère les erreurs sur la classe minoritaire **plus fortement** pour compenser le déséquilibre. »
+
+**Équivalent pour XGBoost** : `scale_pos_weight = (nb négatifs) / (nb positifs)`.
+
+C'est **la technique la plus simple** pour gérer le déséquilibre. Il y en a d'autres (SMOTE, undersampling...) qu'on pourrait explorer.
+
+---
+
+# Partie 4 — Tuning du meilleur modèle
+
+## ✏️ Étape 4 — Optimiser XGBoost
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le modèle le plus prometteur (souvent XGBoost), fais un **GridSearchCV** avec :
+
+- `clf__n_estimators` : [100, 200, 300]
+- `clf__max_depth` : [3, 5, 7]
+- `clf__learning_rate` : [0.05, 0.1]
+
+Optimise sur **`f1`** (pas accuracy !) avec `cv=5`.
+
+*C'est long : 3×3×2 = 18 combinaisons × 5 folds = 90 entraînements.*
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Pipeline
+pipe_xgb = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", xgb.XGBClassifier(
+        scale_pos_weight=ratio_pos_weight,
+        random_state=42, eval_metric="logloss"
+    ))
+])
+
+# Grille
+param_grid = {
+    "clf__n_estimators": [100, 200, 300],
+    "clf__max_depth": [3, 5, 7],
+    "clf__learning_rate": [0.05, 0.1],
+}
+
+# GridSearch (peut prendre 2-3 minutes)
+grid = GridSearchCV(
+    pipe_xgb, param_grid, 
+    cv=5, scoring="f1", n_jobs=-1, verbose=0
+)
+grid.fit(X_train, y_train)
+
+print(f"Meilleurs hyperparamètres : {grid.best_params_}")
+print(f"Meilleur F1 CV           : {grid.best_score_:.4f}")
+```
+
+```{python}
+# Évaluer le meilleur modèle sur le test
+y_pred_tune = grid.predict(X_test)
+y_proba_tune = grid.predict_proba(X_test)[:, 1]
+resultats_tune = evaluer(y_test, y_pred_tune, y_proba_tune, "XGBoost tuné")
+```
+
+Le tuning apporte **1-3 points de F1**, ce qui est significatif.
+:::
+
+---
+
+# Partie 5 — Évaluation complète
+
+## ✏️ Étape 5.1 — Matrice de confusion et courbes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le **meilleur modèle** (tuné) :
+
+1. Affiche la **matrice de confusion** (heatmap)
+2. Trace la **courbe ROC**
+3. Trace la **courbe Precision-Recall**
+
+Commente : combien de fraudes sont détectées ? combien ratées ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Matrice de confusion
+fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+
+cm = confusion_matrix(y_test, y_pred_tune)
+sns.heatmap(cm, annot=True, fmt="d", cmap="Reds",
+            xticklabels=["Légitime", "Fraude"],
+            yticklabels=["Légitime", "Fraude"],
+            ax=axes[0])
+axes[0].set_xlabel("Prédiction")
+axes[0].set_ylabel("Réalité")
+axes[0].set_title("Matrice de confusion")
+
+# ROC
+fpr, tpr, _ = roc_curve(y_test, y_proba_tune)
+roc_auc = roc_auc_score(y_test, y_proba_tune)
+axes[1].plot(fpr, tpr, linewidth=2, label=f"AUC = {roc_auc:.3f}")
+axes[1].plot([0, 1], [0, 1], 'k--', alpha=0.3)
+axes[1].set_xlabel("FPR")
+axes[1].set_ylabel("TPR (Recall)")
+axes[1].set_title("Courbe ROC")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+# PR
+prec, rec, _ = precision_recall_curve(y_test, y_proba_tune)
+pr_auc = average_precision_score(y_test, y_proba_tune)
+axes[2].plot(rec, prec, linewidth=2, label=f"AP = {pr_auc:.3f}")
+axes[2].axhline(y_test.mean(), color="k", linestyle="--", alpha=0.5,
+                label=f"Baseline = {y_test.mean():.3f}")
+axes[2].set_xlabel("Recall")
+axes[2].set_ylabel("Precision")
+axes[2].set_title("Courbe Precision-Recall")
+axes[2].legend()
+axes[2].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Détails matrice de confusion
+tn, fp, fn, tp = cm.ravel()
+print(f"✅ Fraudes correctement détectées (TP) : {tp}")
+print(f"❌ Fraudes ratées (FN)                : {fn}")
+print(f"⚠️ Fausses alertes (FP)              : {fp}")
+print(f"✅ Légitimes correctement classées (TN): {tn}")
+```
+:::
+
+## ✏️ Étape 5.2 — Feature importance
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Extrait la **feature importance** du modèle tuné
+2. Affiche les 10 variables les plus importantes en bar chart horizontal
+3. Les variables les plus importantes correspondent-elles à ton intuition métier ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Récupérer le modèle XGBoost entraîné dans le pipeline
+meilleur_pipeline = grid.best_estimator_
+modele_final = meilleur_pipeline.named_steps["clf"]
+
+# Récupérer les noms de features APRÈS preprocessing
+noms_features = meilleur_pipeline.named_steps["preprocess"].get_feature_names_out()
+
+# DataFrame
+importances = pd.DataFrame({
+    "feature": noms_features,
+    "importance": modele_final.feature_importances_
+}).sort_values("importance", ascending=False)
+
+print(importances.head(10).to_string(index=False))
+```
+
+```{python}
+# Graphique top 10
+fig, ax = plt.subplots(figsize=(10, 5))
+top10 = importances.head(10).sort_values("importance")
+ax.barh(top10["feature"], top10["importance"], color="crimson", edgecolor="black")
+ax.set_xlabel("Importance")
+ax.set_title("Top 10 features pour la détection de fraude")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+**Attendu** : on devrait voir en tête `num__heure`, `num__nb_transactions_1h`, `cat__pays_Hors-UE`, `num__distance_domicile_km`… ce sont exactement les signaux métier qu'on avait identifiés à l'exploration.
+:::
+
+---
+
+# Partie 6 — Décision business : ajuster le seuil
+
+## ✏️ Étape 6.1 — Courbe coût métier
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Rappelons les coûts :
+- **Faux négatif** (fraude ratée) = 1 000 €
+- **Faux positif** (fausse alerte) = 10 €
+
+1. Pour chaque **seuil de décision** entre 0.05 et 0.95, calcule le **coût total** attendu sur le test
+2. Identifie le **seuil qui minimise le coût**
+3. Compare avec le seuil standard (0.5)
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 6.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Parcourir les seuils
+seuils = np.linspace(0.05, 0.95, 91)
+resultats_seuils = []
+
+for seuil in seuils:
+    y_pred_s = (y_proba_tune >= seuil).astype(int)
+    cm_s = confusion_matrix(y_test, y_pred_s)
+    tn, fp, fn, tp = cm_s.ravel()
+    cout = 10 * fp + 1000 * fn
+    resultats_seuils.append({
+        "seuil": seuil,
+        "tp": tp, "fp": fp, "fn": fn, "tn": tn,
+        "precision": tp / max(tp + fp, 1),
+        "recall": tp / max(tp + fn, 1),
+        "cout_total": cout
+    })
+
+res_df = pd.DataFrame(resultats_seuils)
+
+# Seuil optimal
+idx_opt = res_df["cout_total"].idxmin()
+seuil_opt = res_df.loc[idx_opt, "seuil"]
+cout_opt = res_df.loc[idx_opt, "cout_total"]
+
+print(f"Seuil optimal : {seuil_opt:.2f}")
+print(f"Coût à ce seuil : {cout_opt:,.0f} €")
+print(f"\nComparaison :")
+print(f"  Seuil 0.5 : coût = {res_df[res_df['seuil'].round(2) == 0.50]['cout_total'].values[0]:,.0f} €")
+print(f"  Seuil opt ({seuil_opt:.2f}) : coût = {cout_opt:,.0f} €")
+```
+
+```{python}
+# Visualisation
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(res_df["seuil"], res_df["cout_total"], linewidth=2, color="crimson")
+ax.axvline(seuil_opt, color="green", linestyle="--", 
+           label=f"Seuil optimal = {seuil_opt:.2f}")
+ax.axvline(0.5, color="gray", linestyle="--", alpha=0.5, label="Seuil standard = 0.5")
+ax.scatter([seuil_opt], [cout_opt], color="green", s=100, zorder=5)
+ax.set_xlabel("Seuil de décision")
+ax.set_ylabel("Coût total (€)")
+ax.set_title("Coût métier selon le seuil (FN=1000€, FP=10€)")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : le seuil optimal est **plus bas que 0.5** (souvent 0.1-0.3). On **accepte plus de fausses alertes** pour attraper plus de fraudes — ce qui est rentable vu le coût asymétrique.
+:::
+
+## ✏️ Étape 6.2 — Évaluation finale avec le seuil optimal
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Ré-évalue le modèle avec le **seuil optimal** :
+
+1. Calcule les 5 métriques (accuracy, precision, recall, F1, ROC-AUC)
+2. Compare avec le seuil standard 0.5
+3. Commente : quelle amélioration business ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 6.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Prédictions avec le seuil optimal
+y_pred_seuil = (y_proba_tune >= seuil_opt).astype(int)
+
+print("=" * 50)
+print("COMPARAISON : seuil 0.5 vs seuil optimal")
+print("=" * 50)
+
+print(f"\n--- Seuil 0.5 (standard) ---")
+evaluer(y_test, y_pred_tune, y_proba_tune, "Seuil 0.5")
+
+print(f"\n--- Seuil {seuil_opt:.2f} (optimal métier) ---")
+evaluer(y_test, y_pred_seuil, y_proba_tune, f"Seuil {seuil_opt:.2f}")
+```
+
+```{python}
+# Impact business
+cm_def = confusion_matrix(y_test, y_pred_tune)
+cm_opt = confusion_matrix(y_test, y_pred_seuil)
+
+cout_def = 1000 * cm_def[1, 0] + 10 * cm_def[0, 1]
+cout_opt = 1000 * cm_opt[1, 0] + 10 * cm_opt[0, 1]
+
+print(f"\n💰 COÛT MÉTIER")
+print(f"  Seuil 0.5 : {cout_def:,} €")
+print(f"  Seuil opt : {cout_opt:,} €")
+print(f"  Économie  : {cout_def - cout_opt:,} € (soit {(1 - cout_opt/cout_def)*100:.0f}% de réduction)")
+```
+
+L'ajustement du seuil **sans retoucher au modèle** réduit souvent le coût de **20 à 40%**. C'est **gratuit** et c'est un des **levers les plus puissants** en production.
+:::
+
+## ✏️ Étape 6.3 — Rapport exécutif
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Rédige un **rapport d'une page** pour le CFO, structuré ainsi :
+
+1. **Contexte** — le problème, les données
+2. **Méthodologie** — nettoyage, choix du modèle, tuning, évaluation
+3. **Résultats** — métriques clés, seuil optimisé
+4. **Impact business** — en € économisés
+5. **Limites et pistes d'amélioration**
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Exemple de rapport
+
+```markdown
+# Rapport : Modèle de détection de fraude bancaire
+
+## 1. Contexte
+
+Objectif : réduire les pertes liées aux fraudes (~120 000 €/mois), sans dégrader 
+l'expérience client. Dataset : 10 000 transactions historiques avec leur statut 
+(1.2% frauduleuses).
+
+## 2. Méthodologie
+
+- **Exploration** : identifié les patterns clairs (horaires nocturnes, pays hors-UE, 
+  transactions rapprochées, montants ronds)
+- **Nettoyage** : doublons supprimés, outliers de montant cappés, pipeline 
+  d'imputation pour les valeurs manquantes
+- **Modélisation** : comparé Logistic Regression, Random Forest, XGBoost, LightGBM
+- **Déséquilibre géré** via `scale_pos_weight` (XGBoost) ou `class_weight='balanced'`
+- **Tuning** : GridSearchCV sur XGBoost, optimisation sur F1
+- **Évaluation** : métriques F1, precision, recall, ROC-AUC, PR-AUC, courbe coût métier
+
+## 3. Résultats
+
+Le modèle final (XGBoost tuné) obtient sur un set de test jamais vu :
+- **ROC-AUC : ~0.95**
+- **PR-AUC : ~0.70**
+- **Recall (fraudes détectées) : ~85%** avec le seuil optimal
+- **Precision : ~30%** (1 alerte sur 3 est une vraie fraude)
+
+Variables les plus importantes (métier) :
+1. Heure de transaction (plus risqué la nuit)
+2. Pays Hors-UE
+3. Nombre de transactions dans la dernière heure
+4. Montant
+5. Distance du domicile
+
+## 4. Impact business
+
+Coûts asymétriques pris en compte :
+- Fraude ratée : 1 000 € (remboursement)
+- Fausse alerte : 10 € (relance, gêne)
+
+**Optimisation du seuil de décision** → économies de 25-40% vs seuil standard.
+
+Sur 2 000 transactions/mois, le modèle projette :
+- ~85% des fraudes détectées (vs ~50% actuellement)
+- Coût mensuel projeté : à déterminer avec tests en conditions réelles
+
+## 5. Limites et pistes
+
+**Limites** :
+- Dataset historique (les patterns de fraude évoluent dans le temps)
+- Pas de variables comportementales long-terme (historique client sur 6+ mois)
+- Les fraudeurs s'adapteront → re-entraînement régulier nécessaire
+
+**Pistes** :
+- A/B test en production pour confirmer les gains
+- Enrichir avec features device (navigateur, device ID, etc.)
+- Explorer des modèles de graphes (détection de réseaux frauduleux)
+- Déployer avec MLOps (monitoring de drift, re-entraînement automatique)
+```
+:::
+
+---
+
+# 🎓 Bilan du TP
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as réalisé un **projet ML complet** sur un problème industriel typique :
+
+- ✅ Exploration et nettoyage d'un dataset bruité (Module 3)
+- ✅ Pipeline reproductible avec ColumnTransformer (Module 3)
+- ✅ Baseline + 3 modèles avancés comparés (Module 4)
+- ✅ Gestion du déséquilibre de classes
+- ✅ Tuning via GridSearchCV
+- ✅ Évaluation multi-métriques adaptée
+- ✅ **Ajustement du seuil** selon coûts métier
+- ✅ Rapport exécutif pour décideurs
+
+C'est **exactement le workflow** d'un data scientist en entreprise.
+
+## 🔍 Les notions mobilisées
+
+| Module / Notion | Utilisée dans |
+|---|---|
+| **3 — EDA, nettoyage, pipelines** | Parties 1, 2 |
+| **4.1 — ML supervisé** | Toutes |
+| **4.2 — Logistic Regression (baseline)** | Partie 2 |
+| **4.3 — Random Forest** | Partie 3 |
+| **4.4 — XGBoost, LightGBM** | Partie 3 |
+| **4.5 — Métriques, seuil optimal** | Parties 5, 6 |
+| **4.6 — Tuning, cross-validation** | Partie 4 |
+
+## 🚀 La suite — Module 5 : ML non supervisé
+
+Tu as vu tout le **supervisé**. Dans le Module 5, on découvrira l'**apprentissage non supervisé** :
+
+- Clustering (k-means, DBSCAN, hiérarchique)
+- Réduction de dimension (PCA, t-SNE, UMAP)
+- Détection d'anomalies
+- Applications : segmentation client, compression, détection d'outliers
+
+Et ensuite, le Deep Learning (Module 6) pour les données non-tabulaires.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+1. **Test de robustesse** : le modèle tuné est-il meilleur que le RF par défaut ? De combien ?
+2. **Autre métrique à optimiser** : si on veut un **recall minimum de 95%** (on ne rate quasi aucune fraude), quel seuil ? Quelle precision obtient-on alors ?
+3. **Variante** : essaye `imbalanced-learn` et la technique **SMOTE** (sur-échantillonnage de la classe minoritaire). Est-ce que ça aide ou pas ?
+
+Tu auras alors le **réflexe complet** du data scientist spécialisé en classes déséquilibrées.
+:::
+
+**🎉 Félicitations — tu as bouclé le Module 4 !**
