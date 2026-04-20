@@ -29,7 +29,7 @@ book:
         - modules/module_03/notion_3_1_typologie_variables.qmd
         - modules/module_03/notion_3_2_stats_descriptives.qmd
         - modules/module_03/notion_3_3_nettoyage_avance.qmd
-        # - modules/module_03/notion_3_4_preparation_ml.qmd
+        - modules/module_03/notion_3_4_preparation_ml.qmd
         # - modules/module_03/tp_sommatif.qmd
   
   # Bas de page

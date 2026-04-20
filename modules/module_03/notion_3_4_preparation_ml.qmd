@@ -1,0 +1,1080 @@
+---
+title: "Notion 3.4 — Préparation pour le ML"
+subtitle: "Transformer tes données nettoyées en input compatible avec n'importe quel modèle"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_03/notion_3_4_preparation_ml_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_03/notion_3_4_preparation_ml_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_03_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 3.1, 3.2 et 3.3  
+**Objectif** : savoir transformer un DataFrame nettoyé en matrice `X` et vecteur `y` prêts pour n'importe quel algorithme de ML
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Convertir les **variables catégorielles** en nombres (encoding)
+- **Normaliser / standardiser** les variables quantitatives (scaling)
+- Extraire des **features à partir de dates** (`dt.day_of_week`, etc.)
+- Faire un **train/test split** propre avec stratification
+- Encapsuler tout ça dans un **pipeline scikit-learn** réutilisable
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Les algorithmes de machine learning ne comprennent **que les nombres**. Ils ne savent pas ce qu'est la catégorie "Paris" ou la date "2024-03-15". Avant de leur donner tes données, il faut tout **traduire en chiffres**.
+
+Ce n'est pas juste une transformation technique — **ton succès en ML dépend à 80% de la qualité de cette préparation**. Un algorithme médiocre sur des données bien préparées battra toujours un algorithme génial sur des données mal préparées.
+
+Cette notion te donne les **réflexes professionnels** : quelles transformations appliquer, dans quel ordre, et comment éviter les pièges classiques.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import (
+    StandardScaler, MinMaxScaler, RobustScaler,
+    LabelEncoder, OneHotEncoder, OrdinalEncoder
+)
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+## 📊 Notre dataset de travail
+
+On va utiliser un dataset immobilier pour illustrer toutes les transformations :
+
+```{python}
+#| label: dataset-ml
+np.random.seed(42)
+n = 500
+
+immo = pd.DataFrame({
+    "surface": np.random.normal(75, 25, n).clip(20, 200).round(1),
+    "nb_pieces": np.random.randint(1, 7, n),
+    "etage": np.random.randint(0, 8, n),
+    "quartier": np.random.choice(
+        ["Centre", "Nord", "Sud", "Est", "Ouest"],
+        n, p=[0.35, 0.2, 0.2, 0.15, 0.1]
+    ),
+    "etat": np.random.choice(
+        ["Mauvais", "Correct", "Bon", "Excellent"],
+        n, p=[0.1, 0.3, 0.4, 0.2]
+    ),
+    "type_bien": np.random.choice(["Appartement", "Maison"], n, p=[0.7, 0.3]),
+    "date_mise_en_vente": pd.to_datetime(
+        np.random.choice(pd.date_range("2023-01-01", "2024-12-31"), n)
+    ),
+})
+
+# Prix : relation plausible avec les features
+immo["prix"] = (
+    2500 * immo["surface"]
+    + 15000 * immo["nb_pieces"]
+    + 3000 * immo["etage"]
+    + immo["quartier"].map({"Centre": 60000, "Nord": 15000, "Sud": 25000, "Est": 10000, "Ouest": 5000})
+    + immo["etat"].map({"Mauvais": -30000, "Correct": 0, "Bon": 20000, "Excellent": 40000})
+    + np.where(immo["type_bien"] == "Maison", 50000, 0)
+    + np.random.normal(0, 15000, n)
+).round().astype(int)
+
+print(f"✅ Dataset immobilier : {immo.shape}")
+immo.head()
+```
+
+# 1. Encoding : transformer les catégories en nombres
+
+Les algorithmes ne comprennent pas `"Paris"`, `"Centre"`, `"Bon"`. Il faut les transformer en nombres. **Trois techniques principales** selon le type de variable.
+
+## 🎭 Label Encoding : pour la cible (y)
+
+**Quand l'utiliser** : uniquement pour la **variable cible** en classification (pas pour les features).
+
+Le principe : `"A" → 0, "B" → 1, "C" → 2`.
+
+```{python}
+# Exemple simple
+target = pd.Series(["chat", "chien", "chat", "oiseau", "chien", "chat"])
+
+le = LabelEncoder()
+target_encoded = le.fit_transform(target)
+
+print(f"Original : {target.tolist()}")
+print(f"Encodé   : {target_encoded.tolist()}")
+print(f"Classes  : {le.classes_}")
+```
+
+```{python}
+# Inverse : retrouver les labels
+inverse = le.inverse_transform(target_encoded)
+print(f"Inverse  : {inverse.tolist()}")
+```
+
+::: {.callout-warning}
+## ⚠️ Ne jamais utiliser Label Encoding sur les features !
+Pourquoi ? Parce qu'il crée un **ordre artificiel**. Si `"Paris" → 0, "Lyon" → 1, "Marseille" → 2`, l'algorithme va penser que `Marseille > Paris`. Or c'est absurde — ce sont juste des catégories sans ordre.
+
+**Règle d'or** : Label Encoding uniquement sur `y`, jamais sur `X` (sauf si ordinale).
+:::
+
+## 🔥 One-Hot Encoding : pour les nominales
+
+**Quand l'utiliser** : pour les variables **qualitatives nominales** (sans ordre) dans les features.
+
+Le principe : une colonne binaire par modalité.
+
+```{python}
+# Exemple sur quartier
+quartiers = pd.DataFrame({"quartier": ["Centre", "Nord", "Centre", "Sud", "Nord"]})
+
+# Méthode 1 : pandas.get_dummies (simple)
+oh_pandas = pd.get_dummies(quartiers, columns=["quartier"])
+print("Avec pandas.get_dummies :")
+print(oh_pandas)
+```
+
+```{python}
+# Méthode 2 : sklearn.OneHotEncoder (plus puissant pour les pipelines)
+ohe = OneHotEncoder(sparse_output=False)
+oh_sklearn = ohe.fit_transform(quartiers[["quartier"]])
+
+print(f"\nAvec OneHotEncoder :")
+print(pd.DataFrame(oh_sklearn, columns=ohe.get_feature_names_out()))
+```
+
+**Les deux méthodes font la même chose**, mais `sklearn.OneHotEncoder` a des avantages :
+
+- Gère les **nouvelles modalités** en test avec `handle_unknown="ignore"`
+- S'intègre dans les **pipelines scikit-learn**
+
+::: {.callout-tip}
+## 🧠 Piège du one-hot : la cardinalité
+Si ta variable a **100 modalités différentes** (ex: code postal, identifiant produit), le one-hot crée 100 colonnes. C'est beaucoup :
+
+- Mémoire explose
+- Overfitting probable
+- Entraînement plus lent
+
+**Règle pratique** : utilise le one-hot seulement pour les variables à **moins de 15-20 modalités**. Au-delà, il existe d'autres techniques (target encoding, embedding…) que tu verras plus tard.
+:::
+
+## 📊 Ordinal Encoding : pour les ordinales
+
+**Quand l'utiliser** : pour les variables **qualitatives ordinales** (avec ordre).
+
+Le principe : un entier par modalité, **en respectant l'ordre**.
+
+```{python}
+# Exemple sur etat : Mauvais < Correct < Bon < Excellent
+etats = pd.DataFrame({"etat": ["Bon", "Excellent", "Mauvais", "Correct", "Bon"]})
+
+# Il faut FOURNIR l'ordre explicitement
+ordre_etat = ["Mauvais", "Correct", "Bon", "Excellent"]
+oe = OrdinalEncoder(categories=[ordre_etat])
+etats_encoded = oe.fit_transform(etats[["etat"]])
+
+print(pd.DataFrame({
+    "etat_original": etats["etat"],
+    "etat_encoded": etats_encoded.flatten().astype(int)
+}))
+```
+
+L'ordre a du sens : `Mauvais (0) < Correct (1) < Bon (2) < Excellent (3)`. L'algorithme peut utiliser cette information.
+
+## ✏️ Exercice 1 — Appliquer les encodings
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset `immo` :
+
+1. Applique un **One-Hot Encoding** sur `quartier` avec `pd.get_dummies`.
+2. Applique un **One-Hot Encoding** sur `type_bien` avec `pd.get_dummies`.
+3. Applique un **Ordinal Encoding** sur `etat` (`Mauvais < Correct < Bon < Excellent`) en utilisant `OrdinalEncoder`.
+4. Combine tout pour obtenir un DataFrame `immo_encoded` avec **uniquement des colonnes numériques**.
+5. Vérifie que tous les `dtypes` sont numériques.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df = immo.copy()
+
+# 1 & 2. One-Hot Encoding
+df = pd.get_dummies(df, columns=["quartier", "type_bien"], drop_first=False)
+
+# 3. Ordinal Encoding sur etat
+ordre_etat = ["Mauvais", "Correct", "Bon", "Excellent"]
+oe = OrdinalEncoder(categories=[ordre_etat])
+df["etat"] = oe.fit_transform(df[["etat"]]).astype(int)
+
+# On retire la date (on la traitera dans la section suivante)
+df = df.drop(columns=["date_mise_en_vente"])
+
+# 4. Résultat
+immo_encoded = df
+print(f"Shape : {immo_encoded.shape}")
+print(f"Colonnes :\n{immo_encoded.columns.tolist()}")
+
+# 5. Dtypes
+print(f"\n{immo_encoded.dtypes}")
+```
+
+::: {.callout-note}
+## Bonus : `drop_first=True`
+Avec `drop_first=True`, pandas supprime une modalité par variable (celle de référence). Cela évite la **colinéarité parfaite** et est utile pour les régressions linéaires. Pour les algorithmes modernes (Random Forest, XGBoost), ce n'est pas nécessaire.
+:::
+:::
+
+# 2. Scaling : mettre les variables sur la même échelle
+
+## 🎯 Pourquoi normaliser ?
+
+Imagine deux variables :
+- `surface` : va de 20 à 200 (amplitude = 180)
+- `nb_pieces` : va de 1 à 7 (amplitude = 6)
+
+Si on calcule une **distance** entre deux observations (ce que font k-NN, SVM…), `surface` va dominer complètement parce qu'elle a des valeurs plus grandes.
+
+Le scaling met toutes les variables **sur une échelle comparable** pour que chacune contribue équitablement.
+
+## 🔧 Les 3 scalers à connaître
+
+### StandardScaler (centrage-réduction)
+
+**Le plus courant.** Transforme pour que moyenne = 0, écart-type = 1 :
+
+$$x_{scaled} = \frac{x - \mu}{\sigma}$$
+
+```{python}
+scaler = StandardScaler()
+surface_scaled = scaler.fit_transform(immo[["surface"]])
+
+print(f"Avant : moyenne = {immo['surface'].mean():.1f}, std = {immo['surface'].std():.1f}")
+print(f"Après : moyenne = {surface_scaled.mean():.3f}, std = {surface_scaled.std():.3f}")
+```
+
+**Quand l'utiliser** : par défaut. Algorithmes linéaires, SVM, k-NN, réseaux de neurones.
+
+### MinMaxScaler
+
+Met toutes les valeurs dans un **intervalle fixé** (par défaut [0, 1]) :
+
+$$x_{scaled} = \frac{x - x_{min}}{x_{max} - x_{min}}$$
+
+```{python}
+scaler = MinMaxScaler()
+surface_minmax = scaler.fit_transform(immo[["surface"]])
+
+print(f"Min : {surface_minmax.min():.3f}")
+print(f"Max : {surface_minmax.max():.3f}")
+```
+
+**Quand l'utiliser** : quand tu veux des valeurs bornées (ex: réseaux de neurones avec sigmoïde), ou pour des **données d'image** (pixels [0, 255] → [0, 1]).
+
+### RobustScaler
+
+Utilise la **médiane** et l'**IQR** au lieu de la moyenne et l'écart-type :
+
+$$x_{scaled} = \frac{x - \text{mediane}}{\text{IQR}}$$
+
+```{python}
+scaler = RobustScaler()
+surface_robust = scaler.fit_transform(immo[["surface"]])
+
+print(f"Médiane après : {np.median(surface_robust):.3f}")
+print(f"IQR après     : {np.subtract(*np.percentile(surface_robust, [75, 25])):.3f}")
+```
+
+**Quand l'utiliser** : quand ton dataset contient **des outliers** que tu ne peux pas (ou ne veux pas) supprimer. RobustScaler n'est pas tiré par les outliers.
+
+## 📊 Comparaison visuelle
+
+```{python}
+#| label: fig-scalers
+#| fig-cap: "Comparaison des 3 scalers"
+
+fig, axes = plt.subplots(1, 4, figsize=(18, 4))
+
+# Original
+axes[0].hist(immo["surface"], bins=30, color="steelblue", edgecolor="black", alpha=0.7)
+axes[0].set_title("Original")
+axes[0].set_xlabel("Surface")
+
+# Standard
+ss = StandardScaler()
+axes[1].hist(ss.fit_transform(immo[["surface"]]), bins=30, color="coral", edgecolor="black", alpha=0.7)
+axes[1].set_title("StandardScaler\n(μ=0, σ=1)")
+
+# MinMax
+mm = MinMaxScaler()
+axes[2].hist(mm.fit_transform(immo[["surface"]]), bins=30, color="mediumseagreen", edgecolor="black", alpha=0.7)
+axes[2].set_title("MinMaxScaler\n([0, 1])")
+
+# Robust
+rs = RobustScaler()
+axes[3].hist(rs.fit_transform(immo[["surface"]]), bins=30, color="purple", edgecolor="black", alpha=0.7)
+axes[3].set_title("RobustScaler\n(médiane/IQR)")
+
+for ax in axes:
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** : la **forme de la distribution reste identique**, seule l'**échelle** change. C'est une transformation linéaire.
+
+## 🚨 Le piège absolu : `fit` sur le train, `transform` sur le test
+
+C'est **l'erreur numéro 1** des débutants en ML. Je le répète parce que c'est crucial :
+
+```python
+# ❌ MAUVAIS — data leakage !
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)  # on calcule les stats sur TOUT
+X_train, X_test = train_test_split(X_scaled, ...)  # puis on split
+
+# ✅ CORRECT
+X_train, X_test = train_test_split(X, ...)
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)  # on APPREND sur train seulement
+X_test_scaled = scaler.transform(X_test)         # on APPLIQUE sur test
+```
+
+**Pourquoi** ? Parce qu'en production, tu ne connaîtras pas la moyenne/écart-type des données futures. Tu dois simuler ce cas en **gelant** les paramètres appris sur le train.
+
+On revoit ça en détail dans la section sur `train_test_split`.
+
+## ✏️ Exercice 2 — Scaler correctement
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur `immo_encoded` (si tu ne l'as pas, refais l'exercice 1) :
+
+1. Sépare les features `X` (toutes les colonnes sauf `prix`) et la cible `y` (`prix`).
+2. Applique un `StandardScaler` à `X`.
+3. Vérifie que chaque colonne a bien moyenne ≈ 0 et écart-type ≈ 1.
+4. Refais la même chose avec `MinMaxScaler` et vérifie que chaque colonne est bien dans [0, 1].
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Recréer immo_encoded si besoin
+df = immo.copy()
+df = pd.get_dummies(df, columns=["quartier", "type_bien"], drop_first=False)
+ordre_etat = ["Mauvais", "Correct", "Bon", "Excellent"]
+oe = OrdinalEncoder(categories=[ordre_etat])
+df["etat"] = oe.fit_transform(df[["etat"]]).astype(int)
+df = df.drop(columns=["date_mise_en_vente"])
+immo_encoded = df
+
+# 1. X et y
+X = immo_encoded.drop(columns=["prix"])
+y = immo_encoded["prix"]
+
+# 2 & 3. StandardScaler
+ss = StandardScaler()
+X_std = pd.DataFrame(ss.fit_transform(X), columns=X.columns)
+print("StandardScaler :")
+print(f"  Moyennes : {X_std.mean().abs().max():.6f} (max, doit être ≈ 0)")
+print(f"  Std      : {X_std.std().values.round(3)}")
+```
+
+```{python}
+# 4. MinMaxScaler
+mm = MinMaxScaler()
+X_mm = pd.DataFrame(mm.fit_transform(X), columns=X.columns)
+print("MinMaxScaler :")
+print(f"  Min : {X_mm.min().min():.6f} (doit être 0)")
+print(f"  Max : {X_mm.max().max():.6f} (doit être 1)")
+```
+:::
+
+# 3. Features à partir de dates
+
+Les dates brutes sont peu utiles pour le ML. On les transforme en **features exploitables**.
+
+## 📅 Les extractions classiques
+
+```{python}
+df = immo.copy()
+
+# Extractions de composantes
+df["annee"] = df["date_mise_en_vente"].dt.year
+df["mois"] = df["date_mise_en_vente"].dt.month
+df["jour_semaine"] = df["date_mise_en_vente"].dt.dayofweek  # 0 = lundi
+df["trimestre"] = df["date_mise_en_vente"].dt.quarter
+df["est_weekend"] = df["date_mise_en_vente"].dt.dayofweek.isin([5, 6]).astype(int)
+df["jour_annee"] = df["date_mise_en_vente"].dt.dayofyear
+
+print(df[["date_mise_en_vente", "annee", "mois", "jour_semaine", "trimestre", "est_weekend"]].head())
+```
+
+## ⏱️ Dates relatives : l'âge en jours
+
+Souvent, **l'âge** d'un événement est plus utile que sa date absolue :
+
+```{python}
+# Nombre de jours depuis la mise en vente
+reference = pd.Timestamp("2025-01-01")
+df["jours_depuis_vente"] = (reference - df["date_mise_en_vente"]).dt.days
+
+print(df[["date_mise_en_vente", "jours_depuis_vente"]].head())
+```
+
+## 🌀 L'encodage cyclique (niveau avancé)
+
+**Problème subtil** : l'algorithme voit `mois=1` (janvier) et `mois=12` (décembre) comme **très éloignés**. Or ils sont voisins dans le temps !
+
+Pour gérer ça, on encode les variables cycliques avec **sinus et cosinus** :
+
+```{python}
+# Encodage cyclique du mois
+df["mois_sin"] = np.sin(2 * np.pi * df["mois"] / 12)
+df["mois_cos"] = np.cos(2 * np.pi * df["mois"] / 12)
+
+# Vérification : décembre (12) et janvier (1) sont maintenant proches
+print(f"Janvier  : sin={np.sin(2*np.pi*1/12):.3f}, cos={np.cos(2*np.pi*1/12):.3f}")
+print(f"Décembre : sin={np.sin(2*np.pi*12/12):.3f}, cos={np.cos(2*np.pi*12/12):.3f}")
+print(f"Juin     : sin={np.sin(2*np.pi*6/12):.3f}, cos={np.cos(2*np.pi*6/12):.3f}")
+```
+
+**Visuellement** :
+
+```{python}
+#| label: fig-cyclique
+#| fig-cap: "L'encodage cyclique place les 12 mois sur un cercle"
+
+fig, ax = plt.subplots(figsize=(6, 6))
+
+# Tracer les 12 mois sur un cercle
+mois_list = range(1, 13)
+noms_mois = ["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", "Juil", "Août", "Sep", "Oct", "Nov", "Déc"]
+
+for m, nom in zip(mois_list, noms_mois):
+    s = np.sin(2 * np.pi * m / 12)
+    c = np.cos(2 * np.pi * m / 12)
+    ax.scatter(s, c, s=120, color="steelblue", edgecolor="black")
+    ax.annotate(nom, (s, c), xytext=(10, 5), textcoords="offset points")
+
+ax.set_xlabel("mois_sin")
+ax.set_ylabel("mois_cos")
+ax.set_title("Les 12 mois encodés en (sin, cos)")
+ax.grid(True, alpha=0.3)
+ax.set_aspect("equal")
+plt.tight_layout()
+plt.show()
+```
+
+Maintenant `Jan` et `Déc` sont **voisins** sur le cercle. L'algorithme le comprend.
+
+::: {.callout-tip}
+## 🧠 Quand utiliser l'encodage cyclique ?
+Pour toute variable **intrinsèquement cyclique** :
+
+- Mois (1-12)
+- Jour de la semaine (0-6)
+- Heure de la journée (0-23)
+- Jour de l'année (1-365)
+
+Pour des variables non-cycliques (année, âge...), c'est inutile — l'extraction simple suffit.
+:::
+
+## ✏️ Exercice 3 — Features de dates
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur `immo` :
+
+1. Crée les features suivantes à partir de `date_mise_en_vente` :
+   - `mois` (1-12)
+   - `jour_semaine` (0-6)
+   - `est_weekend` (0 ou 1)
+2. Applique un **encodage cyclique** au `jour_semaine` (features `jour_semaine_sin` et `jour_semaine_cos`).
+3. Vérifie que lundi (0) et dimanche (6) sont bien **proches** dans l'espace (sin, cos).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df = immo.copy()
+
+# 1. Features de base
+df["mois"] = df["date_mise_en_vente"].dt.month
+df["jour_semaine"] = df["date_mise_en_vente"].dt.dayofweek
+df["est_weekend"] = df["jour_semaine"].isin([5, 6]).astype(int)
+
+# 2. Encodage cyclique du jour de la semaine
+df["jour_semaine_sin"] = np.sin(2 * np.pi * df["jour_semaine"] / 7)
+df["jour_semaine_cos"] = np.cos(2 * np.pi * df["jour_semaine"] / 7)
+
+# 3. Vérification : distance entre lundi (0) et dimanche (6)
+lundi = np.array([np.sin(0), np.cos(0)])
+dimanche = np.array([np.sin(2*np.pi*6/7), np.cos(2*np.pi*6/7)])
+mercredi = np.array([np.sin(2*np.pi*3/7), np.cos(2*np.pi*3/7)])
+
+dist_lun_dim = np.linalg.norm(lundi - dimanche)
+dist_lun_mer = np.linalg.norm(lundi - mercredi)
+
+print(f"Distance lundi ↔ dimanche  : {dist_lun_dim:.3f}")
+print(f"Distance lundi ↔ mercredi  : {dist_lun_mer:.3f}")
+print(f"\nLundi et dimanche sont plus proches que lundi et mercredi : {dist_lun_dim < dist_lun_mer}")
+```
+
+Le cycle est bien respecté : lundi est proche de dimanche (fin de semaine précédente).
+:::
+
+# 4. Train / test split : la règle d'or du ML
+
+## 🎯 Pourquoi séparer ?
+
+Le but du ML n'est **pas** d'avoir un modèle qui marche bien sur les données d'entraînement, c'est d'avoir un modèle qui marche bien sur des **données nouvelles**.
+
+Pour le mesurer, on simule la situation en production en **cachant une partie des données** (le test set) pendant l'entraînement.
+
+```{python}
+# Le split classique : 80% train / 20% test
+X = immo_encoded.drop(columns=["prix"])
+y = immo_encoded["prix"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,       # 20% pour le test
+    random_state=42      # reproductibilité
+)
+
+print(f"X_train : {X_train.shape}")
+print(f"X_test  : {X_test.shape}")
+print(f"y_train : {y_train.shape}")
+print(f"y_test  : {y_test.shape}")
+```
+
+## 🎲 `random_state` : la reproductibilité
+
+En mettant `random_state=42` (ou n'importe quel nombre fixe), le split est **reproductible**. Tous les data scientists sur l'équipe auront le même split → comparaison de modèles possible.
+
+## 🎯 Stratification : quand elle est indispensable
+
+Pour la **classification**, si ta variable cible est déséquilibrée (ex: 90% classe A, 10% classe B), un split aléatoire peut te donner :
+
+- Train : 91% A, 9% B
+- Test : 87% A, 13% B
+
+Ce n'est pas idéal. La **stratification** force les proportions à être identiques dans les deux sets :
+
+```{python}
+# Création d'un problème de classification déséquilibré
+y_binaire = (immo_encoded["prix"] > immo_encoded["prix"].median()).astype(int)
+
+# Split sans stratification
+X_tr, X_te, y_tr, y_te = train_test_split(X, y_binaire, test_size=0.2, random_state=42)
+print("Sans stratification :")
+print(f"  y_train : {y_tr.mean():.3f} de classe 1")
+print(f"  y_test  : {y_te.mean():.3f} de classe 1")
+
+# Split avec stratification
+X_tr, X_te, y_tr, y_te = train_test_split(
+    X, y_binaire, test_size=0.2, random_state=42, stratify=y_binaire
+)
+print("\nAvec stratification :")
+print(f"  y_train : {y_tr.mean():.3f} de classe 1")
+print(f"  y_test  : {y_te.mean():.3f} de classe 1")
+```
+
+Les proportions sont **exactement les mêmes** dans train et test. C'est crucial pour la classification, surtout avec des classes minoritaires.
+
+::: {.callout-warning}
+## ⚠️ Stratification en régression
+`stratify=y` ne fonctionne pas directement sur une variable continue. Pour la régression, la stratification n'est généralement pas nécessaire, sauf si tu as une distribution très asymétrique — dans ce cas, tu peux créer des "bins" (ex: quantiles) et stratifier dessus.
+:::
+
+## 🚨 Le pipeline de la préparation : l'ordre compte
+
+Voici l'ordre **correct** à suivre :
+
+```
+1. Charger et nettoyer les données (Notion 3.3)
+2. Séparer X et y
+3. Train/test split  ← À FAIRE AVANT SCALING
+4. Fit scaler + encoder sur X_train UNIQUEMENT
+5. Transform X_train et X_test avec les mêmes objets
+```
+
+```{python}
+# Exemple complet
+X = immo_encoded.drop(columns=["prix"])
+y = immo_encoded["prix"]
+
+# 1. Split d'abord
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# 2. Scaler : fit sur train, transform sur train ET test
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)    # ← transform seulement, pas fit_transform
+
+# Vérification : les moyennes de X_test ne sont pas exactement 0
+# (c'est normal : on utilise les stats de X_train)
+print(f"X_train_scaled : moyenne = {X_train_scaled.mean():.4f}")
+print(f"X_test_scaled  : moyenne = {X_test_scaled.mean():.4f}  (≠ 0 est normal)")
+```
+
+# 5. Pipelines scikit-learn : tout automatiser
+
+## 🏗️ Pourquoi les pipelines ?
+
+Plus tu fais de transformations, plus tu risques de :
+
+- Oublier une étape
+- Faire du data leakage
+- Appliquer les transformations dans le mauvais ordre
+- Répéter du code
+
+Les **pipelines** résolvent tout ça. Tu encapsules **toute la chaîne de préparation** dans un seul objet.
+
+## 🔧 Un pipeline simple
+
+```{python}
+from sklearn.pipeline import Pipeline
+
+# Pipeline = liste d'étapes (nom, transformateur)
+pipe = Pipeline(steps=[
+    ("scaler", StandardScaler()),
+])
+
+# Le pipeline se comporte comme un seul objet
+X_train_transformed = pipe.fit_transform(X_train)
+X_test_transformed = pipe.transform(X_test)
+
+print(f"Résultat : {X_train_transformed.shape}")
+```
+
+## 🎯 `ColumnTransformer` : transformations différentes par colonne
+
+Le cas réel : tu as des colonnes numériques (à standardiser) et des catégorielles (à one-hot encoder). **Le pipeline applique chaque transformation sur les bonnes colonnes**.
+
+```{python}
+# Repartons du DataFrame non-encodé
+df_raw = immo.drop(columns=["date_mise_en_vente"])
+
+# Identifier les colonnes par type
+cols_num = ["surface", "nb_pieces", "etage"]
+cols_cat_nominales = ["quartier", "type_bien"]
+cols_cat_ordinales = ["etat"]
+
+# Construire le ColumnTransformer
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num",     StandardScaler(),                                     cols_num),
+        ("cat_nom", OneHotEncoder(sparse_output=False, handle_unknown="ignore"),  cols_cat_nominales),
+        ("cat_ord", OrdinalEncoder(categories=[["Mauvais","Correct","Bon","Excellent"]]), cols_cat_ordinales),
+    ],
+    remainder="drop"  # ignorer les colonnes non listées
+)
+
+# Split et application
+X_raw = df_raw.drop(columns=["prix"])
+y_raw = df_raw["prix"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X_raw, y_raw, test_size=0.2, random_state=42
+)
+
+X_train_processed = preprocessor.fit_transform(X_train)
+X_test_processed = preprocessor.transform(X_test)
+
+print(f"X_train original  : {X_train.shape}")
+print(f"X_train processed : {X_train_processed.shape}")
+print(f"\nNoms des features après transformation :")
+print(preprocessor.get_feature_names_out())
+```
+
+## 🎯 Pipeline complet avec un modèle
+
+```{python}
+from sklearn.linear_model import LinearRegression
+
+# Pipeline : préprocessing + modèle en un objet
+pipe_complet = Pipeline(steps=[
+    ("preprocessor", preprocessor),
+    ("model", LinearRegression())
+])
+
+# Une seule commande pour tout faire
+pipe_complet.fit(X_train, y_train)
+
+# Prédictions
+y_pred = pipe_complet.predict(X_test)
+
+# Score (R²)
+r2 = pipe_complet.score(X_test, y_test)
+print(f"R² sur test : {r2:.3f}")
+```
+
+**C'est la vraie puissance** : un seul appel `fit`, un seul appel `predict`, et tout est gelé proprement. Pas de risque de data leakage. Le pipeline est **prêt à être sauvegardé et déployé en production**.
+
+## ✏️ Exercice 4 — Construire un pipeline
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur `immo` :
+
+1. Ajoute les features de dates en amont (`mois`, `jour_semaine`, `est_weekend`).
+2. Identifie les colonnes numériques, nominales, ordinales.
+3. Construis un `ColumnTransformer` adapté.
+4. Fais un `train_test_split` (80/20).
+5. Fit le preprocessor sur le train uniquement, transform train et test.
+6. Affiche le nombre de colonnes résultantes et la liste des features.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df = immo.copy()
+
+# 1. Features de dates
+df["mois"] = df["date_mise_en_vente"].dt.month
+df["jour_semaine"] = df["date_mise_en_vente"].dt.dayofweek
+df["est_weekend"] = df["jour_semaine"].isin([5, 6]).astype(int)
+df = df.drop(columns=["date_mise_en_vente"])
+
+# 2. Identifier les colonnes
+cols_num = ["surface", "nb_pieces", "etage", "mois", "jour_semaine"]
+cols_nom = ["quartier", "type_bien"]
+cols_ord = ["etat"]
+col_binaire = ["est_weekend"]  # déjà 0/1, pas besoin d'encoder
+
+# 3. ColumnTransformer
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num",     StandardScaler(),           cols_num),
+        ("cat_nom", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), cols_nom),
+        ("cat_ord", OrdinalEncoder(categories=[["Mauvais","Correct","Bon","Excellent"]]), cols_ord),
+        ("bin",     "passthrough",              col_binaire),  # laisser tel quel
+    ],
+    remainder="drop"
+)
+
+# 4. Split
+X = df.drop(columns=["prix"])
+y = df["prix"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 5. Fit sur train, transform
+X_train_t = preprocessor.fit_transform(X_train)
+X_test_t = preprocessor.transform(X_test)
+
+# 6. Résultats
+print(f"X_train original  : {X_train.shape}")
+print(f"X_train processed : {X_train_t.shape}")
+print(f"\nFeatures créées :")
+for f in preprocessor.get_feature_names_out():
+    print(f"  - {f}")
+```
+:::
+
+# 🏁 Exercice bilan — Pipeline complet end-to-end
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+**Ton objectif** : créer un **pipeline de bout en bout** qui prend un DataFrame immobilier brut et produit un modèle entraîné, prêt à faire des prédictions.
+
+Données :
+
+```{python}
+#| eval: false
+# Recréer immo (le DataFrame de la notion)
+np.random.seed(42)
+n = 500
+
+immo = pd.DataFrame({
+    "surface": np.random.normal(75, 25, n).clip(20, 200).round(1),
+    "nb_pieces": np.random.randint(1, 7, n),
+    "etage": np.random.randint(0, 8, n),
+    "quartier": np.random.choice(
+        ["Centre", "Nord", "Sud", "Est", "Ouest"],
+        n, p=[0.35, 0.2, 0.2, 0.15, 0.1]
+    ),
+    "etat": np.random.choice(
+        ["Mauvais", "Correct", "Bon", "Excellent"],
+        n, p=[0.1, 0.3, 0.4, 0.2]
+    ),
+    "type_bien": np.random.choice(["Appartement", "Maison"], n, p=[0.7, 0.3]),
+    "date_mise_en_vente": pd.to_datetime(
+        np.random.choice(pd.date_range("2023-01-01", "2024-12-31"), n)
+    ),
+})
+
+immo["prix"] = (
+    2500 * immo["surface"] + 15000 * immo["nb_pieces"] + 3000 * immo["etage"]
+    + immo["quartier"].map({"Centre": 60000, "Nord": 15000, "Sud": 25000, "Est": 10000, "Ouest": 5000})
+    + immo["etat"].map({"Mauvais": -30000, "Correct": 0, "Bon": 20000, "Excellent": 40000})
+    + np.where(immo["type_bien"] == "Maison", 50000, 0)
+    + np.random.normal(0, 15000, n)
+).round().astype(int)
+```
+
+**Étapes à implémenter** :
+
+1. Extraire les features de date : `mois`, `jour_semaine`, `est_weekend`
+2. Construire un `ColumnTransformer` :
+   - `StandardScaler` pour les numériques
+   - `OneHotEncoder` pour les nominales
+   - `OrdinalEncoder` pour `etat`
+   - `passthrough` pour `est_weekend`
+3. Créer un `Pipeline` : preprocessor + `LinearRegression`
+4. Train/test split (80/20, `random_state=42`)
+5. Entraîner le pipeline sur le train
+6. Évaluer : R², MAE, RMSE sur le test
+7. Faire une **prédiction sur un nouvel appartement fictif** (écris un dict et laisse le pipeline faire tout)
+
+Le pipeline doit être **réutilisable** : on doit pouvoir lui passer n'importe quel nouvel immobilier brut et obtenir un prix prédit.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_absolute_error, root_mean_squared_error, r2_score
+
+# Reproduire le dataset (si besoin)
+np.random.seed(42)
+n = 500
+immo_bilan = pd.DataFrame({
+    "surface": np.random.normal(75, 25, n).clip(20, 200).round(1),
+    "nb_pieces": np.random.randint(1, 7, n),
+    "etage": np.random.randint(0, 8, n),
+    "quartier": np.random.choice(["Centre", "Nord", "Sud", "Est", "Ouest"], n, 
+                                  p=[0.35, 0.2, 0.2, 0.15, 0.1]),
+    "etat": np.random.choice(["Mauvais", "Correct", "Bon", "Excellent"], n,
+                              p=[0.1, 0.3, 0.4, 0.2]),
+    "type_bien": np.random.choice(["Appartement", "Maison"], n, p=[0.7, 0.3]),
+    "date_mise_en_vente": pd.to_datetime(
+        np.random.choice(pd.date_range("2023-01-01", "2024-12-31"), n)
+    ),
+})
+immo_bilan["prix"] = (
+    2500 * immo_bilan["surface"] + 15000 * immo_bilan["nb_pieces"] + 3000 * immo_bilan["etage"]
+    + immo_bilan["quartier"].map({"Centre": 60000, "Nord": 15000, "Sud": 25000, "Est": 10000, "Ouest": 5000})
+    + immo_bilan["etat"].map({"Mauvais": -30000, "Correct": 0, "Bon": 20000, "Excellent": 40000})
+    + np.where(immo_bilan["type_bien"] == "Maison", 50000, 0)
+    + np.random.normal(0, 15000, n)
+).round().astype(int)
+
+# 1. Features de date
+df = immo_bilan.copy()
+df["mois"] = df["date_mise_en_vente"].dt.month
+df["jour_semaine"] = df["date_mise_en_vente"].dt.dayofweek
+df["est_weekend"] = df["jour_semaine"].isin([5, 6]).astype(int)
+df = df.drop(columns=["date_mise_en_vente"])
+
+# 2. ColumnTransformer
+cols_num = ["surface", "nb_pieces", "etage", "mois", "jour_semaine"]
+cols_nom = ["quartier", "type_bien"]
+cols_ord = ["etat"]
+col_bin = ["est_weekend"]
+
+preprocessor = ColumnTransformer([
+    ("num",     StandardScaler(),                                             cols_num),
+    ("cat_nom", OneHotEncoder(sparse_output=False, handle_unknown="ignore"),  cols_nom),
+    ("cat_ord", OrdinalEncoder(categories=[["Mauvais","Correct","Bon","Excellent"]]), cols_ord),
+    ("bin",     "passthrough",                                                col_bin),
+])
+
+# 3. Pipeline
+pipeline = Pipeline([
+    ("preprocessor", preprocessor),
+    ("model", LinearRegression())
+])
+
+# 4. Split
+X = df.drop(columns=["prix"])
+y = df["prix"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 5. Entraînement
+pipeline.fit(X_train, y_train)
+
+# 6. Évaluation
+y_pred = pipeline.predict(X_test)
+
+r2 = r2_score(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+rmse = root_mean_squared_error(y_test, y_pred)
+
+print("=" * 40)
+print("📊 PERFORMANCE DU MODÈLE")
+print("=" * 40)
+print(f"R²   : {r2:.4f}")
+print(f"MAE  : {mae:,.0f} €")
+print(f"RMSE : {rmse:,.0f} €")
+```
+
+```{python}
+# 7. Prédiction sur un nouvel appartement
+nouveau = pd.DataFrame([{
+    "surface": 65.0,
+    "nb_pieces": 3,
+    "etage": 4,
+    "quartier": "Centre",
+    "etat": "Bon",
+    "type_bien": "Appartement",
+    "mois": 6,
+    "jour_semaine": 2,
+    "est_weekend": 0,
+}])
+
+prix_predit = pipeline.predict(nouveau)[0]
+print(f"\n🏡 Prix prédit pour l'appartement :")
+print(f"   {nouveau.to_dict(orient='records')[0]}")
+print(f"\n   → {prix_predit:,.0f} €")
+```
+
+**🎉 Tu viens de construire ton premier pipeline ML complet !**
+
+C'est exactement ce qu'on attend d'un data scientist en production :
+
+- Code **reproductible** (random_state)
+- Transformations **propres** (fit sur train seulement)
+- Modèle **réutilisable** (un seul objet)
+- Métriques **claires** (R², MAE, RMSE)
+
+On verra au Module 4 comment remplacer `LinearRegression` par des modèles plus sophistiqués (Random Forest, Gradient Boosting), **en changeant juste une ligne** grâce au pipeline.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 L'ordre correct de préparation
+
+```
+┌──────────────────────────────────────────┐
+│  1. Données nettoyées (Notion 3.3)       │
+│  2. Extraction de features (dates)       │
+│  3. X et y séparés                       │
+│  4. Train / test split                   │
+│  5. Preprocessor :                       │
+│     - Scaling sur les numériques         │
+│     - OneHot sur les nominales           │
+│     - Ordinal sur les ordinales          │
+│     ( FIT sur train UNIQUEMENT )         │
+│  6. Pipeline final = preprocessor + modèle │
+└──────────────────────────────────────────┘
+```
+
+## 🎯 Les transformations par type de variable
+
+| Type | Transformation |
+|---|---|
+| Quantitative continue | `StandardScaler` (par défaut) ou `RobustScaler` (avec outliers) |
+| Quantitative discrète | `StandardScaler` (en général) |
+| Qualitative nominale | `OneHotEncoder` |
+| Qualitative ordinale | `OrdinalEncoder` avec `categories=[...]` |
+| Binaire (0/1) | `passthrough` (rien à faire) |
+| Date | Extraction manuelle puis scaling |
+| Cible (classification) | `LabelEncoder` |
+
+## 🚨 Les 5 règles d'or
+
+1. **Split AVANT scaling** : train/test split en premier, toujours
+2. **Fit sur train uniquement** : jamais `fit_transform` sur le test
+3. **Même transformation partout** : le même scaler sur train, test et données futures
+4. **Pas de Label Encoding sur les features** : seulement sur `y` en classification
+5. **Pipeline > transformations manuelles** : plus sûr, plus maintenable, plus déployable
+
+## 🚀 La suite — TP sommatif Module 3
+
+Tu as maintenant tout ce qu'il faut pour traiter n'importe quel dataset de bout en bout :
+
+- **Typologie** (Notion 3.1) : savoir ce qu'on a
+- **Stats descriptives** (Notion 3.2) : comprendre les données
+- **Nettoyage** (Notion 3.3) : corriger les problèmes
+- **Préparation** (Notion 3.4) : produire l'input du ML
+
+Le **TP sommatif** va mobiliser tout ça sur un dataset réaliste. Tu produiras un pipeline complet, un rapport d'audit, et **ton premier "modèle prêt pour production"**.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends le dataset e-commerce du Module 2. Construis un pipeline qui :
+
+1. Nettoie les données (ta fonction `nettoyer_dataset` de la 3.3)
+2. Extrait les features de date (`mois`, `trimestre`, `est_weekend`)
+3. Encode quartier, catégorie, statut
+4. Scale tout ce qui est numérique
+5. Produit un `X_train`, `X_test`, `y_train`, `y_test` prêts pour le ML
+
+C'est exactement le genre de code que tu écriras **tous les jours** en tant que data scientist !
+:::
