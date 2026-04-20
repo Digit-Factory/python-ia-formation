@@ -1,0 +1,989 @@
+---
+title: "Notion 4.5 — Métriques d'évaluation"
+subtitle: "Au-delà de l'accuracy : les vraies métriques du data scientist"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_5_metriques_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_5_metriques_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 4.1 à 4.4  
+**Objectif** : comprendre et utiliser les bonnes métriques d'évaluation selon le problème métier
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **pourquoi l'accuracy est souvent trompeuse**
+- Lire une **matrice de confusion** et en tirer toutes les métriques
+- Maîtriser **precision, recall, F1-score, ROC-AUC, PR-AUC**
+- Choisir la **bonne métrique selon le contexte métier**
+- Ajuster le **seuil de décision** pour optimiser une métrique
+- Utiliser les métriques de **régression** (MAE, RMSE, MAPE)
+- Produire un **rapport d'évaluation complet** d'un modèle
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Tu as pu voir dans les notions précédentes des modèles avec des **accuracies élevées** (85%, 90%...) qui ne battaient pas la baseline. Pourquoi ?
+
+**Parce que l'accuracy seule ne dit presque rien** quand :
+- Les classes sont **déséquilibrées** (99% normal, 1% fraude)
+- Les **erreurs ont des coûts différents** (rater un cancer ≠ rater un spam)
+- Tu veux prédire une **probabilité**, pas juste une classe
+
+Cette notion te donne le vrai vocabulaire d'un data scientist : **precision**, **recall**, **F1**, **AUC**. Sans ça, tu ne peux pas évaluer honnêtement tes modèles, et tu ne peux pas communiquer efficacement avec des métiers.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score,
+    confusion_matrix, classification_report,
+    roc_auc_score, roc_curve, precision_recall_curve, auc,
+    mean_absolute_error, mean_squared_error, r2_score,
+    mean_absolute_percentage_error
+)
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Le problème de l'accuracy
+
+## 🚨 Un exemple qui tue le mythe
+
+Imagine un système de **détection de fraude bancaire**. Sur 10 000 transactions, il y en a **100 frauduleuses** (1%).
+
+Un modèle qui prédit **toujours "pas de fraude"** aurait :
+
+$$\text{Accuracy} = \frac{9900 \text{ correctes}}{10000} = 99\%$$
+
+**99% d'accuracy... et il ne détecte aucune fraude.** Nul pour l'usage prévu.
+
+## 🎬 Démonstration en code
+
+```{python}
+# Dataset volontairement déséquilibré (2% de positifs)
+np.random.seed(42)
+n = 2000
+
+df = pd.DataFrame({
+    "feature_1": np.random.randn(n),
+    "feature_2": np.random.randn(n),
+    "feature_3": np.random.randn(n),
+})
+
+# Cible : seulement 2% de positifs (classe "rare")
+df["y"] = (np.random.random(n) < 0.02).astype(int)
+
+print(f"Taux de positifs : {df['y'].mean() * 100:.1f}%")
+print(f"Nombre de positifs : {df['y'].sum()} sur {len(df)}")
+```
+
+```{python}
+# "Modèle" qui prédit TOUJOURS 0
+y_pred_naif = np.zeros(len(df))
+
+print(f"Accuracy du modèle naïf : {accuracy_score(df['y'], y_pred_naif):.4f}")
+```
+
+**98%** d'accuracy ! Mais ce "modèle" est **inutile** : il ne détecte jamais la classe positive.
+
+L'accuracy est **trompeuse** parce qu'elle **moyenne** les performances sur toutes les classes, sans tenir compte du déséquilibre.
+
+## ✨ La solution : regarder les bonnes métriques
+
+Pour vraiment évaluer un modèle de classification, on utilise des métriques qui **séparent** les performances par classe. C'est le sujet de la suite.
+
+# 2. La matrice de confusion : la source de tout
+
+## 🎯 Le concept
+
+La **matrice de confusion** croise **ce que le modèle a prédit** avec **ce qui est vrai**. En classification binaire :
+
+```
+                          PRÉDICTION
+                    Négatif (0)    Positif (1)
+                ┌────────────────┬────────────────┐
+    Négatif (0) │       TN       │       FP       │
+RÉALITÉ         │  True Negative │ False Positive │
+                ├────────────────┼────────────────┤
+    Positif (1) │       FN       │       TP       │
+                │ False Negative │ True Positive  │
+                └────────────────┴────────────────┘
+```
+
+- **TP** (True Positive) : modèle a prédit 1, vraie réponse = 1 ✅
+- **TN** (True Negative) : modèle a prédit 0, vraie réponse = 0 ✅
+- **FP** (False Positive) : modèle a prédit 1, vraie réponse = 0 ❌ (faux positif)
+- **FN** (False Negative) : modèle a prédit 0, vraie réponse = 1 ❌ (faux négatif)
+
+## 🧪 Exemple concret
+
+Reprenons un dataset réaliste :
+
+```{python}
+# Dataset de diagnostic médical (simulé)
+np.random.seed(42)
+n = 500
+
+df_med = pd.DataFrame({
+    "age": np.random.uniform(20, 80, n),
+    "tension": np.random.normal(130, 20, n),
+    "cholesterol": np.random.normal(200, 40, n),
+    "bmi": np.random.normal(25, 5, n),
+})
+
+# Cible : maladie (15% des patients)
+proba_malade = (
+    0.02
+    + 0.3 * (df_med["age"] > 60)
+    + 0.2 * (df_med["tension"] > 140)
+    + 0.15 * (df_med["cholesterol"] > 240)
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+df_med["malade"] = (np.random.random(n) < proba_malade).astype(int)
+
+print(f"Taux de maladie : {df_med['malade'].mean() * 100:.1f}%")
+
+X = df_med.drop(columns="malade")
+y = df_med["malade"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+# Modèle
+modele = LogisticRegression(max_iter=1000)
+modele.fit(X_train, y_train)
+y_pred = modele.predict(X_test)
+
+# Accuracy
+acc = accuracy_score(y_test, y_pred)
+print(f"Accuracy : {acc:.3f}")
+```
+
+Maintenant, la **matrice de confusion** :
+
+```{python}
+cm = confusion_matrix(y_test, y_pred)
+print("Matrice de confusion :")
+print(cm)
+print(f"\nTN = {cm[0,0]}, FP = {cm[0,1]}")
+print(f"FN = {cm[1,0]}, TP = {cm[1,1]}")
+```
+
+Visualisons-la :
+
+```{python}
+#| label: fig-confusion
+#| fig-cap: "Matrice de confusion visualisée"
+
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["Pas malade (0)", "Malade (1)"],
+            yticklabels=["Pas malade (0)", "Malade (1)"],
+            cbar_kws={"label": "Nombre"},
+            ax=ax)
+ax.set_xlabel("Prédiction")
+ax.set_ylabel("Réalité")
+ax.set_title("Matrice de confusion")
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : sur la diagonale = bonnes prédictions. Hors diagonale = erreurs. Plus on cumule sur la diagonale, meilleur est le modèle.
+
+## 🧮 Décoder ce que l'accuracy cache
+
+**Accuracy** = `(TP + TN) / Total`
+
+Ça mélange les **deux types** de bonnes réponses. Dans les cas déséquilibrés, les **TN dominent** et masquent les mauvaises performances sur les positifs.
+
+On a besoin de métriques qui **séparent** ces choses.
+
+# 3. Precision, Recall, F1-score
+
+## 🎯 Precision : "quand je dis positif, suis-je fiable ?"
+
+$$\text{Precision} = \frac{TP}{TP + FP}$$
+
+**Question** : parmi toutes les fois où j'ai prédit "positif", combien sont vraiment positives ?
+
+**Haute precision** = peu de faux positifs.  
+Utile quand : **les faux positifs coûtent cher**.
+
+*Exemple* : système anti-spam. Un vrai email classé spam, c'est frustrant (faux positif). On veut donc **une haute precision**.
+
+## 🎯 Recall (sensibilité) : "est-ce que j'attrape tous les positifs ?"
+
+$$\text{Recall} = \frac{TP}{TP + FN}$$
+
+**Question** : parmi tous les cas vraiment positifs, combien j'ai attrapé ?
+
+**Haut recall** = peu de faux négatifs.  
+Utile quand : **les faux négatifs coûtent cher**.
+
+*Exemple* : détection de cancer. Rater un malade (faux négatif) est beaucoup plus grave qu'un faux positif. On veut donc **un haut recall**.
+
+## 🎯 F1-score : compromis entre les deux
+
+$$F_1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+
+C'est la **moyenne harmonique** de precision et recall. Le F1 est **élevé seulement si les deux sont élevés**. Si l'un est nul, F1 = 0.
+
+**Utile** quand : tu veux un équilibre entre les deux sans privilégier l'un ou l'autre.
+
+## 🧪 Calcul sur notre exemple
+
+```{python}
+precision = precision_score(y_test, y_pred)
+recall = recall_score(y_test, y_pred)
+f1 = f1_score(y_test, y_pred)
+
+print(f"Accuracy  : {acc:.3f}")
+print(f"Precision : {precision:.3f}")
+print(f"Recall    : {recall:.3f}")
+print(f"F1-score  : {f1:.3f}")
+```
+
+## 📊 Le rapport de classification complet
+
+Scikit-learn fournit un **rapport tout fait** :
+
+```{python}
+print(classification_report(y_test, y_pred, target_names=["Pas malade", "Malade"]))
+```
+
+**Colonnes importantes** :
+- **precision** : par classe
+- **recall** : par classe
+- **f1-score** : par classe
+- **support** : nombre d'observations de la classe
+
+**Lignes** :
+- Par classe (0, 1)
+- **macro avg** : moyenne simple (chaque classe pèse pareil)
+- **weighted avg** : moyenne pondérée par la taille des classes
+
+## 🎭 Le dilemme precision/recall
+
+**Il y a une tension** entre precision et recall :
+
+```{python}
+#| label: fig-precision-recall-tradeoff
+#| fig-cap: "Impact du seuil de décision sur precision et recall"
+
+# Prédire les probabilités (pas juste les classes)
+y_proba = modele.predict_proba(X_test)[:, 1]
+
+# Tester plusieurs seuils
+seuils = np.linspace(0.05, 0.95, 50)
+precisions, recalls = [], []
+
+for seuil in seuils:
+    y_pred_seuil = (y_proba >= seuil).astype(int)
+    # Gérer le cas où aucun positif prédit
+    if y_pred_seuil.sum() > 0:
+        precisions.append(precision_score(y_test, y_pred_seuil))
+    else:
+        precisions.append(np.nan)
+    recalls.append(recall_score(y_test, y_pred_seuil))
+
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(seuils, precisions, "b-", linewidth=2, label="Precision")
+ax.plot(seuils, recalls, "r-", linewidth=2, label="Recall")
+ax.axvline(0.5, color="gray", linestyle="--", alpha=0.5, label="Seuil standard = 0.5")
+ax.set_xlabel("Seuil de décision")
+ax.set_ylabel("Valeur de la métrique")
+ax.set_title("Trade-off precision / recall selon le seuil")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** :
+
+- **Seuil faible** (0.1) : modèle "paranoïaque" → prédit beaucoup de positifs → **haut recall, basse precision**
+- **Seuil élevé** (0.9) : modèle "prudent" → prédit peu de positifs → **haute precision, bas recall**
+
+**Tu peux ajuster le seuil** selon ton besoin métier ! Par défaut, sklearn utilise 0.5, mais rien ne t'y oblige.
+
+## ✏️ Exercice 1 — Calculer les métriques à la main
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Voici une matrice de confusion :
+
+```
+                Prédit 0   Prédit 1
+Réel 0            850        50
+Réel 1            80         20
+```
+
+1. Calcule manuellement (sans sklearn) :
+   - Accuracy
+   - Precision
+   - Recall
+   - F1-score
+2. Vérifie avec les fonctions sklearn en reconstruisant `y_true` et `y_pred` artificiellement.
+3. Le modèle est-il bon ? Quel problème vois-tu ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Calculs manuels
+TN, FP = 850, 50
+FN, TP = 80, 20
+
+accuracy_manuelle = (TP + TN) / (TP + TN + FP + FN)
+precision_manuelle = TP / (TP + FP)
+recall_manuelle = TP / (TP + FN)
+f1_manuel = 2 * (precision_manuelle * recall_manuelle) / (precision_manuelle + recall_manuelle)
+
+print(f"Accuracy  : {accuracy_manuelle:.3f}")
+print(f"Precision : {precision_manuelle:.3f}")
+print(f"Recall    : {recall_manuelle:.3f}")
+print(f"F1-score  : {f1_manuel:.3f}")
+```
+
+```{python}
+# 2. Vérification avec sklearn
+# Reconstruire des séries artificielles
+y_true_art = [0]*850 + [0]*50 + [1]*80 + [1]*20
+y_pred_art = [0]*850 + [1]*50 + [0]*80 + [1]*20
+
+print(f"Accuracy  : {accuracy_score(y_true_art, y_pred_art):.3f}")
+print(f"Precision : {precision_score(y_true_art, y_pred_art):.3f}")
+print(f"Recall    : {recall_score(y_true_art, y_pred_art):.3f}")
+print(f"F1-score  : {f1_score(y_true_art, y_pred_art):.3f}")
+```
+
+**3. Analyse** :
+
+- **Accuracy = 87%** → ça semble pas mal
+- **Precision = 28.6%** → quand le modèle dit "positif", il se trompe dans 70% des cas !
+- **Recall = 20%** → il ne détecte que 20% des vrais positifs
+- **F1 = 23.5%** → très médiocre
+
+**Problème** : le dataset est déséquilibré. L'accuracy flatte le modèle alors qu'il est **inefficace** sur la classe positive.
+:::
+
+# 4. Les courbes ROC et PR
+
+## 🎨 ROC (Receiver Operating Characteristic)
+
+La **courbe ROC** montre le compromis entre :
+- **True Positive Rate** (TPR = Recall)
+- **False Positive Rate** (FPR = FP / (FP + TN))
+
+Elle trace ces deux métriques pour **tous les seuils possibles**.
+
+```{python}
+#| label: fig-roc
+#| fig-cap: "Courbe ROC et AUC"
+
+# Courbe ROC
+fpr, tpr, _ = roc_curve(y_test, y_proba)
+roc_auc = roc_auc_score(y_test, y_proba)
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.plot(fpr, tpr, linewidth=2, label=f"Modèle (AUC = {roc_auc:.3f})")
+ax.plot([0, 1], [0, 1], 'k--', alpha=0.5, label="Aléatoire (AUC = 0.5)")
+ax.fill_between(fpr, tpr, alpha=0.1)
+ax.set_xlabel("False Positive Rate (FPR)")
+ax.set_ylabel("True Positive Rate (TPR = Recall)")
+ax.set_title("Courbe ROC")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## 🎯 ROC-AUC : un score synthétique
+
+L'**AUC** (Area Under the Curve) de la ROC est une valeur entre 0 et 1 :
+
+- **AUC = 0.5** : modèle aléatoire (inutile)
+- **AUC = 0.7** : correct
+- **AUC = 0.8** : bon
+- **AUC = 0.9** : excellent
+- **AUC = 1.0** : parfait (probablement overfitting ou leak)
+
+**Avantage de l'AUC** : elle ne dépend **pas du seuil**. Elle mesure la capacité du modèle à **ranker** les positifs au-dessus des négatifs.
+
+## 🎨 Courbe Precision-Recall (PR)
+
+La courbe ROC est **optimiste** sur les datasets très déséquilibrés. Dans ces cas-là, on préfère la **courbe PR** :
+
+```{python}
+#| label: fig-pr-curve
+#| fig-cap: "Courbe Precision-Recall"
+
+precision_vals, recall_vals, _ = precision_recall_curve(y_test, y_proba)
+pr_auc = auc(recall_vals, precision_vals)
+
+# Baseline : proportion de positifs
+baseline = y_test.mean()
+
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.plot(recall_vals, precision_vals, linewidth=2, label=f"Modèle (AUC = {pr_auc:.3f})")
+ax.axhline(baseline, color="k", linestyle="--", alpha=0.5, 
+           label=f"Baseline (= taux positifs = {baseline:.2f})")
+ax.set_xlabel("Recall")
+ax.set_ylabel("Precision")
+ax.set_title("Courbe Precision-Recall")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## ⚖️ ROC vs PR : laquelle utiliser ?
+
+| Situation | Préférer |
+|---|---|
+| Classes équilibrées | ROC-AUC (plus intuitive) |
+| Classes déséquilibrées | **PR-AUC** (plus honnête) |
+| Comparaison de modèles en général | ROC-AUC |
+| Problèmes où les positifs sont rares et cruciaux (fraude, maladie rare) | **PR-AUC** |
+
+## ✏️ Exercice 2 — ROC et PR en action
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset `df_med` (maladie), compare **3 modèles** :
+
+1. `LogisticRegression()`
+2. `RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)`
+3. Un "modèle naïf" qui retourne `P=0.5` pour tout le monde (utilise `y_proba = np.full(len(y_test), 0.5)`)
+
+Pour chacun :
+- Trace sa courbe ROC sur le même graphique
+- Calcule son ROC-AUC
+
+Commente les résultats.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Les 3 modèles + prédictions de probabilité
+lr = LogisticRegression(max_iter=1000).fit(X_train, y_train)
+rf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42).fit(X_train, y_train)
+
+y_proba_lr = lr.predict_proba(X_test)[:, 1]
+y_proba_rf = rf.predict_proba(X_test)[:, 1]
+y_proba_naif = np.full(len(y_test), 0.5)
+
+# Tracer les 3 courbes ROC
+fig, ax = plt.subplots(figsize=(8, 6))
+
+for nom, y_proba_i, color in [
+    ("LogReg", y_proba_lr, "steelblue"),
+    ("RandomForest", y_proba_rf, "coral"),
+    ("Naïf (P=0.5)", y_proba_naif, "gray")
+]:
+    fpr, tpr, _ = roc_curve(y_test, y_proba_i)
+    auc_val = roc_auc_score(y_test, y_proba_i)
+    ax.plot(fpr, tpr, linewidth=2, label=f"{nom} (AUC = {auc_val:.3f})", color=color)
+
+ax.plot([0, 1], [0, 1], 'k--', alpha=0.3)
+ax.set_xlabel("False Positive Rate")
+ax.set_ylabel("True Positive Rate")
+ax.set_title("Comparaison des courbes ROC")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** :
+
+- Le **modèle naïf** a AUC ≈ 0.5 → aléatoire
+- La **régression logistique** a une AUC autour de 0.75-0.80 → bon
+- Le **Random Forest** devrait avoir une AUC équivalente ou supérieure
+
+**Note** : la courbe du modèle naïf (P=0.5 partout) est particulière — on a une "courbe" dégénérée parce qu'il n'y a qu'un seul seuil.
+:::
+
+# 5. Ajuster le seuil de décision
+
+## 🎯 Par défaut, on utilise 0.5
+
+Quand tu fais `modele.predict(X)`, sklearn utilise **implicitement** le seuil de 0.5 :
+
+```python
+y_pred = (y_proba >= 0.5).astype(int)
+```
+
+Mais tu peux **choisir** un autre seuil selon ton besoin métier !
+
+## 🏥 Exemple : dépistage médical
+
+Imagine un test de dépistage d'une maladie grave. **Rater un malade** (faux négatif) est dramatique. **Alerter un bien-portant** (faux positif) est juste embêtant (test complémentaire requis).
+
+Dans ce cas, on veut un **recall très haut**, quitte à sacrifier la precision → **baisser le seuil**.
+
+```{python}
+# Avec les prédictions probabilistes
+y_proba = modele.predict_proba(X_test)[:, 1]
+
+# Tester plusieurs seuils
+seuils_a_tester = [0.1, 0.2, 0.3, 0.5, 0.7]
+rapport = []
+
+for seuil in seuils_a_tester:
+    y_pred_s = (y_proba >= seuil).astype(int)
+    rapport.append({
+        "seuil": seuil,
+        "precision": precision_score(y_test, y_pred_s, zero_division=0),
+        "recall": recall_score(y_test, y_pred_s),
+        "f1": f1_score(y_test, y_pred_s, zero_division=0),
+        "n_positifs_predits": y_pred_s.sum()
+    })
+
+pd.DataFrame(rapport).round(3)
+```
+
+**Observation** :
+
+- Seuil **bas (0.1)** : beaucoup de positifs prédits → **haut recall**, mais precision faible
+- Seuil **standard (0.5)** : équilibre par défaut
+- Seuil **élevé (0.7)** : peu de positifs prédits → **haute precision**, mais recall faible
+
+## 🎯 Comment choisir le bon seuil ?
+
+**3 approches** :
+
+### 1. Optimiser une métrique (ex: F1)
+
+```{python}
+# Chercher le seuil qui maximise le F1
+seuils = np.linspace(0.05, 0.95, 50)
+f1_scores = []
+
+for s in seuils:
+    y_pred_s = (y_proba >= s).astype(int)
+    f1_scores.append(f1_score(y_test, y_pred_s, zero_division=0))
+
+seuil_optimal = seuils[np.argmax(f1_scores)]
+print(f"Seuil optimal pour F1 : {seuil_optimal:.2f}")
+print(f"F1 correspondant     : {max(f1_scores):.3f}")
+```
+
+### 2. Respecter une contrainte métier
+
+« On ne peut contacter que 50 clients par jour (precision >= 80%). Quel seuil permet ça ? »
+
+### 3. Optimiser le coût métier
+
+Si un faux négatif coûte **10×** plus cher qu'un faux positif → intégrer les coûts :
+
+```{python}
+# Exemple : FN coûte 1000, FP coûte 100
+seuils = np.linspace(0.05, 0.95, 50)
+couts = []
+
+for s in seuils:
+    y_pred_s = (y_proba >= s).astype(int)
+    cm_s = confusion_matrix(y_test, y_pred_s)
+    fp = cm_s[0, 1]
+    fn = cm_s[1, 0]
+    cout_total = 100 * fp + 1000 * fn
+    couts.append(cout_total)
+
+seuil_min_cout = seuils[np.argmin(couts)]
+print(f"Seuil minimisant le coût : {seuil_min_cout:.2f}")
+print(f"Coût correspondant      : {min(couts):.0f}")
+```
+
+# 6. Métriques de régression
+
+Pour les problèmes de **régression** (prédire une valeur continue), on utilise d'autres métriques :
+
+## 📏 MAE (Mean Absolute Error)
+
+$$\text{MAE} = \frac{1}{n} \sum |y_i - \hat{y}_i|$$
+
+**Avantages** :
+- Même unité que `y` (facile à interpréter)
+- Robuste aux outliers
+
+**Utiliser quand** : tu veux comprendre l'**erreur moyenne** dans l'unité de la cible.
+
+## 📐 RMSE (Root Mean Squared Error)
+
+$$\text{RMSE} = \sqrt{\frac{1}{n} \sum (y_i - \hat{y}_i)^2}$$
+
+**Avantages** :
+- Pénalise plus les grosses erreurs (carré)
+- Même unité que `y`
+
+**Utiliser quand** : tu veux que les grosses erreurs pèsent plus.
+
+## 📊 MAPE (Mean Absolute Percentage Error)
+
+$$\text{MAPE} = \frac{100}{n} \sum \left|\frac{y_i - \hat{y}_i}{y_i}\right|$$
+
+**Avantages** :
+- Sans unité (en %)
+- Comparable entre datasets
+
+**Limites** :
+- Inutilisable si `y = 0`
+- Asymétrique (surestime ≠ sous-estime)
+
+## 🎯 R² (coefficient de détermination)
+
+Tu le connais déjà (Module 1 et 4.2) :
+
+$$R^2 = 1 - \frac{\sum (y_i - \hat{y}_i)^2}{\sum (y_i - \bar{y})^2}$$
+
+- `R² = 1` : prédictions parfaites
+- `R² = 0` : modèle ne fait pas mieux que prédire la moyenne
+- `R² < 0` : modèle **pire** que la moyenne (rare mais possible)
+
+## 🧪 Exemple comparatif
+
+```{python}
+# Problème de régression : prédire le prix
+np.random.seed(42)
+n = 300
+X_reg = np.random.uniform(0, 10, n).reshape(-1, 1)
+y_reg = 3 * X_reg.flatten() + 5 + np.random.normal(0, 2, n)
+
+X_tr, X_te, y_tr, y_te = train_test_split(X_reg, y_reg, test_size=0.2, random_state=42)
+
+lr = LinearRegression().fit(X_tr, y_tr)
+y_pred = lr.predict(X_te)
+
+print(f"MAE  : {mean_absolute_error(y_te, y_pred):.3f}")
+print(f"RMSE : {np.sqrt(mean_squared_error(y_te, y_pred)):.3f}")
+print(f"MAPE : {mean_absolute_percentage_error(y_te, y_pred) * 100:.2f}%")
+print(f"R²   : {r2_score(y_te, y_pred):.3f}")
+```
+
+## ✏️ Exercice 3 — Choisir la bonne métrique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour chacun de ces problèmes métier, indique **quelle métrique** tu utiliserais en priorité et **pourquoi** :
+
+1. **Détection de fraude bancaire** (1% de fraudes)
+2. **Prédiction du salaire** d'un candidat
+3. **Diagnostic de maladie grave** (rater un malade = critique)
+4. **Classification automatique d'emails** (spam / pas spam)
+5. **Prévision de la consommation électrique** demain
+6. **Recommandation de produits** sur un site e-commerce
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3 — répond dans un commentaire ou markdown
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+| Problème | Métrique | Justification |
+|---|---|---|
+| 1. Fraude bancaire (1%) | **PR-AUC ou F1** | Dataset déséquilibré, ROC-AUC trompeuse |
+| 2. Prédiction salaire | **MAE** (voire MAPE) | Régression, erreur facile à interpréter |
+| 3. Maladie grave | **Recall** élevé | Rater un malade = dramatique (faux négatif) |
+| 4. Spam | **Precision** élevée | Classer un vrai mail en spam frustre l'utilisateur |
+| 5. Consommation électrique | **MAE ou RMSE** | Régression. RMSE si les pics coûtent cher |
+| 6. Recommandation produits | **Precision@K / Recall@K** | On veut que le top-K soit pertinent |
+
+**Leçon clé** : **la métrique doit correspondre au coût métier**. Si tu ne sais pas, demande au business quel type d'erreur est le plus grave.
+:::
+
+# 🏁 Exercice bilan — Rapport d'évaluation complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Reprends un dataset de churn :
+
+```python
+np.random.seed(42)
+n = 2000
+
+churn = pd.DataFrame({
+    "anciennete_mois": np.random.exponential(15, n).clip(1, 80),
+    "nb_appels_sav": np.random.poisson(2, n),
+    "satisfaction": np.random.uniform(1, 10, n),
+    "montant_facture": np.random.normal(50, 20, n),
+    "nb_services": np.random.randint(1, 6, n),
+})
+
+# Cible déséquilibrée
+proba_churn = (
+    0.08
+    + 0.15 * (churn["satisfaction"] < 4)
+    + 0.12 * (churn["nb_appels_sav"] > 4)
+    + 0.08 * (churn["anciennete_mois"] < 3)
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+churn["churned"] = (np.random.random(n) < proba_churn).astype(int)
+```
+
+**Mission** : produis un **rapport d'évaluation complet** d'un modèle.
+
+1. Split stratifié + entraînement d'un `RandomForestClassifier`.
+2. Calcule : accuracy, precision, recall, F1, ROC-AUC.
+3. Affiche la **matrice de confusion** (en heatmap).
+4. Affiche le **classification_report**.
+5. Trace la **courbe ROC** ET la **courbe Precision-Recall**.
+6. Trouve le **seuil optimal** pour maximiser le F1.
+7. Compare accuracy et F1 entre seuil 0.5 et seuil optimal.
+8. Conclusion : quel seuil utiliserais-tu en production, et pourquoi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 2000
+
+churn = pd.DataFrame({
+    "anciennete_mois": np.random.exponential(15, n).clip(1, 80),
+    "nb_appels_sav": np.random.poisson(2, n),
+    "satisfaction": np.random.uniform(1, 10, n),
+    "montant_facture": np.random.normal(50, 20, n),
+    "nb_services": np.random.randint(1, 6, n),
+})
+
+proba_churn = (
+    0.08
+    + 0.15 * (churn["satisfaction"] < 4)
+    + 0.12 * (churn["nb_appels_sav"] > 4)
+    + 0.08 * (churn["anciennete_mois"] < 3)
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+churn["churned"] = (np.random.random(n) < proba_churn).astype(int)
+```
+
+```{python}
+# 1. Split + entraînement
+X = churn.drop(columns="churned")
+y = churn["churned"]
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+rf = RandomForestClassifier(n_estimators=200, max_depth=8, random_state=42, n_jobs=-1)
+rf.fit(X_tr, y_tr)
+
+y_pred = rf.predict(X_te)
+y_proba = rf.predict_proba(X_te)[:, 1]
+
+# 2. Métriques clés
+print("=" * 40)
+print("📊 RAPPORT D'ÉVALUATION")
+print("=" * 40)
+print(f"Taux de churn dans le test : {y_te.mean() * 100:.1f}%")
+print()
+print(f"Accuracy  : {accuracy_score(y_te, y_pred):.3f}")
+print(f"Precision : {precision_score(y_te, y_pred):.3f}")
+print(f"Recall    : {recall_score(y_te, y_pred):.3f}")
+print(f"F1-score  : {f1_score(y_te, y_pred):.3f}")
+print(f"ROC-AUC   : {roc_auc_score(y_te, y_proba):.3f}")
+```
+
+```{python}
+# 3. Matrice de confusion
+fig, ax = plt.subplots(figsize=(6, 4))
+cm = confusion_matrix(y_te, y_pred)
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=["Reste", "Churn"],
+            yticklabels=["Reste", "Churn"], ax=ax)
+ax.set_xlabel("Prédiction")
+ax.set_ylabel("Réalité")
+ax.set_title("Matrice de confusion")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 4. Classification report
+print(classification_report(y_te, y_pred, target_names=["Reste", "Churn"]))
+```
+
+```{python}
+# 5. ROC + PR
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# ROC
+fpr, tpr, _ = roc_curve(y_te, y_proba)
+roc_auc = roc_auc_score(y_te, y_proba)
+axes[0].plot(fpr, tpr, linewidth=2, label=f"AUC = {roc_auc:.3f}")
+axes[0].plot([0, 1], [0, 1], 'k--', alpha=0.3)
+axes[0].set_xlabel("FPR")
+axes[0].set_ylabel("TPR (Recall)")
+axes[0].set_title("Courbe ROC")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# PR
+prec, rec, _ = precision_recall_curve(y_te, y_proba)
+pr_auc = auc(rec, prec)
+axes[1].plot(rec, prec, linewidth=2, label=f"AUC = {pr_auc:.3f}")
+axes[1].axhline(y_te.mean(), color="k", linestyle="--", alpha=0.5, 
+                label=f"Baseline = {y_te.mean():.2f}")
+axes[1].set_xlabel("Recall")
+axes[1].set_ylabel("Precision")
+axes[1].set_title("Courbe Precision-Recall")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 6. Seuil optimal pour F1
+seuils = np.linspace(0.05, 0.95, 91)
+f1s = [f1_score(y_te, (y_proba >= s).astype(int), zero_division=0) for s in seuils]
+seuil_opt = seuils[np.argmax(f1s)]
+f1_opt = max(f1s)
+
+print(f"Seuil optimal : {seuil_opt:.2f}")
+print(f"F1 optimal    : {f1_opt:.3f}")
+```
+
+```{python}
+# 7. Comparaison
+y_pred_opt = (y_proba >= seuil_opt).astype(int)
+
+print("             Accuracy  F1")
+print(f"Seuil 0.5    {accuracy_score(y_te, y_pred):.3f}     {f1_score(y_te, y_pred):.3f}")
+print(f"Seuil {seuil_opt:.2f}   {accuracy_score(y_te, y_pred_opt):.3f}     {f1_score(y_te, y_pred_opt):.3f}")
+```
+
+**8. Conclusion** :
+
+- Au seuil 0.5 standard, le modèle a une bonne accuracy mais probablement un **recall faible** (rate beaucoup de churners)
+- Avec le seuil optimal (souvent plus bas, ~0.2-0.3), on **attrape plus de churners** au prix d'un peu moins de precision
+- **Recommandation** : utiliser le seuil optimal si notre priorité est de détecter les churners pour les retenir (ce qui est typique). Sinon, rester à 0.5 si on veut minimiser les actions marketing "inutiles".
+
+La vraie décision doit se faire en discutant avec l'équipe CRM : quel coût d'action sur un client qui serait resté (FP) vs rater un client qui part (FN) ?
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Classification — les métriques par défaut
+
+| Situation | Métriques à regarder |
+|---|---|
+| Classes équilibrées | **Accuracy** + F1 |
+| Classes déséquilibrées | **Precision, Recall, F1, PR-AUC** |
+| Comparer plusieurs modèles | **ROC-AUC** (ou PR-AUC si déséquilibré) |
+| Priorité recall (santé) | **Recall** + F1 |
+| Priorité precision (spam) | **Precision** + F1 |
+| Coûts asymétriques | **Coût métier** + seuil ajusté |
+
+## 📋 Régression
+
+| Besoin | Métrique |
+|---|---|
+| Erreur dans l'unité de y | **MAE** |
+| Pénaliser les gros écarts | **RMSE** |
+| Erreur en % (comparable) | **MAPE** |
+| Qualité globale d'ajustement | **R²** |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Regarder la matrice de confusion** avant toute métrique
+2. **Utiliser `classification_report`** pour un rapport complet en une ligne
+3. **Ne jamais se fier à l'accuracy** sur un dataset déséquilibré
+4. **Choisir la métrique en fonction du coût métier** (demander au business)
+5. **Ajuster le seuil** est un levier puissant et gratuit
+
+## 🚨 Les pièges à éviter
+
+1. **Accuracy sur classes déséquilibrées** → flatteuse et trompeuse
+2. **Optimiser sur le test** → utiliser la validation
+3. **ROC-AUC sur données très déséquilibrées** → préférer PR-AUC
+4. **Ignorer le seuil** → tu laisses 5-10% de perf sur la table
+5. **Pas de baseline** → impossible de juger
+
+## 🚀 La suite
+
+Dans la [**Notion 4.6 — Tuning et cross-validation**](notion_4_6_tuning.qmd), on va apprendre à **optimiser** nos modèles :
+
+- **Cross-validation** pour évaluer de manière fiable
+- **GridSearch** et **RandomizedSearch** pour explorer les hyperparamètres
+- **Pipeline + tuning** : l'approche professionnelle
+- Détection de l'overfitting subtil
+- **Learning curves** : apprendre à diagnostiquer un modèle
+
+C'est la dernière notion théorique du Module 4. Après, on fera le **TP sommatif** qui mobilise tout !
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Sur ton modèle d'attrition RH du TP Module 3 :
+
+1. Calcule les **5 métriques** : accuracy, precision, recall, F1, ROC-AUC
+2. Trace la **matrice de confusion**
+3. Trouve le **seuil optimal** pour le F1
+4. Compare avec le seuil 0.5
+
+Tu verras concrètement si ton modèle est **vraiment bon** ou juste flatté par l'accuracy sur des classes déséquilibrées (~11% d'attrition).
+:::

@@ -57,7 +57,7 @@ Depuis chaque page de notion, le bouton « Ouvrir dans Colab » permet de lancer
 | **4.2** | [Régression linéaire et logistique](notion_4_2_regression_lineaire_logistique.qmd) | 4-5 h |
 | **4.3** | [Arbres et Random Forest](notion_4_3_arbres_random_forest.qmd) | 4-5 h |
 | **4.4** | [Gradient Boosting](notion_4_4_gradient_boosting.qmd) | 3-4 h |
-| **4.5** | Métriques d'évaluation _(à venir)_ | 3-4 h |
+| **4.5** | [Métriques d'évaluation](notion_4_5_metriques.qmd) | 3-4 h |
 | **4.6** | Tuning et cross-validation _(à venir)_ | 3-4 h |
 | **🎓 TP** | Compétition ML _(à venir)_ | 8-10 h |
 
