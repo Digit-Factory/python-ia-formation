@@ -1,0 +1,1047 @@
+---
+title: "Notion 3.2 — Statistiques descriptives approfondies"
+subtitle: "Faire parler tes données avant de les modéliser"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_03/notion_3_2_stats_descriptives_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_03/notion_3_2_stats_descriptives_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_03_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 3.1 (typologie des variables), Module 2  
+**Objectif** : conduire une analyse descriptive complète (univariée, bivariée, multivariée) d'un dataset
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Mener une **analyse univariée** rigoureuse sur chaque type de variable
+- Conduire des **analyses bivariées** adaptées aux couples de variables (quanti/quanti, quanti/quali, quali/quali)
+- Détecter des **relations cachées** via corrélations et croisements
+- Produire des **visualisations multivariées** (pairplot, matrice de corrélation)
+- Rédiger un **rapport d'exploration** structuré et convaincant
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Avant de construire un modèle, il faut **comprendre tes données**. C'est une règle d'or de la data science.
+
+Un data scientist qui commence par entraîner un modèle sans exploration passe à côté de :
+
+- Relations évidentes entre variables (qui rendent son modèle trivial ou trompeur)
+- Outliers qui vont fausser l'apprentissage
+- Biais dans la distribution (classe déséquilibrée, valeurs aberrantes...)
+- Variables redondantes (qui polluent le modèle)
+
+L'**EDA** (Exploratory Data Analysis) est la **carte d'identité de tes données**. Sans elle, tu modélises à l'aveugle.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid", context="notebook")
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+
+print("✅ Environnement prêt")
+```
+
+```{python}
+#| echo: false
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+df = df.drop_duplicates().reset_index(drop=True)
+df["region"] = df["region"].fillna("Inconnue")
+df["mode_paiement"] = df["mode_paiement"].fillna(df["mode_paiement"].mode()[0])
+df["categorie"] = df["categorie"].str.capitalize()
+df = df[df["quantite"] <= 20].reset_index(drop=True)
+for col in ["nom_produit", "categorie", "region", "mode_paiement", "statut"]:
+    df[col] = df[col].astype("category")
+```
+
+```{python}
+#| eval: false
+# Recharger et nettoyer le dataset e-commerce
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+df = df.drop_duplicates().reset_index(drop=True)
+df["region"] = df["region"].fillna("Inconnue")
+df["mode_paiement"] = df["mode_paiement"].fillna(df["mode_paiement"].mode()[0])
+df["categorie"] = df["categorie"].str.capitalize()
+df = df[df["quantite"] <= 20].reset_index(drop=True)
+
+# Convertir les qualitatives en category (Notion 3.1)
+for col in ["nom_produit", "categorie", "region", "mode_paiement", "statut"]:
+    df[col] = df[col].astype("category")
+
+print(f"✅ Dataset prêt : {len(df)} lignes")
+```
+
+# Analyse univariée : une variable à la fois
+
+L'analyse univariée, c'est **décrire chaque variable isolément**. C'est l'étape 0 de toute exploration.
+
+## 📊 Pour une variable quantitative
+
+### Les statistiques à calculer
+
+**6 mesures essentielles** pour comprendre une distribution :
+
+1. **Tendance centrale** : moyenne, médiane
+2. **Dispersion** : écart-type, IQR
+3. **Forme** : min, max
+4. **Asymétrie** : skewness (vue plus bas)
+
+```{python}
+# Les stats "classiques"
+stats = df["montant_total"].describe()
+print(stats)
+```
+
+Mais `describe()` ne te donne pas tout. Regarde ce qu'il manque :
+
+```{python}
+# Statistiques complémentaires
+x = df["montant_total"]
+
+print(f"Nombre        : {x.count():,}")
+print(f"Moyenne       : {x.mean():.2f} €")
+print(f"Médiane       : {x.median():.2f} €")
+print(f"Écart-type    : {x.std():.2f} €")
+print(f"IQR (Q3-Q1)   : {(x.quantile(0.75) - x.quantile(0.25)):.2f} €")
+print(f"CV (coef var) : {x.std() / x.mean():.3f}")
+print(f"Skewness      : {x.skew():.3f}")
+print(f"Kurtosis      : {x.kurtosis():.3f}")
+```
+
+### Comprendre skewness et kurtosis
+
+Ces deux mesures décrivent **la forme** de la distribution.
+
+**Skewness** (asymétrie) :
+- `skewness = 0` → distribution symétrique
+- `skewness > 0` → queue à droite (beaucoup de petites valeurs, quelques grandes)
+- `skewness < 0` → queue à gauche (beaucoup de grandes valeurs, quelques petites)
+
+**Kurtosis** (aplatissement) :
+- `kurtosis ≈ 0` → distribution normale
+- `kurtosis > 0` → distribution pointue avec queues épaisses (beaucoup d'outliers)
+- `kurtosis < 0` → distribution aplatie
+
+```{python}
+#| label: fig-skew
+#| fig-cap: "Illustration de skewness et kurtosis"
+
+np.random.seed(42)
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+# Symétrique
+a = np.random.normal(0, 1, 10000)
+axes[0].hist(a, bins=50, color="steelblue", edgecolor="black", alpha=0.7)
+axes[0].set_title(f"Symétrique (skew={pd.Series(a).skew():.2f})")
+
+# Asymétrie à droite
+b = np.random.exponential(1, 10000)
+axes[1].hist(b, bins=50, color="coral", edgecolor="black", alpha=0.7)
+axes[1].set_title(f"Asymétrie droite (skew={pd.Series(b).skew():.2f})")
+
+# Distribution pointue (kurtosis élevée)
+c = np.random.standard_t(3, 10000)
+axes[2].hist(c, bins=50, color="mediumseagreen", edgecolor="black", alpha=0.7, range=(-6, 6))
+axes[2].set_title(f"Pointue (kurt={pd.Series(c).kurtosis():.2f})")
+
+for ax in axes:
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+### Les visualisations complémentaires
+
+Pour une variable quantitative, **3 graphiques se complètent** :
+
+```{python}
+#| label: fig-univar-quanti
+#| fig-cap: "Analyse univariée complète d'une variable quantitative"
+
+x = df["montant_total"]
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 4))
+
+# 1. Histogramme avec densité (KDE)
+sns.histplot(x, kde=True, bins=40, color="steelblue", ax=axes[0])
+axes[0].axvline(x.mean(), color="red", linestyle="--", label=f"Moy = {x.mean():.0f}")
+axes[0].axvline(x.median(), color="green", linestyle="--", label=f"Méd = {x.median():.0f}")
+axes[0].set_title("Histogramme + KDE")
+axes[0].legend()
+
+# 2. Boxplot
+sns.boxplot(y=x, ax=axes[1], color="steelblue")
+axes[1].set_title("Boxplot")
+
+# 3. Violin plot (combinaison boxplot + densité)
+sns.violinplot(y=x, ax=axes[2], color="steelblue")
+axes[2].set_title("Violin plot")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on lit** sur ces 3 graphiques complémentaires :
+
+- **Histogramme** : forme générale de la distribution
+- **Boxplot** : quartiles et outliers clairement identifiés
+- **Violin plot** : densité à chaque niveau (détecte les distributions multimodales)
+
+## 🏷️ Pour une variable qualitative
+
+### Les statistiques
+
+```{python}
+# Modalités et fréquences
+print("=== Comptages ===")
+print(df["categorie"].value_counts())
+
+print("\n=== Proportions ===")
+print((df["categorie"].value_counts(normalize=True) * 100).round(2))
+
+print(f"\n=== Mode ===")
+print(f"Mode : {df['categorie'].mode()[0]}")
+print(f"Nombre de modalités : {df['categorie'].nunique()}")
+```
+
+### Visualisation
+
+```{python}
+#| label: fig-univar-quali
+#| fig-cap: "Analyse univariée d'une variable qualitative"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+# Bar chart
+counts = df["categorie"].value_counts()
+axes[0].bar(counts.index, counts.values, color="steelblue", edgecolor="black", alpha=0.8)
+axes[0].set_title("Répartition (bar chart)")
+axes[0].set_ylabel("Nombre")
+
+# Camembert (si peu de modalités)
+axes[1].pie(counts.values, labels=counts.index, autopct="%1.1f%%", 
+            colors=sns.color_palette("Set2"), startangle=90)
+axes[1].set_title("Répartition (camembert)")
+
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+## 🧠 Règle du camembert
+Le camembert n'est lisible que si tu as **au maximum 5-6 modalités** et si les proportions sont assez différenciées. Au-delà, **préfère le bar chart**.
+:::
+
+## ✏️ Exercice 1 — Analyse univariée complète
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset `df`, réalise une analyse univariée complète :
+
+1. Pour `prix_unitaire` (quantitative continue) :
+   - Affiche les 6 statistiques essentielles (moyenne, médiane, écart-type, IQR, skewness, kurtosis)
+   - Trace les 3 graphiques complémentaires (histogramme+KDE, boxplot, violin)
+   - Interprète : la distribution est-elle symétrique ? Y a-t-il des outliers ?
+
+2. Pour `quantite` (quantitative discrète) :
+   - Affiche les fréquences de chaque valeur (`value_counts().sort_index()`)
+   - Trace un bar chart
+   - Interprète : quelle est la quantité la plus achetée ?
+
+3. Pour `region` (qualitative nominale) :
+   - Affiche les proportions en %
+   - Trace un bar chart horizontal trié
+   - Interprète : y a-t-il une région dominante ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. prix_unitaire — quantitative continue
+print("=== prix_unitaire ===")
+x = df["prix_unitaire"]
+print(f"Moyenne    : {x.mean():.2f} €")
+print(f"Médiane    : {x.median():.2f} €")
+print(f"Écart-type : {x.std():.2f} €")
+print(f"IQR        : {(x.quantile(0.75) - x.quantile(0.25)):.2f} €")
+print(f"Skewness   : {x.skew():.3f}")
+print(f"Kurtosis   : {x.kurtosis():.3f}")
+```
+
+```{python}
+fig, axes = plt.subplots(1, 3, figsize=(16, 4))
+
+sns.histplot(x, kde=True, bins=40, color="steelblue", ax=axes[0])
+axes[0].axvline(x.mean(), color="red", linestyle="--", label="Moyenne")
+axes[0].axvline(x.median(), color="green", linestyle="--", label="Médiane")
+axes[0].set_title("Histogramme + KDE")
+axes[0].legend()
+
+sns.boxplot(y=x, ax=axes[1], color="steelblue")
+axes[1].set_title("Boxplot")
+
+sns.violinplot(y=x, ax=axes[2], color="steelblue")
+axes[2].set_title("Violin plot")
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. quantite — quantitative discrète
+print("=== quantite ===")
+print(df["quantite"].value_counts().sort_index())
+
+fig, ax = plt.subplots(figsize=(9, 4))
+df["quantite"].value_counts().sort_index().plot(
+    kind="bar", ax=ax, color="coral", edgecolor="black"
+)
+ax.set_title("Répartition des quantités commandées")
+ax.set_xlabel("Quantité")
+ax.set_ylabel("Nombre de transactions")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. region — qualitative nominale
+print("=== region (%) ===")
+print((df["region"].value_counts(normalize=True) * 100).round(2))
+
+fig, ax = plt.subplots(figsize=(9, 4))
+df["region"].value_counts().sort_values().plot(
+    kind="barh", ax=ax, color="mediumseagreen", edgecolor="black"
+)
+ax.set_title("Répartition par région")
+ax.set_xlabel("Nombre de transactions")
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétations attendues** :
+
+- `prix_unitaire` : skewness positive (queue à droite). La moyenne > médiane = distribution asymétrique droite. Quelques produits chers tirent la moyenne vers le haut.
+- `quantite` : la grande majorité des transactions concerne 1 seul article. Très peu de grosses commandes.
+- `region` : l'Île-de-France domine fortement (logique vu la densité de population).
+:::
+
+# Analyse bivariée : deux variables à la fois
+
+L'analyse bivariée cherche **des relations** entre deux variables. C'est là que l'exploration devient vraiment utile.
+
+Selon le **type du couple** de variables, les analyses diffèrent :
+
+| Couple | Analyse | Graphique |
+|---|---|---|
+| **Quanti / Quanti** | Corrélation de Pearson | Scatter plot |
+| **Quanti / Quali** | Moyenne par groupe, ANOVA | Boxplot par groupe |
+| **Quali / Quali** | Tableau de contingence, Chi² | Heatmap des fréquences |
+
+## 🔢 Quantitative / Quantitative : la corrélation
+
+### La corrélation de Pearson
+
+La **corrélation de Pearson** mesure la force et la direction d'une relation **linéaire** entre deux variables quantitatives. Elle est comprise entre -1 et +1.
+
+```{python}
+# Corrélation entre quantite et montant_total
+corr = df[["quantite", "prix_unitaire", "montant_total"]].corr()
+print(corr.round(3))
+```
+
+**Règles d'interprétation** :
+
+| |Corrélation | Interprétation |
+|---|---|---|
+| `\|r\| > 0.7` | Forte |
+| `0.3 < \|r\| < 0.7` | Modérée |
+| `\|r\| < 0.3` | Faible |
+| `r ≈ 0` | Absence de lien linéaire |
+
+### Scatter plot : visualiser la corrélation
+
+```{python}
+#| label: fig-scatter-corr
+#| fig-cap: "Visualisation de corrélations"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+# quantite vs montant
+axes[0].scatter(df["quantite"], df["montant_total"], alpha=0.4, s=30)
+axes[0].set_xlabel("Quantité")
+axes[0].set_ylabel("Montant total (€)")
+axes[0].set_title(f"Montant vs Quantité (r = {df[['quantite', 'montant_total']].corr().iloc[0,1]:.3f})")
+
+# prix_unitaire vs montant
+axes[1].scatter(df["prix_unitaire"], df["montant_total"], alpha=0.4, s=30, color="coral")
+axes[1].set_xlabel("Prix unitaire (€)")
+axes[1].set_ylabel("Montant total (€)")
+axes[1].set_title(f"Montant vs Prix (r = {df[['prix_unitaire', 'montant_total']].corr().iloc[0,1]:.3f})")
+
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-warning}
+## ⚠️ Corrélation ≠ Causalité
+Une corrélation forte ne signifie **PAS** qu'une variable en cause une autre. Exemple classique : les ventes de glaces et les noyades sont corrélées, mais parce qu'elles dépendent toutes deux de la chaleur (3e variable cachée).
+
+**Toujours se demander** : y a-t-il une variable cachée qui explique les deux ?
+:::
+
+### Les pièges de la corrélation
+
+**Piège 1 : relation non-linéaire**
+
+```{python}
+#| label: fig-nonlin
+#| fig-cap: "Corrélation = 0 n'implique pas absence de relation"
+
+np.random.seed(0)
+x = np.linspace(-5, 5, 200)
+y = x**2 + np.random.normal(0, 2, 200)
+
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.scatter(x, y, alpha=0.6)
+ax.set_title(f"Relation parabolique (mais corr = {np.corrcoef(x, y)[0,1]:.3f})")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+Cette relation est **évidente visuellement** mais la corrélation de Pearson est quasi nulle. **Toujours regarder le scatter**, ne te fie pas qu'au coefficient.
+
+**Piège 2 : les outliers faussent tout**
+
+```{python}
+#| label: fig-outlier-corr
+#| fig-cap: "Un seul outlier peut inverser la corrélation"
+
+x = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+y = np.array([2, 1.5, 1, 0.5, 0, -0.5, -1, -1.5, -2, -2.5])
+x_out = np.append(x, 20)
+y_out = np.append(y, 30)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+axes[0].scatter(x, y, s=50)
+axes[0].set_title(f"Sans outlier : r = {np.corrcoef(x, y)[0,1]:.3f}")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].scatter(x_out, y_out, s=50)
+axes[1].set_title(f"Avec un seul outlier : r = {np.corrcoef(x_out, y_out)[0,1]:.3f}")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+Un **seul point aberrant** change complètement la corrélation ! **Toujours nettoyer les outliers avant de calculer la corrélation.**
+
+## 📊 Quantitative / Qualitative : comparer des groupes
+
+Quand on croise une variable quantitative avec une qualitative, on cherche à savoir : **la variable quantitative varie-t-elle selon les groupes ?**
+
+### Moyennes par groupe
+
+```{python}
+# Montant moyen par catégorie
+moy_par_cat = df.groupby("categorie", observed=True)["montant_total"].agg(["mean", "median", "std", "count"])
+print(moy_par_cat.round(2))
+```
+
+### Visualisation : boxplot par groupe
+
+```{python}
+#| label: fig-boxplot-group
+#| fig-cap: "Distribution du montant par catégorie"
+
+fig, ax = plt.subplots(figsize=(12, 5))
+sns.boxplot(data=df, x="categorie", y="montant_total", ax=ax, 
+            palette="Set2", legend=False, hue="categorie")
+ax.set_title("Distribution des montants par catégorie")
+ax.set_xlabel("")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+```
+
+### Violin plot pour voir les distributions
+
+```{python}
+#| label: fig-violin-group
+#| fig-cap: "Violin plot : distribution par catégorie"
+
+fig, ax = plt.subplots(figsize=(12, 5))
+sns.violinplot(data=df, x="categorie", y="montant_total", ax=ax,
+               palette="Set2", legend=False, hue="categorie")
+ax.set_title("Densité des montants par catégorie")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+```
+
+**Ce que le violin révèle** que le boxplot cache : la forme de la distribution (multimodale, asymétrique...). Très utile pour repérer des **sous-populations cachées**.
+
+## 🏷️ Qualitative / Qualitative : les tableaux de contingence
+
+### Créer un tableau de contingence
+
+```{python}
+# Comptage croisé region x categorie
+contingence = pd.crosstab(df["region"], df["categorie"])
+print(contingence)
+```
+
+### Visualisation : heatmap
+
+```{python}
+#| label: fig-crosstab-heatmap
+#| fig-cap: "Tableau de contingence region x catégorie"
+
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.heatmap(contingence, annot=True, fmt="d", cmap="YlOrRd", 
+            linewidths=0.5, linecolor="white", ax=ax)
+ax.set_title("Nombre de transactions par région et catégorie")
+plt.tight_layout()
+plt.show()
+```
+
+### En proportions (plus parlant)
+
+```{python}
+# Proportions par ligne (quelle catégorie dans chaque région ?)
+contingence_pct = pd.crosstab(df["region"], df["categorie"], normalize="index") * 100
+print(contingence_pct.round(1))
+```
+
+```{python}
+#| label: fig-contingence-pct
+#| fig-cap: "Répartition des catégories par région (en %)"
+
+fig, ax = plt.subplots(figsize=(12, 6))
+sns.heatmap(contingence_pct, annot=True, fmt=".1f", cmap="YlGnBu",
+            linewidths=0.5, ax=ax, cbar_kws={"label": "Pourcentage"})
+ax.set_title("% de chaque catégorie par région")
+plt.tight_layout()
+plt.show()
+```
+
+## ✏️ Exercice 2 — Analyses bivariées
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. **Quanti/Quanti** : Calcule la corrélation entre `quantite` et `prix_unitaire`. Trace un scatter plot. Y a-t-il une relation ?
+
+2. **Quanti/Quali** : 
+   - Affiche le montant moyen par `mode_paiement` (classé décroissant).
+   - Trace un boxplot du `montant_total` par `mode_paiement`.
+   - Quelle est la moyenne la plus élevée ?
+
+3. **Quali/Quali** :
+   - Crée un tableau de contingence entre `statut` et `mode_paiement`.
+   - Visualise-le avec une heatmap.
+   - Y a-t-il un mode de paiement associé à plus d'annulations ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Quanti/Quanti : quantite vs prix_unitaire
+corr = df[["quantite", "prix_unitaire"]].corr().iloc[0, 1]
+print(f"Corrélation quantite / prix_unitaire : {corr:.3f}")
+
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.scatter(df["quantite"], df["prix_unitaire"], alpha=0.4, s=30)
+ax.set_xlabel("Quantité")
+ax.set_ylabel("Prix unitaire (€)")
+ax.set_title(f"Quantité vs Prix unitaire (r = {corr:.3f})")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** : la corrélation est faible → pas de lien fort entre la quantité et le prix unitaire (attendu : on peut acheter plein de petits articles ou peu de grands).
+
+```{python}
+# 2. Quanti/Quali : montant par mode_paiement
+moy_mode = df.groupby("mode_paiement", observed=True)["montant_total"].mean().sort_values(ascending=False)
+print(moy_mode.round(2))
+
+fig, ax = plt.subplots(figsize=(9, 4))
+sns.boxplot(data=df, x="mode_paiement", y="montant_total", ax=ax,
+            palette="Set3", legend=False, hue="mode_paiement")
+ax.set_title("Montant par mode de paiement")
+ax.set_xlabel("")
+plt.xticks(rotation=20)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Quali/Quali : statut x mode_paiement
+ct = pd.crosstab(df["statut"], df["mode_paiement"])
+print(ct)
+
+# En proportions
+ct_pct = pd.crosstab(df["statut"], df["mode_paiement"], normalize="columns") * 100
+
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.heatmap(ct_pct, annot=True, fmt=".1f", cmap="YlOrRd", ax=ax,
+            cbar_kws={"label": "% dans le mode de paiement"})
+ax.set_title("% de chaque statut par mode de paiement")
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** : on peut voir ici si certains modes de paiement sont plus associés aux annulations. Les différences sont généralement faibles, ce qui suggère qu'il n'y a pas de lien fort.
+:::
+
+# Analyse multivariée : plusieurs variables en même temps
+
+Maintenant on passe à **3+ variables en même temps**. Deux outils principaux :
+
+- **Matrice de corrélation** : pour les quantitatives
+- **Pairplot** : pour explorer toutes les relations 2 à 2
+
+## 🌈 Matrice de corrélation
+
+```{python}
+#| label: fig-corr-matrix
+#| fig-cap: "Matrice de corrélation des variables quantitatives"
+
+# Sélectionner uniquement les quantitatives
+num_cols = df.select_dtypes(include=np.number).columns.tolist()
+corr = df[num_cols].corr()
+
+fig, ax = plt.subplots(figsize=(8, 6))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            vmin=-1, vmax=1, square=True, linewidths=0.5, ax=ax)
+ax.set_title("Matrice de corrélation")
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on cherche** :
+
+- **Variables très corrélées entre elles** (|r| > 0.8) → risque de redondance, à surveiller pour le ML
+- **Variables corrélées à la cible** → bons prédicteurs potentiels
+- **Variables décorrélées** (r ≈ 0) → indépendantes, contributions distinctes
+
+## 🎨 Pairplot : l'exploration massive
+
+Le **pairplot** trace toutes les relations 2 à 2 d'un DataFrame en une commande. Parfait pour **repérer rapidement des patterns**.
+
+```{python}
+#| label: fig-pairplot
+#| fig-cap: "Pairplot : toutes les relations croisées"
+
+# Échantillon pour la rapidité
+sample = df[["quantite", "prix_unitaire", "montant_total", "categorie"]].sample(500, random_state=42)
+
+g = sns.pairplot(sample, hue="categorie", height=2.5, plot_kws={"alpha": 0.5}, 
+                  diag_kind="hist")
+g.fig.suptitle("Pairplot avec coloration par catégorie", y=1.02)
+plt.show()
+```
+
+**Ce que le pairplot révèle en un coup d'œil** :
+
+- La **diagonale** : distribution univariée de chaque variable (histogramme ou KDE)
+- **Hors diagonale** : scatter plot pour chaque paire
+- **Coloration** : pour voir si les catégories se distinguent dans les différentes relations
+
+## 🎯 Croisement quanti x quanti x quali
+
+On peut aller plus loin avec un **scatter plot coloré** :
+
+```{python}
+#| label: fig-scatter-color
+#| fig-cap: "Scatter avec coloration par catégorie (3 variables en même temps)"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.scatterplot(data=df.sample(1000, random_state=0), 
+                x="quantite", y="montant_total", 
+                hue="categorie", alpha=0.6, ax=ax)
+ax.set_title("Montant vs Quantité, coloré par catégorie")
+plt.tight_layout()
+plt.show()
+```
+
+**Les 3 dimensions** : quantité (x), montant (y), catégorie (couleur). On peut aller jusqu'à **4D** en ajoutant `size` pour une 4e variable.
+
+## ✏️ Exercice 3 — Analyse multivariée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. **Matrice de corrélation** :
+   - Crée une nouvelle colonne `prix_moyen = montant_total / quantite`.
+   - Trace la matrice de corrélation des 4 variables : `quantite`, `prix_unitaire`, `montant_total`, `prix_moyen`.
+   - Y a-t-il des redondances évidentes ?
+
+2. **Pairplot** :
+   - Crée un pairplot sur un échantillon de 500 lignes avec les colonnes `quantite`, `prix_unitaire`, `montant_total`, coloré par `statut`.
+   - Les statuts (livré, annulé...) se distinguent-ils visuellement ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Matrice avec prix_moyen (qui est en fait = prix_unitaire pour ce dataset)
+df["prix_moyen"] = df["montant_total"] / df["quantite"]
+
+cols = ["quantite", "prix_unitaire", "montant_total", "prix_moyen"]
+corr = df[cols].corr()
+
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            vmin=-1, vmax=1, ax=ax, square=True)
+ax.set_title("Matrice de corrélation étendue")
+plt.tight_layout()
+plt.show()
+
+print(f"\nCorrélation prix_unitaire / prix_moyen : {corr.loc['prix_unitaire', 'prix_moyen']:.3f}")
+```
+
+**Observation** : `prix_unitaire` et `prix_moyen` sont **corrélés à ~1** (c'est la même info !). C'est exactement le genre de redondance à détecter. On garderait une seule de ces colonnes pour un modèle.
+
+```{python}
+# 2. Pairplot
+sample = df[["quantite", "prix_unitaire", "montant_total", "statut"]].sample(500, random_state=42)
+g = sns.pairplot(sample, hue="statut", height=2.5, plot_kws={"alpha": 0.5})
+plt.show()
+```
+
+**Interprétation** : regarde si les couleurs (statuts) forment des clusters distincts. Si oui, le statut dépend des autres variables. Si les couleurs sont mélangées, il n'y a pas de lien clair.
+:::
+
+# Bonnes pratiques d'analyse exploratoire
+
+## 📋 Le workflow standard
+
+Voici le workflow à suivre **systématiquement** face à un nouveau dataset :
+
+```
+1. Chargement et aperçu
+   → df.head(), df.info(), df.shape
+
+2. Audit typologique (Notion 3.1)
+   → Identifier les types, corriger si besoin
+
+3. Analyse univariée
+   → Pour CHAQUE variable quantitative : stats + histogramme + boxplot
+   → Pour CHAQUE variable qualitative : value_counts + bar chart
+
+4. Analyse bivariée ciblée
+   → Si tu as une variable cible (y) :
+       - Croiser y avec chaque autre variable
+   → Sinon :
+       - Matrice de corrélation globale
+       - Pairplot sur les quantitatives les plus intéressantes
+
+5. Synthèse
+   → Rédiger les observations clés pour chaque variable
+   → Identifier les problèmes (NaN, outliers, incohérences)
+   → Proposer les actions de nettoyage
+```
+
+## 🎯 Les questions à toujours se poser
+
+Pour chaque variable :
+
+1. **Distribution** : est-elle normale, asymétrique, multimodale ?
+2. **Outliers** : y en a-t-il ? Combien ? Faut-il les supprimer ?
+3. **Valeurs manquantes** : combien ? Pourquoi ?
+4. **Cohérence** : les valeurs ont-elles du sens ? (ex: pas d'âges négatifs)
+
+Pour le dataset global :
+
+1. **Variables redondantes** : certaines sont-elles très corrélées (|r| > 0.95) ?
+2. **Variables constantes** : certaines ont-elles une seule valeur ? (à supprimer)
+3. **Relations avec la cible** (si définie) : quelles variables semblent prometteuses ?
+4. **Biais** : le dataset est-il équilibré ? (ex: classe minoritaire sous-représentée)
+
+## 🚫 Les erreurs fréquentes
+
+1. **Se précipiter** sur la modélisation sans exploration → bugs et biais cachés
+2. **Ne regarder que `describe()`** → passer à côté de tout
+3. **Négliger les outliers** → modèle biaisé par quelques points
+4. **Se fier uniquement à la corrélation** → oubli des relations non-linéaires
+5. **Oublier les variables qualitatives** → perte d'information massive
+
+# 🏁 Exercice bilan — EDA complète d'un dataset
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu dois mener une **EDA complète** sur un nouveau dataset : un jeu de données sur les **performances académiques d'étudiants**.
+
+Voici comment le créer :
+
+```{python}
+#| eval: false
+np.random.seed(42)
+n = 500
+
+# Générer le dataset
+dff = pd.DataFrame({
+    "age": np.random.randint(17, 25, n),
+    "genre": np.random.choice(["M", "F", "Autre"], n, p=[0.48, 0.49, 0.03]),
+    "niveau_etudes": np.random.choice(["Licence", "Master"], n, p=[0.6, 0.4]),
+    "heures_etude_semaine": np.random.gamma(3, 3, n).round(1),
+    "nb_absences": np.random.poisson(5, n),
+    "travail_etudiant": np.random.choice([True, False], n, p=[0.4, 0.6]),
+    "note_finale": None  # on va la calculer
+})
+
+# Note finale dépend des autres variables (avec bruit)
+dff["note_finale"] = (
+    8 
+    + 0.4 * dff["heures_etude_semaine"]
+    - 0.3 * dff["nb_absences"]
+    - 2 * dff["travail_etudiant"]
+    + np.where(dff["niveau_etudes"] == "Master", 1, 0)
+    + np.random.normal(0, 2, n)
+).clip(0, 20).round(1)
+
+# Ajouter quelques outliers et NaN
+dff.loc[np.random.choice(n, 15), "heures_etude_semaine"] = np.nan
+dff.loc[np.random.choice(n, 3), "heures_etude_semaine"] = 100  # outlier
+dff.loc[np.random.choice(n, 2), "note_finale"] = np.nan
+```
+
+**Mission** :
+
+1. **Audit typologique** : type de chaque variable, dtype actuel, conversions nécessaires
+2. **Univariée** : 3 graphiques pour `note_finale` (quanti), 1 bar chart pour `niveau_etudes`
+3. **Bivariée** :
+   - Corrélation entre `note_finale`, `heures_etude_semaine`, `nb_absences`
+   - Moyenne de `note_finale` par `niveau_etudes` (boxplot)
+   - Tableau de contingence `genre` × `niveau_etudes`
+4. **Multivariée** :
+   - Matrice de corrélation des quantitatives
+   - Pairplot coloré par `niveau_etudes` sur les 3 principales quantitatives
+5. **Synthèse** : rédige 5-8 observations clés en markdown
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Création du dataset
+np.random.seed(42)
+n = 500
+
+dff = pd.DataFrame({
+    "age": np.random.randint(17, 25, n),
+    "genre": np.random.choice(["M", "F", "Autre"], n, p=[0.48, 0.49, 0.03]),
+    "niveau_etudes": np.random.choice(["Licence", "Master"], n, p=[0.6, 0.4]),
+    "heures_etude_semaine": np.random.gamma(3, 3, n).round(1),
+    "nb_absences": np.random.poisson(5, n),
+    "travail_etudiant": np.random.choice([True, False], n, p=[0.4, 0.6]),
+    "note_finale": None
+})
+
+dff["note_finale"] = (
+    8 
+    + 0.4 * dff["heures_etude_semaine"]
+    - 0.3 * dff["nb_absences"]
+    - 2 * dff["travail_etudiant"]
+    + np.where(dff["niveau_etudes"] == "Master", 1, 0)
+    + np.random.normal(0, 2, n)
+).clip(0, 20).round(1)
+
+dff.loc[np.random.choice(n, 15), "heures_etude_semaine"] = np.nan
+dff.loc[np.random.choice(n, 3), "heures_etude_semaine"] = 100
+dff.loc[np.random.choice(n, 2), "note_finale"] = np.nan
+```
+
+```{python}
+# 1. Audit typologique
+print(dff.dtypes)
+print(f"\nShape : {dff.shape}")
+print(f"\nNaN : {dff.isna().sum().sum()}")
+```
+
+**Audit** :
+
+| Colonne | Catégorie | Dtype actuel | Action |
+|---|---|---|---|
+| age | Quanti discrète | int | ✅ |
+| genre | Quali nominale | object | → category |
+| niveau_etudes | Quali ordinale (Licence < Master) | object | → ordinale |
+| heures_etude_semaine | Quanti continue | float | ✅ |
+| nb_absences | Quanti discrète | int | ✅ |
+| travail_etudiant | Quali nominale | bool | ✅ |
+| note_finale | Quanti continue | float | ✅ |
+
+```{python}
+from pandas.api.types import CategoricalDtype
+dff["genre"] = dff["genre"].astype("category")
+dff["niveau_etudes"] = dff["niveau_etudes"].astype(
+    CategoricalDtype(categories=["Licence", "Master"], ordered=True)
+)
+```
+
+```{python}
+# 2. Univariée : note_finale (quanti)
+x = dff["note_finale"].dropna()
+print(f"Moyenne : {x.mean():.2f}, Médiane : {x.median():.2f}, Skew : {x.skew():.3f}")
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+sns.histplot(x, kde=True, bins=30, ax=axes[0], color="steelblue")
+axes[0].set_title("Histogramme")
+sns.boxplot(y=x, ax=axes[1], color="steelblue")
+axes[1].set_title("Boxplot")
+sns.violinplot(y=x, ax=axes[2], color="steelblue")
+axes[2].set_title("Violin")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# niveau_etudes (quali)
+fig, ax = plt.subplots(figsize=(7, 3))
+dff["niveau_etudes"].value_counts().sort_index().plot(kind="bar", ax=ax, color="coral")
+ax.set_title("Niveau d'études")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Bivariée
+# Corrélation
+cols_num = ["note_finale", "heures_etude_semaine", "nb_absences"]
+print(dff[cols_num].corr().round(3))
+
+# Boxplot note par niveau
+fig, ax = plt.subplots(figsize=(8, 4))
+sns.boxplot(data=dff, x="niveau_etudes", y="note_finale", ax=ax, 
+            palette="Set2", hue="niveau_etudes", legend=False)
+ax.set_title("Note finale par niveau d'études")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Contingence genre x niveau_etudes
+print(pd.crosstab(dff["genre"], dff["niveau_etudes"]))
+```
+
+```{python}
+# 4. Multivariée
+fig, ax = plt.subplots(figsize=(6, 5))
+sns.heatmap(dff[cols_num].corr(), annot=True, fmt=".2f", cmap="RdBu_r",
+            center=0, vmin=-1, vmax=1, square=True, ax=ax)
+ax.set_title("Matrice de corrélation")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Pairplot
+sample = dff[cols_num + ["niveau_etudes"]].dropna().sample(min(300, len(dff)), random_state=0)
+g = sns.pairplot(sample, hue="niveau_etudes", height=2.5, plot_kws={"alpha": 0.5})
+plt.show()
+```
+
+**Synthèse (exemple)** :
+
+1. La note moyenne est ~12/20 avec une distribution proche de la normale (skew faible).
+2. Les Masters ont des notes sensiblement **supérieures** aux Licences (+1 point en moyenne).
+3. La **corrélation est nette** entre `heures_etude_semaine` et `note_finale` (positive) et entre `nb_absences` et `note_finale` (négative).
+4. Il y a **3 outliers** dans `heures_etude_semaine` (valeurs à 100h/semaine, impossible physiquement).
+5. **17 valeurs manquantes** à traiter : 15 sur `heures_etude` et 2 sur `note_finale`.
+6. Les genres sont **quasi équilibrés** M/F, minorité "Autre" marginale.
+7. Le pairplot montre que les Masters se distinguent par une note plus élevée, mais pas par les heures d'étude.
+8. **Recommandation** : nettoyer les outliers, imputer les NaN de `heures_etude` par la médiane, garder `note_finale` comme variable cible pour un futur modèle prédictif.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois savoir faire
+
+| Analyse | Outil principal |
+|---|---|
+| Univariée quanti | `.describe()`, `.skew()`, histogramme + boxplot |
+| Univariée quali | `.value_counts()`, bar chart |
+| Bivariée quanti/quanti | `.corr()`, scatter plot |
+| Bivariée quanti/quali | `groupby().mean()`, boxplot |
+| Bivariée quali/quali | `pd.crosstab()`, heatmap |
+| Multivariée | Matrice de corrélation, pairplot |
+
+## 🧠 Les réflexes à prendre
+
+1. **Toujours visualiser** avant de calculer des statistiques agrégées
+2. **Ne pas faire confiance** qu'à la corrélation de Pearson (pièges non-linéaires et outliers)
+3. **Explorer systématiquement** chaque variable, dans l'ordre : univariée → bivariée → multivariée
+4. **Documenter** chaque observation : c'est le livrable d'un data scientist
+5. **Se méfier** des variables redondantes (|r| > 0.9)
+
+## 🚀 La suite
+
+Dans la [**Notion 3.3 — Nettoyage avancé**](notion_3_3_nettoyage_avance.qmd), on va mettre en pratique tout ce qu'on a découvert ici : **détecter** les problèmes (doublons, NaN, outliers) puis les **traiter** avec des méthodes plus sophistiquées que celles vues en Module 2.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+Prends un dataset Kaggle et fais-en une EDA complète en suivant exactement le workflow de cette notion. Rédige un **rapport d'observation** (notebook + 1 page de synthèse). C'est exactement ce qu'on te demandera en entretien de data scientist !
+:::
