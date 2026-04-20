@@ -37,7 +37,7 @@ book:
         - modules/module_04/notion_4_1_intro_ml.qmd
         - modules/module_04/notion_4_2_regression_lineaire_logistique.qmd
         - modules/module_04/notion_4_3_arbres_random_forest.qmd
-        # - modules/module_04/notion_4_4_gradient_boosting.qmd
+        - modules/module_04/notion_4_4_gradient_boosting.qmd
         # - modules/module_04/notion_4_5_metriques.qmd
         # - modules/module_04/notion_4_6_tuning.qmd
         # - modules/module_04/tp_sommatif.qmd

@@ -1,0 +1,874 @@
+---
+title: "Notion 4.4 — Gradient Boosting"
+subtitle: "XGBoost, LightGBM : les champions du ML tabulaire"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_4_gradient_boosting_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_4_gradient_boosting_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 4.1 à 4.3 (en particulier les arbres)  
+**Objectif** : maîtriser les modèles de boosting qui dominent le ML tabulaire depuis 10 ans
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre la **différence fondamentale** entre bagging (RF) et boosting
+- Utiliser `GradientBoostingClassifier/Regressor` de scikit-learn
+- Maîtriser **XGBoost** et **LightGBM**, les standards de l'industrie
+- Choisir intelligemment les **hyperparamètres clés** (`n_estimators`, `learning_rate`, `max_depth`)
+- Utiliser l'**early stopping** pour éviter l'overfitting
+- Savoir **quand** utiliser boosting vs Random Forest vs modèle linéaire
+
+## 🎯 Pourquoi le Gradient Boosting ?
+
+Si tu devais retenir **un seul algorithme** pour gagner une compétition Kaggle sur des données tabulaires, ce serait **XGBoost** (ou son cousin LightGBM). Pourquoi ?
+
+- **Précision** : souvent **1-5% meilleur** que les Random Forests
+- **Flexibilité** : marche pour classification, régression, ranking
+- **Rapidité** : LightGBM entraîne des millions de lignes en quelques secondes
+- **Gestion automatique** : valeurs manquantes, features catégorielles (selon version)
+- **Interprétabilité** : feature importance, SHAP values
+
+En **industrie**, 80% des modèles ML tabulaires en production sont basés sur XGBoost ou LightGBM. C'est **LE** algorithme à maîtriser.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.ensemble import (
+    GradientBoostingClassifier, GradientBoostingRegressor,
+    RandomForestClassifier, RandomForestRegressor
+)
+from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, r2_score, mean_absolute_error
+
+# XGBoost et LightGBM
+import xgboost as xgb
+import lightgbm as lgb
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print(f"✅ Environnement prêt")
+print(f"   XGBoost : {xgb.__version__}")
+print(f"   LightGBM : {lgb.__version__}")
+```
+
+::: {.callout-note}
+## Installation si nécessaire
+Si tu n'as pas encore XGBoost et LightGBM, installe-les avec :
+
+```bash
+pip install xgboost lightgbm
+```
+:::
+
+# 1. Bagging vs Boosting : la différence fondamentale
+
+## 🎨 Bagging (Random Forest) : arbres indépendants, en parallèle
+
+```
+Dataset ──┬─▶ Arbre 1 (bootstrap 1)
+          ├─▶ Arbre 2 (bootstrap 2)
+          ├─▶ Arbre 3 (bootstrap 3)
+          └─▶ ...
+                 │
+                 ▼
+           Vote (moyenne)
+```
+
+Tous les arbres sont **entraînés indépendamment**. On peut les entraîner en **parallèle**. Résultat : on réduit la **variance** (l'overfitting).
+
+## 🎨 Boosting : arbres séquentiels, qui apprennent des erreurs
+
+```
+Dataset ──▶ Arbre 1 ──▶ Erreurs 1
+               │            │
+               └────────────┼──▶ Arbre 2 (focus sur erreurs 1) ──▶ Erreurs 2
+                            │           │                             │
+                            └───────────┴─────────────────────────────┼──▶ Arbre 3 ...
+                                                                      │
+                                                                      ▼
+                                                             Somme pondérée
+```
+
+Chaque arbre **corrige les erreurs du précédent**. On entraîne **séquentiellement**. Résultat : on réduit le **biais** ET la **variance**.
+
+**Conséquence pratique** :
+- Le boosting **apprend progressivement**, donc peut être **très précis**
+- Il peut **overfitter si on le laisse tourner trop longtemps**
+- Il est **plus lent à entraîner** (pas parallélisable de la même manière)
+
+## 🧪 L'intuition mathématique (simple)
+
+Au début, le modèle prédit la **moyenne** (régression) ou la **classe majoritaire** (classification).
+
+Puis, à chaque itération :
+
+1. Calculer le **résidu** : `erreur = vraie_valeur - prédiction_actuelle`
+2. Entraîner un **nouvel arbre** pour prédire ces résidus
+3. Ajouter (avec un poids `learning_rate`) ce nouvel arbre au modèle
+
+$$\hat{y}_{\text{nouveau}} = \hat{y}_{\text{ancien}} + \eta \cdot \text{arbre}(X)$$
+
+où `η` (eta ou `learning_rate`) est un petit coefficient (genre 0.1) qui contrôle **à quelle vitesse** le modèle apprend.
+
+## 🎨 Visualiser le boosting étape par étape
+
+```{python}
+#| label: fig-boosting-steps
+#| fig-cap: "Le boosting apprend itérativement : chaque arbre corrige les erreurs"
+
+np.random.seed(0)
+x = np.linspace(0, 10, 100)
+y_vrai = np.sin(x) + 0.3 * x
+y = y_vrai + np.random.normal(0, 0.3, 100)
+
+X = x.reshape(-1, 1)
+
+# Entraîner un GradientBoosting avec peu d'arbres pour visualiser
+from sklearn.tree import DecisionTreeRegressor
+
+# Simulation à la main du boosting
+prediction = np.full_like(y, y.mean())  # initialement : moyenne
+learning_rate = 0.3
+
+fig, axes = plt.subplots(1, 4, figsize=(18, 4))
+
+iterations_to_show = [0, 1, 5, 30]
+preds = {0: prediction.copy()}
+
+# Simuler plusieurs itérations
+current_pred = prediction.copy()
+for it in range(1, 31):
+    residus = y - current_pred
+    arbre = DecisionTreeRegressor(max_depth=3, random_state=42).fit(X, residus)
+    current_pred = current_pred + learning_rate * arbre.predict(X)
+    if it in iterations_to_show:
+        preds[it] = current_pred.copy()
+
+# Tracer
+for ax, n_iter in zip(axes, iterations_to_show):
+    ax.scatter(x, y, s=15, alpha=0.4, label="Données")
+    # Trier pour tracé lisse
+    idx_sort = np.argsort(x)
+    ax.plot(x[idx_sort], preds[n_iter][idx_sort], 'r-', linewidth=2.5, 
+            label=f"Modèle après {n_iter} itération{'s' if n_iter > 1 else ''}")
+    ax.set_title(f"{n_iter} arbre{'s' if n_iter > 1 else ''}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+plt.suptitle("Le Gradient Boosting apprend progressivement la forme des données",
+             fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- 0 arbres : on prédit la **moyenne** (droite horizontale)
+- 1 arbre : grossier, mais capture déjà la tendance
+- 5 arbres : ça commence à suivre la courbe
+- 30 arbres : excellent ajustement
+
+Si on continuait à 100+ arbres, on risquerait **l'overfitting**.
+
+# 2. GradientBoosting avec scikit-learn
+
+## 🚀 Premier modèle
+
+```{python}
+# Dataset de classification (on va le comparer à un RF)
+np.random.seed(42)
+n = 600
+
+df = pd.DataFrame({
+    "age": np.random.uniform(20, 70, n),
+    "revenu": np.random.gamma(2, 1500, n),
+    "ratio_dette": np.random.uniform(0, 1, n),
+    "duree_emploi": np.random.exponential(5, n).clip(0, 30),
+    "nb_credits": np.random.poisson(2, n),
+})
+
+# Relation complexe (non-linéaire + interactions)
+risque = (
+    0.2 * (df["revenu"] < 2000)
+    + 0.3 * (df["ratio_dette"] > 0.6)
+    + 0.15 * (df["duree_emploi"] < 1)
+    + 0.1 * np.exp(-((df["age"] - 35) / 10)**2)
+    + np.random.uniform(0, 0.3, n)
+)
+df["defaut"] = (risque > 0.4).astype(int)
+
+X = df.drop(columns="defaut")
+y = df["defaut"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# GradientBoosting par défaut
+gb = GradientBoostingClassifier(random_state=42)
+gb.fit(X_train, y_train)
+
+print(f"GradientBoosting (défaut) : accuracy test = {gb.score(X_test, y_test):.3f}")
+```
+
+## 🛠️ Les 3 hyperparamètres clés
+
+Les **3 leviers** que tu dois connaître par cœur :
+
+### `n_estimators` : nombre d'arbres
+
+Combien d'arbres dans le modèle final.
+
+- **Trop peu** (< 50) → underfitting
+- **Trop** (> 1000) → risque d'overfitting et lenteur
+- **Valeurs typiques** : 100 à 500
+
+### `learning_rate` : vitesse d'apprentissage
+
+Poids de chaque nouvel arbre. **En tension avec `n_estimators`** :
+
+- **Petit** (0.01-0.05) → apprentissage lent, mais précis (il faut plus d'arbres)
+- **Grand** (0.2-0.3) → apprentissage rapide, mais risque de rater l'optimum
+- **Valeur typique** : **0.1**
+
+### `max_depth` : profondeur de chaque arbre
+
+Contrairement aux Random Forests (profondeur ≈ 10), le boosting utilise des arbres **peu profonds** :
+
+- `max_depth=3` est souvent **suffisant** (chaque arbre est "faible")
+- `max_depth=5` commence à être grand
+- `max_depth > 6` → overfitting probable
+- **Valeurs typiques** : **3 à 6**
+
+## 📊 Impact de `learning_rate`
+
+```{python}
+#| label: fig-lr-impact
+#| fig-cap: "Impact du learning_rate sur l'entraînement"
+
+fig, ax = plt.subplots(figsize=(11, 5))
+
+for lr, color in zip([0.01, 0.1, 0.5], ["steelblue", "coral", "mediumseagreen"]):
+    gb = GradientBoostingClassifier(
+        n_estimators=200, learning_rate=lr, max_depth=3,
+        random_state=42
+    )
+    gb.fit(X_train, y_train)
+    
+    # Accuracy à chaque itération
+    accs_test = []
+    for pred in gb.staged_predict(X_test):
+        accs_test.append(accuracy_score(y_test, pred))
+    
+    ax.plot(range(1, len(accs_test) + 1), accs_test, 
+            linewidth=2, label=f"learning_rate = {lr}", color=color)
+
+ax.set_xlabel("Nombre d'arbres")
+ax.set_ylabel("Accuracy test")
+ax.set_title("Learning rate : trop grand = instable, trop petit = lent")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on voit** :
+- `lr=0.01` : apprend **trop lentement** — il faudrait 500+ arbres
+- `lr=0.1` : **bon compromis** (défaut de sklearn)
+- `lr=0.5` : peut **stagner ou osciller** — instable
+
+## 🎯 La règle d'or du boosting
+
+**`learning_rate` et `n_estimators` sont liés** :
+
+- **`learning_rate` petit** → il faut **plus d'arbres**
+- **`learning_rate` grand** → **moins d'arbres**, mais moins précis
+
+La **convention** : mettre un petit `learning_rate` (0.05-0.1) et beaucoup d'arbres (200-500), **avec early stopping** pour arrêter au bon moment.
+
+## ✏️ Exercice 1 — Tuner un GradientBoosting
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset `df` de l'exemple, teste **4 configurations** :
+
+| Config | n_estimators | learning_rate | max_depth |
+|:---:|:---:|:---:|:---:|
+| A | 50  | 0.1 | 3 |
+| B | 200 | 0.1 | 3 |
+| C | 200 | 0.01 | 3 |
+| D | 200 | 0.1 | 8 |
+
+Pour chacune, entraîne le modèle et affiche accuracy train, test, et gap.
+
+Quelle configuration semble la meilleure ? Pourquoi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+configs = [
+    {"n_estimators": 50,  "learning_rate": 0.1,  "max_depth": 3, "label": "A (peu d'arbres)"},
+    {"n_estimators": 200, "learning_rate": 0.1,  "max_depth": 3, "label": "B (défaut)"},
+    {"n_estimators": 200, "learning_rate": 0.01, "max_depth": 3, "label": "C (lr faible)"},
+    {"n_estimators": 200, "learning_rate": 0.1,  "max_depth": 8, "label": "D (depth grand)"},
+]
+
+resultats = []
+for c in configs:
+    params = {k: v for k, v in c.items() if k != "label"}
+    gb = GradientBoostingClassifier(**params, random_state=42)
+    gb.fit(X_train, y_train)
+    resultats.append({
+        "config": c["label"],
+        "acc_train": gb.score(X_train, y_train),
+        "acc_test": gb.score(X_test, y_test),
+        "gap": gb.score(X_train, y_train) - gb.score(X_test, y_test)
+    })
+
+pd.DataFrame(resultats).round(3)
+```
+
+**Interprétation attendue** :
+
+- **Config A** (50 arbres) : risque d'underfitting, acc test moyenne
+- **Config B** (défaut) : bon équilibre
+- **Config C** (lr=0.01, 200 arbres) : probablement pas assez d'arbres pour converger avec ce petit `lr` → sous-performant
+- **Config D** (max_depth=8) : **overfitting fort** (grand gap train-test)
+
+**Leçon** : le boosting demande d'équilibrer plusieurs hyperparamètres **ensemble**. Tu ne peux pas augmenter `max_depth` sans conséquence.
+:::
+
+# 3. XGBoost : le champion industriel
+
+**XGBoost** (eXtreme Gradient Boosting) est une implémentation **optimisée** du gradient boosting qui a révolutionné le ML en 2014-2016.
+
+**Pourquoi XGBoost est-il si populaire ?**
+
+- **Rapide** : parallélisé et optimisé en C++
+- **Régularisation intégrée** (L1, L2) pour lutter contre l'overfitting
+- **Gère les valeurs manquantes** automatiquement
+- **Early stopping** natif
+- **Feature importance** et support SHAP
+
+## 🚀 Utilisation de base
+
+```{python}
+# XGBoost a une API presque identique à scikit-learn
+modele_xgb = xgb.XGBClassifier(
+    n_estimators=200,
+    learning_rate=0.1,
+    max_depth=4,
+    random_state=42,
+    eval_metric="logloss"
+)
+
+modele_xgb.fit(X_train, y_train)
+
+print(f"XGBoost accuracy test : {modele_xgb.score(X_test, y_test):.3f}")
+```
+
+## 🛑 Early stopping : arrêter au bon moment
+
+**Early stopping** surveille la performance sur un set de validation et **arrête l'entraînement automatiquement** quand elle n'améliore plus. C'est l'**outil anti-overfitting** du boosting.
+
+```{python}
+# On split encore le train en train + validation
+from sklearn.model_selection import train_test_split
+
+X_train2, X_val, y_train2, y_val = train_test_split(
+    X_train, y_train, test_size=0.2, random_state=42, stratify=y_train
+)
+
+# XGBoost avec early stopping
+modele_es = xgb.XGBClassifier(
+    n_estimators=500,         # beaucoup d'arbres (on stoppera avant)
+    learning_rate=0.05,
+    max_depth=4,
+    early_stopping_rounds=20, # arrêter si pas d'amélioration pendant 20 tours
+    random_state=42,
+    eval_metric="logloss"
+)
+
+modele_es.fit(
+    X_train2, y_train2,
+    eval_set=[(X_val, y_val)],
+    verbose=False
+)
+
+print(f"Nombre d'arbres réellement utilisés : {modele_es.best_iteration + 1}")
+print(f"Accuracy test : {modele_es.score(X_test, y_test):.3f}")
+```
+
+**L'early stopping a choisi tout seul le bon nombre d'arbres.** C'est **LA bonne façon** de régler `n_estimators`.
+
+## 🔍 Feature importance avec XGBoost
+
+```{python}
+importances = pd.DataFrame({
+    "feature": X.columns,
+    "importance": modele_xgb.feature_importances_
+}).sort_values("importance", ascending=False)
+
+print(importances.round(3).to_string(index=False))
+```
+
+```{python}
+#| label: fig-xgb-importance
+#| fig-cap: "Feature importance selon XGBoost"
+
+fig, ax = plt.subplots(figsize=(10, 4))
+imp_sorted = importances.sort_values("importance")
+ax.barh(imp_sorted["feature"], imp_sorted["importance"],
+        color="#ff6b35", edgecolor="black")
+ax.set_xlabel("Importance")
+ax.set_title("Feature Importance — XGBoost")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+# 4. LightGBM : encore plus rapide
+
+**LightGBM** (Microsoft, 2017) est un autre gradient boosting, souvent **encore plus rapide** que XGBoost, et parfois plus précis sur certains datasets.
+
+**Différence principale** : LightGBM construit ses arbres **feuille par feuille** (leaf-wise) au lieu de niveau par niveau (level-wise).
+
+```{python}
+# Utilisation presque identique
+modele_lgb = lgb.LGBMClassifier(
+    n_estimators=200,
+    learning_rate=0.1,
+    max_depth=4,
+    random_state=42,
+    verbose=-1  # pour éviter les logs
+)
+
+modele_lgb.fit(X_train, y_train)
+
+print(f"LightGBM accuracy test : {modele_lgb.score(X_test, y_test):.3f}")
+```
+
+## ⚡ Comparatif de vitesse (sur un dataset plus gros)
+
+```{python}
+import time
+
+# Dataset plus gros pour mesurer la vitesse
+np.random.seed(0)
+n = 50_000
+p = 20
+
+X_big = pd.DataFrame(np.random.randn(n, p), columns=[f"f{i}" for i in range(p)])
+y_big = ((X_big["f0"] + X_big["f1"] > 0) & (X_big["f2"] < 0.5)).astype(int)
+
+X_tr, X_te, y_tr, y_te = train_test_split(X_big, y_big, test_size=0.2, random_state=42, stratify=y_big)
+
+# Mesurer les temps
+modeles_compar = {
+    "GradientBoosting (sklearn)": GradientBoostingClassifier(n_estimators=100, random_state=42),
+    "XGBoost": xgb.XGBClassifier(n_estimators=100, random_state=42, eval_metric="logloss"),
+    "LightGBM": lgb.LGBMClassifier(n_estimators=100, random_state=42, verbose=-1),
+}
+
+comparatif = []
+for nom, m in modeles_compar.items():
+    t0 = time.time()
+    m.fit(X_tr, y_tr)
+    t_fit = time.time() - t0
+    acc = m.score(X_te, y_te)
+    comparatif.append({"modèle": nom, "temps (s)": round(t_fit, 2), "accuracy": round(acc, 3)})
+
+pd.DataFrame(comparatif)
+```
+
+**Résultat typique** :
+- sklearn est le **plus lent** (implémentation Python)
+- XGBoost est **10-100x plus rapide**
+- LightGBM est souvent **encore plus rapide** que XGBoost
+
+Sur **gros datasets** (> 100k lignes), la différence devient critique.
+
+# 5. Comparaison globale : quel modèle choisir ?
+
+Récapitulatif pour la famille des modèles à arbres :
+
+| Modèle | Vitesse | Précision | Interprétabilité | Données |
+|---|:---:|:---:|:---:|:---:|
+| **DecisionTree seul** | ⭐⭐⭐⭐ | ⭐ | ⭐⭐⭐⭐⭐ | Petit |
+| **Random Forest** | ⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐ | Tout |
+| **GradientBoosting (sklearn)** | ⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐ | Moyen |
+| **XGBoost** | ⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | Tout |
+| **LightGBM** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐ | Surtout gros |
+
+## 💡 Recommandations pratiques
+
+**Pour ton premier projet ML** :
+1. **Baseline** : `LogisticRegression` ou `LinearRegression`
+2. **Second essai** : `RandomForestClassifier/Regressor`
+3. **Pour aller plus loin** : `XGBoost` ou `LightGBM`
+4. **Si besoin de tuning intensif** : `LightGBM` (plus rapide)
+
+**Pour un gros dataset** (> 100k lignes) : commencer direct par LightGBM.
+
+**Pour un petit dataset** (< 1000 lignes) : la régression bat souvent XGBoost (trop peu de données pour profiter de sa puissance).
+
+## ✏️ Exercice 2 — Battre le Random Forest
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le même dataset de crédit `df` (risque de défaut) :
+
+1. Entraîne 4 modèles avec des hyperparamètres raisonnables :
+   - `LogisticRegression()` (baseline)
+   - `RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42)`
+   - `xgb.XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, random_state=42, eval_metric='logloss')`
+   - `lgb.LGBMClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, random_state=42, verbose=-1)`
+2. Compare leurs accuracies test.
+3. Lequel gagne ?
+4. Regarde le **gap train-test** : lequel overfit le plus ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+modeles_ex = {
+    "LogReg": LogisticRegression(max_iter=1000),
+    "RandomForest": RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42, n_jobs=-1),
+    "XGBoost": xgb.XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, 
+                                  random_state=42, eval_metric="logloss"),
+    "LightGBM": lgb.LGBMClassifier(n_estimators=200, max_depth=4, learning_rate=0.1,
+                                    random_state=42, verbose=-1),
+}
+
+resultats = []
+for nom, m in modeles_ex.items():
+    m.fit(X_train, y_train)
+    acc_tr = m.score(X_train, y_train)
+    acc_te = m.score(X_test, y_test)
+    resultats.append({
+        "modèle": nom,
+        "acc_train": acc_tr,
+        "acc_test": acc_te,
+        "gap": acc_tr - acc_te
+    })
+
+res_df = pd.DataFrame(resultats).round(3)
+print(res_df.to_string(index=False))
+
+meilleur = res_df.loc[res_df["acc_test"].idxmax(), "modèle"]
+print(f"\n🏆 Meilleur sur test : {meilleur}")
+```
+
+**Interprétation attendue** :
+
+- **LogReg** : baseline, rate les relations non-linéaires
+- **RandomForest** : bon, mais un gap train-test peut apparaître
+- **XGBoost / LightGBM** : typiquement les meilleurs, avec des gaps plus raisonnables
+
+Le vainqueur dépend un peu du dataset et du hasard, mais les gradient boosting **gagnent presque toujours** sur des datasets avec non-linéarités et interactions.
+:::
+
+# 6. Hyperparamètres clés : cheat sheet
+
+Voici les **hyperparamètres à toujours tuner** pour un boosting :
+
+## 🎯 Hyperparamètres essentiels
+
+| Paramètre | Rôle | Valeurs typiques | Effet |
+|---|---|---|---|
+| `n_estimators` | Nombre d'arbres | 100-1000 | ⬆ = plus précis mais risque d'overfitting |
+| `learning_rate` | Vitesse d'apprentissage | 0.01-0.3 | ⬇ = apprentissage plus fin mais plus lent |
+| `max_depth` | Profondeur des arbres | 3-8 | ⬆ = capture + de complexité mais overfitting |
+| `min_child_weight` (XGB) / `min_data_in_leaf` (LGB) | Taille min des feuilles | 1-20 | ⬆ = moins d'overfitting |
+| `subsample` | % d'observations par arbre | 0.7-1.0 | ⬇ = moins d'overfitting, plus rapide |
+| `colsample_bytree` | % de features par arbre | 0.7-1.0 | ⬇ = moins d'overfitting |
+| `reg_alpha` (L1), `reg_lambda` (L2) | Régularisation | 0-10 | ⬆ = moins d'overfitting |
+
+## 🔥 Combinaison type pour commencer
+
+```python
+# Configuration "robuste" pour débuter
+params_solides = {
+    "n_estimators": 200,
+    "learning_rate": 0.1,
+    "max_depth": 5,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "random_state": 42,
+}
+
+modele = xgb.XGBClassifier(**params_solides, eval_metric="logloss")
+```
+
+Ce sont des **valeurs raisonnables pour 80% des cas**. Pour aller plus loin, on utilisera `GridSearchCV` (Notion 4.6).
+
+# 🏁 Exercice bilan — Pipeline complet boosting
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Dataset : attrition client (style classique bank marketing).
+
+```python
+np.random.seed(42)
+n = 2000
+
+df = pd.DataFrame({
+    "age": np.random.randint(18, 90, n),
+    "solde_compte": np.random.normal(5000, 3000, n).clip(-500, 30000),
+    "nb_produits": np.random.randint(1, 5, n),
+    "est_actif": np.random.choice([0, 1], n, p=[0.3, 0.7]),
+    "salaire_estime": np.random.uniform(15000, 150000, n),
+    "score_credit": np.random.randint(300, 850, n),
+    "anciennete": np.random.randint(0, 15, n),
+    "nb_reclamations": np.random.poisson(0.5, n),
+})
+
+# Cible : le client va-t-il quitter la banque ?
+proba_exit = (
+    0.1
+    + 0.05 * (df["age"] > 60)
+    + 0.08 * (df["est_actif"] == 0)
+    + 0.1 * (df["solde_compte"] < 0)
+    + 0.06 * (df["nb_reclamations"] > 1)
+    + 0.03 * (df["anciennete"] < 2)
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+
+df["exit"] = (np.random.random(n) < proba_exit).astype(int)
+```
+
+**Mission** :
+
+1. Analyse rapide de la cible (équilibrée ?)
+2. Split stratifié 80/20
+3. Baseline : `LogisticRegression`
+4. Entraîne **4 modèles** :
+   - LogReg
+   - RandomForest (n_estimators=200, max_depth=10)
+   - XGBoost avec early stopping (n_estimators=500, learning_rate=0.05, max_depth=4)
+   - LightGBM (n_estimators=200, learning_rate=0.1, max_depth=5)
+5. Compare accuracies train, test, gap
+6. Feature importance du meilleur modèle
+7. Conclure : quel modèle recommander à la banque ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 2000
+
+df_bank = pd.DataFrame({
+    "age": np.random.randint(18, 90, n),
+    "solde_compte": np.random.normal(5000, 3000, n).clip(-500, 30000),
+    "nb_produits": np.random.randint(1, 5, n),
+    "est_actif": np.random.choice([0, 1], n, p=[0.3, 0.7]),
+    "salaire_estime": np.random.uniform(15000, 150000, n),
+    "score_credit": np.random.randint(300, 850, n),
+    "anciennete": np.random.randint(0, 15, n),
+    "nb_reclamations": np.random.poisson(0.5, n),
+})
+
+proba_exit = (
+    0.1
+    + 0.05 * (df_bank["age"] > 60)
+    + 0.08 * (df_bank["est_actif"] == 0)
+    + 0.1 * (df_bank["solde_compte"] < 0)
+    + 0.06 * (df_bank["nb_reclamations"] > 1)
+    + 0.03 * (df_bank["anciennete"] < 2)
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+df_bank["exit"] = (np.random.random(n) < proba_exit).astype(int)
+```
+
+```{python}
+# 1. Cible
+print(f"Taux d'exit : {df_bank['exit'].mean()*100:.1f}%")
+print(df_bank["exit"].value_counts())
+```
+
+```{python}
+# 2-3. Split
+X = df_bank.drop(columns="exit")
+y = df_bank["exit"]
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Pour early stopping, on a besoin d'un split supplémentaire
+X_tr2, X_val, y_tr2, y_val = train_test_split(X_tr, y_tr, test_size=0.2, random_state=42, stratify=y_tr)
+```
+
+```{python}
+# 4. Les 4 modèles
+modeles_ex = {
+    "LogReg": LogisticRegression(max_iter=1000),
+    "RandomForest": RandomForestClassifier(n_estimators=200, max_depth=10, random_state=42, n_jobs=-1),
+    "XGBoost (ES)": xgb.XGBClassifier(
+        n_estimators=500, learning_rate=0.05, max_depth=4,
+        early_stopping_rounds=20, random_state=42, eval_metric="logloss"
+    ),
+    "LightGBM": lgb.LGBMClassifier(
+        n_estimators=200, learning_rate=0.1, max_depth=5,
+        random_state=42, verbose=-1
+    ),
+}
+
+resultats = []
+for nom, m in modeles_ex.items():
+    if nom == "XGBoost (ES)":
+        m.fit(X_tr2, y_tr2, eval_set=[(X_val, y_val)], verbose=False)
+    else:
+        m.fit(X_tr, y_tr)
+    acc_tr = m.score(X_tr, y_tr)
+    acc_te = m.score(X_te, y_te)
+    resultats.append({
+        "modèle": nom,
+        "acc_train": acc_tr,
+        "acc_test": acc_te,
+        "gap": acc_tr - acc_te
+    })
+
+res_df = pd.DataFrame(resultats).round(3)
+print(res_df.to_string(index=False))
+```
+
+```{python}
+# 5. Baseline
+baseline = (y_te == 0).mean()
+print(f"Baseline (toujours 'reste') : {baseline:.3f}")
+```
+
+```{python}
+# 6. Feature importance du meilleur
+meilleur_nom = res_df.loc[res_df["acc_test"].idxmax(), "modèle"]
+meilleur = modeles_ex[meilleur_nom]
+
+if hasattr(meilleur, "feature_importances_"):
+    imp = pd.Series(meilleur.feature_importances_, index=X.columns).sort_values(ascending=False)
+    print(f"Feature importance ({meilleur_nom}) :")
+    print(imp.round(3).to_string())
+else:
+    print(f"Coefficients de {meilleur_nom} :")
+    print(pd.Series(meilleur.coef_[0], index=X.columns).sort_values(key=abs, ascending=False).round(3).to_string())
+```
+
+**7. Conclusion** :
+
+- Le RandomForest et les boostings battent la régression logistique
+- XGBoost avec early stopping a un meilleur gap train-test (moins d'overfitting)
+- Top features : probablement `est_actif`, `solde_compte`, `nb_reclamations` — cohérent avec la règle
+
+**À la banque** : « Le meilleur modèle est XGBoost (ou RF). Il prédit le départ d'un client avec environ XX% d'accuracy. Les trois facteurs les plus importants sont l'activité du compte, le solde et les réclamations. »
+
+⚠️ Avec un dataset déséquilibré comme celui-ci (13-15% d'exit), l'accuracy est **trompeuse**. La Notion 4.5 va t'apprendre à utiliser des métriques plus fines (precision, recall, AUC-ROC).
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Bagging vs Boosting** | Parallèle vs séquentiel : arbres indépendants vs apprentissage itératif |
+| **Gradient Boosting** | Chaque arbre corrige les erreurs du précédent |
+| **Learning rate** | Contrôle la vitesse d'apprentissage (0.01-0.3) |
+| **n_estimators** | Nombre d'arbres (100-500 typique) |
+| **max_depth** | Peu profond pour boosting (3-6) |
+| **XGBoost** | Implémentation optimisée, très rapide, standard industriel |
+| **LightGBM** | Encore plus rapide, excellent sur gros datasets |
+| **Early stopping** | Arrêter quand la validation ne progresse plus |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours commencer simple** (LogReg → RF → XGBoost)
+2. **Early stopping** pour régler `n_estimators` automatiquement
+3. **`learning_rate` faible + beaucoup d'arbres** > `learning_rate` fort + peu d'arbres
+4. **`max_depth` petit** pour le boosting (3-6), grand pour le RF (10-15)
+5. **Feature importance** pour valider que le modèle apprend du sens
+
+## 🚨 Les pièges à éviter
+
+1. **Mettre `max_depth=15` en boosting** → overfitting quasi-garanti
+2. **Oublier `random_state`** → résultats non reproductibles
+3. **Tuner sur le test** → data snooping
+4. **Ne pas comparer à un RF** → peut-être que le boosting n'apporte rien sur ton dataset
+5. **Négliger l'accuracy sur datasets déséquilibrés** → la 4.5 arrive !
+
+## 🚀 La suite
+
+Dans la [**Notion 4.5 — Métriques d'évaluation**](notion_4_5_metriques.qmd), on va enfin **comprendre pourquoi l'accuracy est souvent trompeuse** et apprendre les vraies métriques du data scientist :
+
+- **Precision, Recall, F1-score** : le trio classification
+- **ROC-AUC, Precision-Recall curve** : courbes de performance
+- **Confusion matrix** : le tableau qui révèle tout
+- **RMSE, MAE, MAPE** : les métriques de régression
+- **Choisir la bonne métrique** selon le problème métier
+
+Sans cette notion, **tu ne peux pas vraiment évaluer tes modèles**. C'est un complément indispensable.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Retour sur l'attrition RH du TP Module 3 : compare maintenant **4 modèles** :
+
+1. `LogisticRegression` (Module 4.2)
+2. `RandomForestClassifier` (Module 4.3)
+3. `XGBClassifier` avec early stopping
+4. `LGBMClassifier`
+
+Qui gagne sur ton dataset RH ? De combien ? Cette petite expérience te donnera une intuition claire de **quand chaque modèle brille**.
+:::
