@@ -1,0 +1,968 @@
+---
+title: "Notion 4.6 — Tuning et cross-validation"
+subtitle: "Optimiser proprement : de l'amateur au pro"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_6_tuning_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_6_tuning_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 4.1 à 4.5  
+**Objectif** : maîtriser les techniques professionnelles d'évaluation fiable et d'optimisation d'hyperparamètres
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre pourquoi le split **train/test seul** est insuffisant
+- Utiliser la **cross-validation** pour évaluer un modèle de manière fiable
+- Tuner les hyperparamètres avec **GridSearchCV** et **RandomizedSearchCV**
+- Intégrer tuning + preprocessing dans un **pipeline complet**
+- Diagnostiquer un modèle avec des **learning curves**
+- Éviter les pièges classiques (data leakage dans le tuning, overfitting sur validation...)
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Tu as maintenant plusieurs modèles et métriques à ta disposition. Reste LA question : **comment choisir le bon modèle avec les bons hyperparamètres ?**
+
+Jusqu'à présent tu testais des hyperparamètres **un par un, à la main**. C'est :
+- **Lent** : tester 20 combinaisons prend des heures
+- **Biaisé** : tu finis par surajuster au test set
+- **Non reproductible** : pas de trace de ce que tu as essayé
+
+Cette notion te donne les **outils professionnels** pour :
+1. Évaluer un modèle de manière **statistiquement fiable** (cross-validation)
+2. **Explorer systématiquement** l'espace des hyperparamètres (grid / random search)
+3. Faire tout ça **sans data leakage**
+
+C'est la différence entre un modèle "qui marche" et un modèle **reproductible et fiable** que tu peux mettre en production.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.model_selection import (
+    train_test_split, cross_val_score, cross_validate,
+    KFold, StratifiedKFold,
+    GridSearchCV, RandomizedSearchCV,
+    learning_curve
+)
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.metrics import accuracy_score, f1_score
+
+import xgboost as xgb
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Pourquoi le train/test seul ne suffit pas
+
+## 🎲 Le problème de la variance
+
+Quand tu fais `train_test_split(..., random_state=42)`, tu obtiens **une** évaluation. Mais cette évaluation dépend du **tirage au sort** : avec `random_state=0`, `42`, `123`, les scores seront différents.
+
+```{python}
+# Démonstration : même modèle, plusieurs splits
+np.random.seed(0)
+n = 500
+
+df = pd.DataFrame({
+    "x1": np.random.randn(n),
+    "x2": np.random.randn(n),
+    "x3": np.random.randn(n),
+})
+df["y"] = ((df["x1"] + df["x2"] - df["x3"]) > 0).astype(int)
+
+X = df.drop(columns="y")
+y = df["y"]
+
+scores = []
+for seed in range(10):
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=seed, stratify=y)
+    modele = LogisticRegression().fit(X_tr, y_tr)
+    scores.append(modele.score(X_te, y_te))
+
+scores_arr = np.array(scores)
+print(f"Accuracies sur 10 splits : {scores_arr.round(3).tolist()}")
+print(f"Moyenne  : {scores_arr.mean():.3f}")
+print(f"Écart-type : {scores_arr.std():.3f}")
+print(f"Min / Max : {scores_arr.min():.3f} / {scores_arr.max():.3f}")
+```
+
+**Observation** : la performance varie de 0.03-0.05 points selon le split ! Tu pourrais **choisir le mauvais modèle** juste parce que tu as eu de la chance/malchance sur ton split.
+
+## 💡 La solution : moyenner sur plusieurs splits
+
+L'idée de la **cross-validation** : on **ne fait pas un seul split**. On découpe les données en **K morceaux** et on évalue le modèle **K fois**, à chaque fois avec un morceau différent comme validation.
+
+# 2. K-fold cross-validation
+
+## 🎨 Le principe visuel
+
+```
+Dataset complet : [=========================]
+
+Fold 1  Validation : [===]           Train : [   =====================]
+Fold 2  Validation :    [===]        Train : [===   ==================]
+Fold 3  Validation :       [===]     Train : [======   ===============]
+Fold 4  Validation :          [===]  Train : [=========   ============]
+Fold 5  Validation :             [===] Train : [============   =========]
+```
+
+À chaque itération :
+- **1/K du dataset** sert de validation
+- **(K-1)/K du dataset** sert de train
+- On **entraîne et évalue**
+
+À la fin : on a **K scores**, dont on calcule la **moyenne** et l'**écart-type**.
+
+**K typique** : 5 ou 10.
+
+## 🚀 Utilisation avec scikit-learn
+
+La manière la plus simple :
+
+```{python}
+modele = LogisticRegression()
+
+# Cross-validation à 5 folds
+scores_cv = cross_val_score(modele, X, y, cv=5, scoring="accuracy")
+
+print(f"Scores des 5 folds : {scores_cv.round(3).tolist()}")
+print(f"Moyenne ± écart-type : {scores_cv.mean():.3f} ± {scores_cv.std():.3f}")
+```
+
+**Lecture** : le modèle a en moyenne 0.XX d'accuracy, avec une variabilité de ±0.YY. C'est beaucoup plus fiable qu'un seul score.
+
+## 🎯 StratifiedKFold : pour la classification
+
+Quand la cible est **déséquilibrée**, il faut **stratifier** comme pour le train/test split. `StratifiedKFold` garantit que **chaque fold a la même proportion de chaque classe**.
+
+```{python}
+# StratifiedKFold explicite
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+scores_cv_strat = cross_val_score(modele, X, y, cv=skf, scoring="accuracy")
+print(f"Scores stratifiés : {scores_cv_strat.round(3).tolist()}")
+print(f"Moyenne ± écart-type : {scores_cv_strat.mean():.3f} ± {scores_cv_strat.std():.3f}")
+```
+
+::: {.callout-tip}
+## 🧠 Bonne pratique
+Quand tu passes `cv=5` à `cross_val_score` **sur un problème de classification**, sklearn utilise déjà **StratifiedKFold** par défaut. Mais autant l'expliciter pour la clarté.
+:::
+
+## 📊 Évaluer plusieurs métriques à la fois
+
+`cross_validate` est plus puissant que `cross_val_score` : il retourne **plusieurs métriques**, ainsi que les temps d'exécution.
+
+```{python}
+scoring_multi = ["accuracy", "precision", "recall", "f1", "roc_auc"]
+
+resultats = cross_validate(
+    modele, X, y, cv=5, scoring=scoring_multi, return_train_score=True
+)
+
+# Présenter proprement
+bilan = pd.DataFrame({
+    metric: [resultats[f"test_{metric}"].mean(), resultats[f"test_{metric}"].std()]
+    for metric in scoring_multi
+}, index=["moyenne", "écart-type"]).T
+
+print(bilan.round(3))
+```
+
+## ✏️ Exercice 1 — Cross-validation en pratique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+# Dataset de classification
+np.random.seed(123)
+n = 400
+df = pd.DataFrame({
+    "age": np.random.randint(18, 70, n),
+    "salaire": np.random.normal(3000, 1000, n),
+    "anciennete": np.random.exponential(5, n).clip(0, 30),
+    "satisfaction": np.random.uniform(1, 10, n),
+})
+
+proba = (
+    0.1
+    + 0.15 * (df["satisfaction"] < 4)
+    + 0.1 * (df["anciennete"] < 2)
+    + np.random.uniform(0, 0.15, n)
+).clip(0, 1)
+df["y"] = (np.random.random(n) < proba).astype(int)
+```
+
+1. Fais d'abord un simple `train_test_split` et calcule l'accuracy d'un `RandomForestClassifier(n_estimators=100, random_state=42)`.
+2. Maintenant, fais une **cross-validation à 5 folds stratifiée** sur TOUT le dataset. Compare à la première accuracy.
+3. Calcule la **moyenne et l'écart-type** des 5 scores de CV.
+4. L'accuracy du train/test split est-elle dans l'intervalle `moyenne ± écart-type` ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(123)
+n = 400
+df_ex = pd.DataFrame({
+    "age": np.random.randint(18, 70, n),
+    "salaire": np.random.normal(3000, 1000, n),
+    "anciennete": np.random.exponential(5, n).clip(0, 30),
+    "satisfaction": np.random.uniform(1, 10, n),
+})
+proba = (
+    0.1
+    + 0.15 * (df_ex["satisfaction"] < 4)
+    + 0.1 * (df_ex["anciennete"] < 2)
+    + np.random.uniform(0, 0.15, n)
+).clip(0, 1)
+df_ex["y"] = (np.random.random(n) < proba).astype(int)
+
+X_ex = df_ex.drop(columns="y")
+y_ex = df_ex["y"]
+
+# 1. Train/test simple
+X_tr, X_te, y_tr, y_te = train_test_split(X_ex, y_ex, test_size=0.2, random_state=42, stratify=y_ex)
+rf = RandomForestClassifier(n_estimators=100, random_state=42).fit(X_tr, y_tr)
+acc_split = rf.score(X_te, y_te)
+print(f"Accuracy train/test split : {acc_split:.3f}")
+```
+
+```{python}
+# 2-3. CV stratifiée à 5 folds
+rf_cv = RandomForestClassifier(n_estimators=100, random_state=42)
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+scores = cross_val_score(rf_cv, X_ex, y_ex, cv=skf, scoring="accuracy")
+
+print(f"Scores CV : {scores.round(3).tolist()}")
+print(f"Moyenne ± écart-type : {scores.mean():.3f} ± {scores.std():.3f}")
+```
+
+```{python}
+# 4. Comparaison
+print(f"\nTrain/test split : {acc_split:.3f}")
+print(f"Intervalle CV : [{scores.mean() - scores.std():.3f}, {scores.mean() + scores.std():.3f}]")
+
+dans_intervalle = scores.mean() - scores.std() <= acc_split <= scores.mean() + scores.std()
+print(f"Dans l'intervalle : {dans_intervalle}")
+```
+
+**Interprétation** : si l'accuracy du split unique est **dans l'intervalle** `moyenne ± écart-type` de la CV, c'est cohérent. Sinon, c'est que le split était exceptionnellement chanceux ou malchanceux — et on ne devrait **pas** se fier au score unique.
+:::
+
+# 3. GridSearchCV : explorer systématiquement
+
+## 🎯 Le problème
+
+Tester des hyperparamètres "à la main" c'est laborieux et biaisé. On veut **automatiser** l'exploration.
+
+## 🔧 GridSearchCV : grille exhaustive
+
+**Idée** : définir une **grille** de valeurs à tester, et l'algorithme essaie **toutes les combinaisons** (évaluées en cross-validation).
+
+```{python}
+# Exemple : tuner un RandomForest
+param_grid = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [3, 5, 10],
+    "min_samples_leaf": [1, 5, 10],
+}
+
+# 3 × 3 × 3 = 27 combinaisons à tester
+print(f"Nombre de combinaisons : {3 * 3 * 3}")
+print(f"Avec CV à 5 folds : {3 * 3 * 3 * 5} entraînements")
+```
+
+## 🚀 Implémentation
+
+::: {.callout-warning}
+## ⏱️ Temps d'exécution
+Un GridSearch de 27 combinaisons × 5 folds = **135 entraînements** — ça prend de **quelques dizaines de secondes à quelques minutes** selon ton CPU. Si tu as peu de temps ou un gros dataset, réduis la grille ou passe à RandomizedSearchCV.
+:::
+
+```{python}
+# On part du dataset de l'exercice 1
+np.random.seed(123)
+n = 400
+df_tune = pd.DataFrame({
+    "age": np.random.randint(18, 70, n),
+    "salaire": np.random.normal(3000, 1000, n),
+    "anciennete": np.random.exponential(5, n).clip(0, 30),
+    "satisfaction": np.random.uniform(1, 10, n),
+})
+proba = (
+    0.1
+    + 0.15 * (df_tune["satisfaction"] < 4)
+    + 0.1 * (df_tune["anciennete"] < 2)
+    + np.random.uniform(0, 0.15, n)
+).clip(0, 1)
+df_tune["y"] = (np.random.random(n) < proba).astype(int)
+
+X = df_tune.drop(columns="y")
+y = df_tune["y"]
+
+# Split : train pour le tuning (CV), test final pour l'évaluation honnête
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# GridSearchCV
+param_grid = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [3, 5, 10],
+    "min_samples_leaf": [1, 5, 10],
+}
+
+grid = GridSearchCV(
+    estimator=RandomForestClassifier(random_state=42, n_jobs=-1),
+    param_grid=param_grid,
+    cv=5,
+    scoring="f1",       # on optimise sur le F1
+    n_jobs=-1,          # parallélisation
+    verbose=0
+)
+
+grid.fit(X_train, y_train)
+
+print(f"Meilleurs hyperparamètres : {grid.best_params_}")
+print(f"Meilleur F1 (CV)          : {grid.best_score_:.3f}")
+```
+
+## 📊 Exploiter les résultats
+
+```{python}
+# Voir toutes les combinaisons testées
+resultats_cv = pd.DataFrame(grid.cv_results_)
+colonnes_interessantes = ["param_n_estimators", "param_max_depth", "param_min_samples_leaf",
+                          "mean_test_score", "std_test_score", "rank_test_score"]
+
+top5 = resultats_cv[colonnes_interessantes].sort_values("rank_test_score").head(5)
+print("Top 5 des meilleures combinaisons :")
+print(top5.to_string(index=False))
+```
+
+## 🎯 Le modèle final
+
+Après le tuning, **le meilleur modèle est automatiquement ré-entraîné sur tout le train**. Tu peux l'utiliser directement :
+
+```{python}
+# Évaluer le meilleur modèle sur le TEST (qu'on n'a pas encore touché)
+f1_test = f1_score(y_test, grid.predict(X_test))
+print(f"F1 du meilleur modèle sur test : {f1_test:.3f}")
+```
+
+::: {.callout-warning}
+## ⚠️ Règle d'or
+Utilise le **test set UNE SEULE FOIS à la fin**. Si tu refais le grid search pour améliorer ce score, tu fais du **data snooping** → le test n'a plus de valeur.
+
+Le test ne sert **qu'à valider** la performance finale, pas à optimiser.
+:::
+
+# 4. RandomizedSearchCV : plus malin que GridSearch
+
+## 🎲 Le problème de GridSearch
+
+Si tu veux explorer plus d'hyperparamètres, l'explosion combinatoire est rapide :
+
+```
+3 params × 5 valeurs chacun × 5 folds = 75 × 5 = 375 entraînements
+5 params × 5 valeurs chacun × 5 folds = 3125 × 5 = 15 625 entraînements
+```
+
+**Sur un dataset un peu gros, c'est ingérable.**
+
+## 💡 L'alternative : RandomizedSearchCV
+
+Au lieu de tester **toutes** les combinaisons, `RandomizedSearchCV` tire **aléatoirement** N combinaisons dans l'espace des possibilités.
+
+**Surprenant mais vrai** : sur beaucoup de problèmes, **RandomizedSearchCV donne des résultats presque aussi bons que GridSearch, avec bien moins d'entraînements**.
+
+```{python}
+from scipy.stats import randint
+
+# On peut définir des distributions au lieu de listes
+param_distributions = {
+    "n_estimators": randint(50, 500),
+    "max_depth": randint(3, 20),
+    "min_samples_leaf": randint(1, 20),
+}
+
+random_search = RandomizedSearchCV(
+    estimator=RandomForestClassifier(random_state=42, n_jobs=-1),
+    param_distributions=param_distributions,
+    n_iter=30,           # 30 combinaisons aléatoires
+    cv=5,
+    scoring="f1",
+    n_jobs=-1,
+    random_state=42,
+    verbose=0
+)
+
+random_search.fit(X_train, y_train)
+
+print(f"Meilleurs hyperparamètres : {random_search.best_params_}")
+print(f"Meilleur F1 (CV)          : {random_search.best_score_:.3f}")
+```
+
+**Avantage** : tu peux explorer **un espace beaucoup plus grand** avec moins d'itérations.
+
+## 🎯 Grid vs Random : quand utiliser quoi ?
+
+| Situation | Utiliser |
+|---|---|
+| Peu d'hyperparamètres (< 3) | **GridSearchCV** |
+| Beaucoup d'hyperparamètres | **RandomizedSearchCV** |
+| Budget temps limité | **RandomizedSearchCV** |
+| Besoin de la meilleure combinaison absolue | **GridSearch** (si possible) |
+
+**En pratique** : **toujours commencer par RandomizedSearchCV** pour dégrossir, puis affiner avec un petit GridSearch autour des meilleures valeurs trouvées.
+
+## ✏️ Exercice 2 — GridSearch sur un XGBoost
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le même dataset :
+
+1. Crée un `xgb.XGBClassifier(random_state=42, eval_metric='logloss')`.
+2. Définis une grille pour chercher le meilleur modèle :
+   - `n_estimators` : [50, 100, 200]
+   - `max_depth` : [3, 5, 7]
+   - `learning_rate` : [0.05, 0.1, 0.2]
+3. Lance un `GridSearchCV` avec `cv=5` et `scoring="f1"`.
+4. Affiche les meilleurs hyperparamètres et le meilleur F1 (CV).
+5. Compare la performance de ce modèle tuné sur le **test** avec un XGBoost par défaut.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1-2. Modèle et grille
+modele_xgb = xgb.XGBClassifier(random_state=42, eval_metric="logloss")
+
+param_grid_xgb = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [3, 5, 7],
+    "learning_rate": [0.05, 0.1, 0.2],
+}
+
+# 3. GridSearch
+grid_xgb = GridSearchCV(
+    modele_xgb, param_grid_xgb,
+    cv=5, scoring="f1", n_jobs=-1
+)
+grid_xgb.fit(X_train, y_train)
+
+# 4. Résultats
+print(f"Meilleurs hyperparamètres : {grid_xgb.best_params_}")
+print(f"Meilleur F1 CV           : {grid_xgb.best_score_:.3f}")
+```
+
+```{python}
+# 5. Comparaison tuné vs défaut
+xgb_default = xgb.XGBClassifier(random_state=42, eval_metric="logloss").fit(X_train, y_train)
+f1_default = f1_score(y_test, xgb_default.predict(X_test))
+
+xgb_tune = grid_xgb.best_estimator_
+f1_tune = f1_score(y_test, xgb_tune.predict(X_test))
+
+print(f"\nF1 test XGBoost défaut : {f1_default:.3f}")
+print(f"F1 test XGBoost tuné   : {f1_tune:.3f}")
+print(f"Gain : {(f1_tune - f1_default) * 100:+.1f} points")
+```
+
+**Observation** : le tuning peut apporter **1-5 points de gain**, parfois plus. Sur un problème bien posé, c'est toujours **rentable**.
+:::
+
+# 5. Tuning avec pipeline : la vraie vie
+
+## 🎯 Le problème
+
+Jusqu'ici, on tune sur des données **déjà préparées**. Mais en vrai, tu veux **intégrer le preprocessing** (scaling, encoding) dans le tuning aussi — sinon tu risques des **data leakages** dans la cross-validation.
+
+## 🔧 Pipeline + GridSearchCV
+
+La règle : **tout** le preprocessing doit être dans un pipeline, et c'est **le pipeline** qu'on tune.
+
+```{python}
+# Pipeline preprocessing + modèle
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=-1))
+])
+
+# Notation spéciale pour les hyperparamètres du pipeline
+# préfixe = nom de l'étape + __
+param_grid = {
+    "clf__n_estimators": [50, 100, 200],
+    "clf__max_depth": [3, 5, 10],
+}
+
+grid = GridSearchCV(pipeline, param_grid, cv=5, scoring="f1", n_jobs=-1)
+grid.fit(X_train, y_train)
+
+print(f"Meilleurs hyperparamètres : {grid.best_params_}")
+print(f"F1 test : {f1_score(y_test, grid.predict(X_test)):.3f}")
+```
+
+**Ce qui se passe** : à chaque fold de la CV, le scaler est **ré-appris sur le train du fold uniquement**, puis appliqué au validation du fold. **Zéro data leakage.**
+
+## 🏭 Exemple industriel : ColumnTransformer + Pipeline
+
+Dans un cas réel, tu as plusieurs types de colonnes et tu veux tout tuner en une seule passe :
+
+```{python}
+# Dataset avec colonnes numériques et catégorielles
+df_mixed = pd.DataFrame({
+    "age": np.random.randint(20, 70, 500),
+    "salaire": np.random.normal(3000, 1000, 500),
+    "departement": np.random.choice(["IT", "RH", "Ventes"], 500),
+    "niveau": np.random.choice(["Junior", "Senior"], 500),
+})
+df_mixed["y"] = np.random.choice([0, 1], 500, p=[0.7, 0.3])
+
+from sklearn.preprocessing import OneHotEncoder
+
+# ColumnTransformer : preprocessing différencié par colonne
+preprocessor = ColumnTransformer([
+    ("num", StandardScaler(), ["age", "salaire"]),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), ["departement", "niveau"]),
+])
+
+# Pipeline complet
+pipeline_complet = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=-1))
+])
+
+# Tuning
+param_grid_complet = {
+    "clf__n_estimators": [50, 100, 200],
+    "clf__max_depth": [3, 5, 10],
+}
+
+X = df_mixed.drop(columns="y")
+y = df_mixed["y"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+grid_complet = GridSearchCV(pipeline_complet, param_grid_complet, cv=5, scoring="f1", n_jobs=-1)
+grid_complet.fit(X_train, y_train)
+
+print(f"Meilleurs hyperparamètres : {grid_complet.best_params_}")
+print(f"Test F1 : {f1_score(y_test, grid_complet.predict(X_test)):.3f}")
+```
+
+**Voilà** la vraie approche industrielle : un seul objet `grid_complet` encapsule tout (preprocessing + modèle + tuning), se sauvegarde facilement, se déploie proprement.
+
+# 6. Learning curves : diagnostiquer un modèle
+
+## 🎯 Pourquoi les learning curves ?
+
+Après avoir tuné ton modèle, tu veux savoir : **si j'avais plus de données, serait-il meilleur ?** Ou : **est-ce qu'il overfit ?**
+
+Les **learning curves** répondent à ces questions en traçant la performance **en fonction de la taille du training set**.
+
+## 📊 Construire une learning curve
+
+```{python}
+from sklearn.model_selection import learning_curve
+
+modele_lc = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+
+# learning_curve : découpe le train en sous-ensembles de tailles croissantes
+train_sizes, train_scores, val_scores = learning_curve(
+    modele_lc, X, y,
+    train_sizes=np.linspace(0.1, 1.0, 10),
+    cv=5,
+    scoring="accuracy",
+    n_jobs=-1,
+    random_state=42
+)
+
+# Moyennes
+train_mean = train_scores.mean(axis=1)
+train_std = train_scores.std(axis=1)
+val_mean = val_scores.mean(axis=1)
+val_std = val_scores.std(axis=1)
+```
+
+```{python}
+#| label: fig-learning-curve
+#| fig-cap: "Learning curve : score en fonction de la taille du train"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+ax.plot(train_sizes, train_mean, "o-", label="Train", color="steelblue")
+ax.fill_between(train_sizes, train_mean - train_std, train_mean + train_std,
+                 alpha=0.2, color="steelblue")
+
+ax.plot(train_sizes, val_mean, "o-", label="Validation (CV)", color="coral")
+ax.fill_between(train_sizes, val_mean - val_std, val_mean + val_std,
+                 alpha=0.2, color="coral")
+
+ax.set_xlabel("Taille du train")
+ax.set_ylabel("Accuracy")
+ax.set_title("Learning curve")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## 🔍 Comment interpréter ?
+
+### Cas 1 : Underfitting (biais élevé)
+
+```
+Train et Val       ➜
+convergent vers    ➜  Tous les deux bas et plats
+une performance    ➜
+médiocre
+```
+
+**Diagnostic** : le modèle est trop simple. **Solution** : modèle plus complexe (plus d'arbres, plus profond, features plus riches).
+
+### Cas 2 : Overfitting (variance élevée)
+
+```
+Train : très haut     ➜ 
+                      ➜  Grand écart
+Val : bas             ➜
+```
+
+**Diagnostic** : le modèle apprend par cœur. **Solutions** :
+- Plus de données
+- Régularisation (max_depth plus petit, min_samples_leaf plus grand)
+- Modèle plus simple
+
+### Cas 3 : Bon ajustement
+
+```
+Train et Val          ➜
+convergent à un       ➜ Proches et élevés
+niveau élevé
+```
+
+**Diagnostic** : ton modèle est bien calibré. ✅
+
+## 🧪 Exemple : diagnostiquer un overfitting
+
+```{python}
+#| label: fig-lc-overfit
+#| fig-cap: "Exemple d'overfitting sur learning curve"
+
+# Modèle volontairement sur-complexe
+modele_over = RandomForestClassifier(n_estimators=500, max_depth=None, min_samples_leaf=1, random_state=42)
+
+train_sizes2, train_scores2, val_scores2 = learning_curve(
+    modele_over, X, y, train_sizes=np.linspace(0.1, 1.0, 10), cv=5,
+    scoring="accuracy", n_jobs=-1, random_state=42
+)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(train_sizes2, train_scores2.mean(axis=1), "o-", label="Train", color="steelblue")
+ax.plot(train_sizes2, val_scores2.mean(axis=1), "o-", label="Validation", color="coral")
+ax.set_xlabel("Taille du train")
+ax.set_ylabel("Accuracy")
+ax.set_title("Modèle sur-complexe : train quasi parfait, val plus bas → OVERFITTING")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+Tu vois **un gros écart** entre train et validation → le modèle a mémorisé le train sans généraliser.
+
+# 🏁 Exercice bilan — Tuning complet end-to-end
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Dataset : churn client d'un service financier.
+
+```python
+np.random.seed(42)
+n = 1500
+
+df = pd.DataFrame({
+    "age": np.random.randint(20, 80, n),
+    "anciennete_annees": np.random.exponential(5, n).clip(0, 30),
+    "revenus_mensuels": np.random.gamma(2, 2000, n).clip(500, 20000),
+    "solde_moyen": np.random.normal(5000, 3000, n).clip(0, 50000),
+    "nb_produits": np.random.randint(1, 5, n),
+    "a_credit_immo": np.random.choice([0, 1], n, p=[0.6, 0.4]),
+    "nb_reclamations": np.random.poisson(0.5, n),
+    "categorie_client": np.random.choice(["Gold", "Silver", "Bronze"], n, p=[0.15, 0.35, 0.5])
+})
+
+# Cible déséquilibrée
+proba_churn = (
+    0.1
+    + 0.08 * (df["nb_reclamations"] > 2)
+    + 0.06 * (df["solde_moyen"] < 1000)
+    + 0.05 * (df["anciennete_annees"] < 2)
+    + 0.07 * (df["categorie_client"] == "Bronze")
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+df["churn"] = (np.random.random(n) < proba_churn).astype(int)
+```
+
+**Mission** : entraîner et tuner un modèle complet, proprement.
+
+1. Split stratifié 80/20 (random_state=42).
+2. Construis un **pipeline complet** : `ColumnTransformer` (StandardScaler sur numériques, OneHotEncoder sur `categorie_client`) + `RandomForestClassifier`.
+3. Fais un `GridSearchCV` sur :
+   - `clf__n_estimators` : [100, 200]
+   - `clf__max_depth` : [5, 10, None]
+   - `clf__min_samples_leaf` : [1, 5]
+   - `cv=5`, `scoring="f1"`
+4. Affiche les meilleurs hyperparamètres et le F1 CV.
+5. Évalue sur le **test** : accuracy, precision, recall, F1, ROC-AUC.
+6. Trace la **learning curve** du meilleur modèle.
+7. Conclus : le modèle profiterait-il de plus de données ? Overfitte-t-il ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+)
+
+# Setup
+np.random.seed(42)
+n = 1500
+df_bilan = pd.DataFrame({
+    "age": np.random.randint(20, 80, n),
+    "anciennete_annees": np.random.exponential(5, n).clip(0, 30),
+    "revenus_mensuels": np.random.gamma(2, 2000, n).clip(500, 20000),
+    "solde_moyen": np.random.normal(5000, 3000, n).clip(0, 50000),
+    "nb_produits": np.random.randint(1, 5, n),
+    "a_credit_immo": np.random.choice([0, 1], n, p=[0.6, 0.4]),
+    "nb_reclamations": np.random.poisson(0.5, n),
+    "categorie_client": np.random.choice(["Gold", "Silver", "Bronze"], n, p=[0.15, 0.35, 0.5])
+})
+proba_churn = (
+    0.1
+    + 0.08 * (df_bilan["nb_reclamations"] > 2)
+    + 0.06 * (df_bilan["solde_moyen"] < 1000)
+    + 0.05 * (df_bilan["anciennete_annees"] < 2)
+    + 0.07 * (df_bilan["categorie_client"] == "Bronze")
+    + np.random.uniform(0, 0.1, n)
+).clip(0, 1)
+df_bilan["churn"] = (np.random.random(n) < proba_churn).astype(int)
+
+print(f"Taux de churn : {df_bilan['churn'].mean() * 100:.1f}%")
+```
+
+```{python}
+# 1. Split
+X = df_bilan.drop(columns="churn")
+y = df_bilan["churn"]
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 2. Pipeline complet
+num_cols = ["age", "anciennete_annees", "revenus_mensuels", "solde_moyen", 
+            "nb_produits", "a_credit_immo", "nb_reclamations"]
+cat_cols = ["categorie_client"]
+
+preprocessor = ColumnTransformer([
+    ("num", StandardScaler(), num_cols),
+    ("cat", OneHotEncoder(handle_unknown="ignore"), cat_cols),
+])
+
+pipeline = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=-1))
+])
+```
+
+```{python}
+# 3. GridSearchCV
+param_grid = {
+    "clf__n_estimators": [100, 200],
+    "clf__max_depth": [5, 10, None],
+    "clf__min_samples_leaf": [1, 5],
+}
+
+grid = GridSearchCV(
+    pipeline, param_grid,
+    cv=5, scoring="f1", n_jobs=-1, verbose=0
+)
+grid.fit(X_train, y_train)
+
+# 4. Résultats
+print(f"Meilleurs hyperparamètres : {grid.best_params_}")
+print(f"Meilleur F1 CV           : {grid.best_score_:.3f}")
+```
+
+```{python}
+# 5. Évaluation sur test
+y_pred = grid.predict(X_test)
+y_proba = grid.predict_proba(X_test)[:, 1]
+
+print("=" * 40)
+print("📊 ÉVALUATION SUR TEST")
+print("=" * 40)
+print(f"Accuracy  : {accuracy_score(y_test, y_pred):.3f}")
+print(f"Precision : {precision_score(y_test, y_pred, zero_division=0):.3f}")
+print(f"Recall    : {recall_score(y_test, y_pred):.3f}")
+print(f"F1-score  : {f1_score(y_test, y_pred, zero_division=0):.3f}")
+print(f"ROC-AUC   : {roc_auc_score(y_test, y_proba):.3f}")
+```
+
+```{python}
+# 6. Learning curve
+meilleur_pipeline = grid.best_estimator_
+
+train_sizes, train_scores, val_scores = learning_curve(
+    meilleur_pipeline, X, y,
+    train_sizes=np.linspace(0.1, 1.0, 8),
+    cv=5, scoring="f1", n_jobs=-1, random_state=42
+)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(train_sizes, train_scores.mean(axis=1), "o-", label="Train", color="steelblue")
+ax.fill_between(train_sizes, 
+                 train_scores.mean(axis=1) - train_scores.std(axis=1),
+                 train_scores.mean(axis=1) + train_scores.std(axis=1),
+                 alpha=0.2, color="steelblue")
+ax.plot(train_sizes, val_scores.mean(axis=1), "o-", label="Validation", color="coral")
+ax.fill_between(train_sizes,
+                 val_scores.mean(axis=1) - val_scores.std(axis=1),
+                 val_scores.mean(axis=1) + val_scores.std(axis=1),
+                 alpha=0.2, color="coral")
+ax.set_xlabel("Taille du train")
+ax.set_ylabel("F1")
+ax.set_title("Learning curve du modèle tuné")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**7. Conclusion** :
+
+- **Modèle performant** : F1 élevé sur CV et test confirment la stabilité
+- **Gap train-validation** : si le train est beaucoup plus haut que la validation → overfitting (régulariser davantage)
+- **Pente de la validation** : si elle continue à monter avec plus de données → **profiterait de plus de données**
+- **Pente aplatie** : performance stabilisée → **plus de données ne feront pas mieux** (besoin de meilleures features ou un modèle différent)
+
+Le pipeline entier est **prêt pour la production** : `pickle.dump(grid.best_estimator_)` et c'est fait.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Les 4 outils à maîtriser
+
+| Outil | Usage | Code sklearn |
+|---|---|---|
+| **`cross_val_score`** | Évaluer un modèle de manière fiable | `cross_val_score(modele, X, y, cv=5)` |
+| **`GridSearchCV`** | Tuner (peu d'hyperparamètres) | `GridSearchCV(modele, grille, cv=5)` |
+| **`RandomizedSearchCV`** | Tuner (beaucoup d'hyperparamètres) | `RandomizedSearchCV(modele, dist, n_iter=50)` |
+| **`learning_curve`** | Diagnostiquer bias/variance | `learning_curve(modele, X, y, ...)` |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours cross-validation** pour évaluer, pas un simple split
+2. **StratifiedKFold** pour la classification (implicite avec `cv=5`)
+3. **Tuning dans un pipeline** pour éviter le data leakage
+4. **Test final UNIQUE** — ne pas y revenir pour améliorer
+5. **Learning curve** pour comprendre si le modèle peut être amélioré
+
+## 🚨 Les pièges à éviter
+
+1. **Tuner sans pipeline** → data leakage dans les splits de CV
+2. **Optimiser sur le test** → data snooping, scores faussés
+3. **Grille trop grande** → temps d'entraînement délirant
+4. **Pas de `random_state`** → résultats non reproductibles
+5. **Ignorer l'écart-type de la CV** → un score moyen sans variance ne dit rien
+
+## 🚀 La suite
+
+Tu as maintenant **toutes les briques** du ML supervisé :
+
+- ✅ Régression et classification (4.1)
+- ✅ Régressions linéaire et logistique (4.2)
+- ✅ Arbres et Random Forest (4.3)
+- ✅ Gradient Boosting (4.4)
+- ✅ Métriques (4.5)
+- ✅ Tuning et cross-validation (4.6)
+
+Prêt pour le **TP sommatif du Module 4** ! Ce sera une **compétition de ML** complète, de l'exploration des données jusqu'au modèle final tuné, avec un rapport pro.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends ton meilleur modèle d'attrition RH (du TP Module 3), et :
+
+1. Intègre-le dans un **pipeline scikit-learn** propre (ColumnTransformer + modèle)
+2. Fais un **GridSearchCV** pour tuner 2-3 hyperparamètres clés
+3. Évalue le gain (F1 avant vs après tuning)
+4. Trace la **learning curve** du meilleur modèle
+5. Plus de données améliorerait-il ton modèle ? Overfitte-t-il ?
+
+Tu auras fait le tour complet de ce qu'un data scientist junior fait au quotidien !
+:::
