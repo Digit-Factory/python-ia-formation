@@ -1,0 +1,1506 @@
+id_employe,nom_complet,age,genre,departement,niveau_etudes,anciennete_annees,distance_km,salaire_mensuel,heures_supp_semaine,satisfaction,nb_formations,teletravail_jours,date_embauche,matricule_interne,pays,attrition
+EMP00001,Alice Leroy,54,F,Production,Master,10.8,15.8,4301.0,0.6,Neutre,1,0,2014-03-17,92260,France,0
+EMP00002,Inès Simon,45,M,IT,Bac,5.3,32.3,1981.0,4.1,Neutre,1,0,2019-09-15,38817,France,0
+EMP00003,Quentin Roux,35,M,Ventes,Doctorat,0.6,14.2,4844.0,1.8,Neutre,3,0,2024-05-26,65551,France,0
+EMP00004,Alice Bernard,36,M,R&D,Master,3.5,12.4,3032.0,1.6,Très satisfait,2,2,2021-07-03,92816,France,0
+EMP00005,Alice Dubois,47,M,Production,Bac,4.9,9.7,2199.0,4.3,Neutre,1,3,2020-02-08,20815,France,0
+EMP00006,Hugo Petit,49,F,Marketing,Doctorat,1.9,5.8,5465.0,0.5,Neutre,1,4,2023-02-07,87085,France,1
+EMP00007,Karim Garcia,18,M,Production,Master,2.5,3.4,3619.0,0.4,Satisfait,2,1,2022-07-03,61929,France,0
+EMP00008,Paul Simon,24,F,R&D,Master,3.2,4.0,3175.0,10.9,Très insatisfait,1,1,2021-10-20,42165,France,0
+EMP00009,François Durand,42,M,Ventes,Master,1.8,5.0,3391.0,0.9,Très satisfait,0,0,2023-03-15,61833,France,0
+EMP00010,Inès Moreau,39,M,Ventes,Doctorat,0.6,9.4,4339.0,3.4,Satisfait,2,0,2024-05-26,74022,France,0
+EMP00011,FRANÇOIS LAURENT,48,F,R&D,Bac,8.9,12.3,2376.0,8.0,Très insatisfait,4,1,2016-02-09,61290,France,0
+EMP00012,Emma Petit,54,M,Ventes,Bac,1.9,11.1,1960.0,8.4,Neutre,0,0,2023-02-07,20519,France,0
+EMP00013,Rose Petit,22,M,RH,Master,3.4,20.1,3055.0,7.7,Satisfait,2,2,2021-08-08,42048,France,0
+EMP00014,Karim Laurent,35,M,Marketing,Licence,3.5,22.0,2668.0,12.5,Insatisfait,3,0,2021-07-03,14078,France,1
+EMP00015,Karim Michel,49,M,Production,Licence,10.9,34.4,3187.0,2.6,Neutre,0,2,2014-02-09,82114,France,0
+EMP00016,Emma Simon,46,F,R&D,Licence,5.2,21.4,2516.0,8.3,Insatisfait,3,1,2019-10-21,43442,France,0
+EMP00017,  Olivier  Garcia  ,33,M,Ventes,Master,11.1,19.6,3824.0,6.5,Satisfait,3,2,2013-11-28,17489,France,0
+EMP00018,Hugo Garcia,35,F,Production,Master,0.4,10.8,3632.0,5.6,Neutre,5,3,2024-08-07,21661,France,0
+EMP00019,Karim Moreau,47,M,Marketing,Bac,2.9,17.0,2089.0,2.6,Très satisfait,0,0,2022-02-07,58533,France,0
+EMP00020,Nora Martin,30,F,IT,Bac,1.6,7.6,1651.0,3.1,Satisfait,2,2,2023-05-27,92628,France,0
+EMP00021,  Olivier  Durand  ,40,F,IT,Licence,7.8,13.5,3246.0,7.8,Neutre,2,3,2017-03-16,66770,France,0
+EMP00022,Nora Leroy,52,M,Production,Licence,2.0,32.4,2555.0,2.3,Insatisfait,1,0,2023-01-01,15287,France,0
+EMP00023,Inès Martin,23,M,Marketing,Bac,1.4,32.0,2143.0,7.9,Satisfait,0,3,2023-08-09,18732,France,1
+EMP00024,Claire Dubois,23,F,R&D,Doctorat,12.4,32.1,6218.0,1.7,Très satisfait,3,2,2012-08-10,47343,France,0
+EMP00025,alice fournier,47,F,Ventes,Master,18.4,7.0,5699.0,8.6,Satisfait,2,5,2006-08-13,20834,France,0
+EMP00026,François Fournier,29,M,R&D,Licence,3.3,26.8,,4.7,Neutre,1,2,2021-09-14,21323,France,0
+EMP00027,Gabrielle Michel,34,M,Marketing,Bac,5.5,7.1,2038.0,9.8,Satisfait,1,1,2019-07-04,60866,France,0
+EMP00028,  Gabrielle  Durand  ,22,F,Ventes,Master,1.0,19.1,,3.1,Satisfait,2,3,2024-01-01,49107,France,0
+EMP00029,David Moreau,34,M,Marketing,Master,1.3,15.5,3049.0,6.5,Satisfait,1,0,2023-09-14,58710,France,0
+EMP00030,Bob Vincent,44,F,Ventes,Master,9.7,21.8,4518.0,5.8,Insatisfait,2,3,2015-04-23,38864,France,0
+EMP00031,Quentin Leroy,44,F,Ventes,Master,1.1,21.2,3036.0,2.9,Neutre,4,4,2023-11-26,73239,France,0
+EMP00032,Olivier Dubois,45,M,IT,Bac,2.1,5.4,2105.0,0.4,Neutre,3,2,2022-11-26,53630,France,0
+EMP00033,BOB LEROY,23,F,Production,Bac,1.3,10.0,1852.0,3.0,Satisfait,3,0,2023-09-14,88253,France,0
+EMP00034,Quentin Laurent,33,M,Ventes,Licence,0.4,19.7,2304.0,11.1,Neutre,3,0,2024-08-07,45722,France,0
+EMP00035,Karim Laurent,31,F,Production,Licence,6.4,20.3,2951.0,3.7,,6,4,2018-08-09,81281,France,0
+EMP00036,Rose Roux,36,M,R&D,Licence,3.3,39.3,2297.0,6.4,Très insatisfait,3,0,2021-09-14,87686,France,0
+EMP00037,Gabrielle Petit,49,M,Production,Bac,1.2,7.9,1652.0,0.2,Très satisfait,1,3,2023-10-20,83062,France,0
+EMP00038,Bob Fournier,41,F,Marketing,Master,3.6,13.0,3935.0,10.0,Neutre,5,4,2021-05-27,94686,France,0
+EMP00039,Quentin Durand,36,M,RH,Master,1.7,30.9,3525.0,2.3,Satisfait,3,2,2023-04-21,94325,France,1
+EMP00040,David Leroy,39,F,Marketing,Bac,17.2,10.3,2779.0,3.5,Satisfait,1,0,2007-10-24,99844,France,0
+EMP00041,Léa Garcia,47,M,IT,Master,5.4,5.0,4231.0,12.7,Très insatisfait,2,2,2019-08-09,89331,France,0
+EMP00042,DAVID MICHEL,38,M,Marketing,Licence,5.4,9.0,2418.0,3.1,Neutre,0,1,2019-08-09,75239,France,0
+EMP00043,hugo michel,43,M,IT,Master,13.3,17.0,4528.0,2.5,Très satisfait,4,0,2011-09-17,65636,France,0
+EMP00044,Jules Moreau,34,Autre,R&D,Master,1.5,9.6,3711.0,2.6,Satisfait,4,0,2023-07-03,83599,France,0
+EMP00045,Nora Bernard,38,F,Production,Licence,18.0,15.1,3370.0,1.1,Très satisfait,1,3,2007-01-05,62154,France,0
+EMP00046,Paul Michel,34,F,Production,Master,2.2,12.4,3675.0,1.6,Neutre,2,1,2022-10-20,86549,France,0
+EMP00047,Karim Martin,46,M,Ventes,Licence,4.3,17.4,3079.0,1.4,Neutre,8,2,2020-09-14,76498,France,0
+EMP00048,François Bernard,38,M,Ventes,Licence,9.1,26.8,2861.0,0.9,Satisfait,0,2,2015-11-28,53106,France,0
+EMP00049,NORA BERNARD,24,F,R&D,Bac,1.6,7.5,1757.0,2.4,Satisfait,1,1,2023-05-27,98999,France,0
+EMP00050,Marc Martin,27,F,R&D,Master,11.9,27.2,4642.0,0.3,Satisfait,2,2,2013-02-09,61537,France,0
+EMP00051,Nora Leroy,34,M,Ventes,Master,7.4,13.0,4184.0,2.3,Très satisfait,1,2,2017-08-09,17315,France,0
+EMP00052,Marc Moreau,39,F,R&D,Licence,2.1,15.0,2770.0,7.8,Neutre,2,4,2022-11-26,52538,France,0
+EMP00053,karim martin,56,M,Ventes,Bac,0.3,6.9,1763.0,3.1,Très satisfait,0,1,2024-09-13,49175,France,0
+EMP00054,HUGO DUBOIS,43,M,Production,Licence,3.3,9.9,3020.0,2.9,Neutre,1,2,2021-09-14,41731,France,0
+EMP00055,LÉA GARCIA,32,M,Ventes,Licence,8.5,17.5,3285.0,1.2,Très satisfait,1,3,2016-07-04,86070,France,0
+EMP00056,Olivier Durand,47,M,Ventes,Licence,2.1,19.8,2582.0,0.8,Neutre,2,1,2022-11-26,83942,France,0
+EMP00057,Claire Leroy,49,M,Production,Bac,2.0,6.3,1789.0,8.9,Insatisfait,1,0,2023-01-01,28933,France,0
+EMP00058,François Roux,38,M,RH,Bac,12.5,8.4,2585.0,8.9,Satisfait,6,0,2012-07-05,52548,France,0
+EMP00059,Inès Vincent,48,F,Production,Master,2.0,20.9,3267.0,4.7,Très insatisfait,1,2,2023-01-01,88105,France,0
+EMP00060,Alice Leroy,26,F,Production,Licence,5.2,22.6,3020.0,1.2,Très satisfait,0,5,2019-10-21,85330,France,0
+EMP00061,David Durand,55,M,Ventes,Master,3.5,12.0,3748.0,0.9,Satisfait,4,3,2021-07-03,42092,France,0
+EMP00062,Nora Simon,30,M,IT,Licence,8.6,8.0,3059.0,2.6,Satisfait,0,1,2016-05-28,79306,France,0
+EMP00063,Rose Roux,40,M,Production,Licence,2.9,34.7,2961.0,9.1,Satisfait,1,2,2022-02-07,76460,France,0
+EMP00064,Claire Vincent,23,F,Production,Bac,9.2,,,4.0,Très satisfait,4,0,2015-10-23,98383,France,0
+EMP00065,Karim Roux,42,M,R&D,Master,2.3,31.8,3824.0,6.8,Neutre,0,3,2022-09-14,29660,France,0
+EMP00066,Gabrielle Durand,44,F,Ventes,Licence,0.1,12.3,2343.0,2.9,SATISFAIT,4,0,2024-11-25,95316,France,0
+EMP00067,Emma Moreau,18,M,Production,Licence,3.3,16.5,,4.5,Très satisfait,2,4,2021-09-14,17081,France,0
+EMP00068,Bob Vincent,37,M,IT,Licence,2.2,24.8,2240.0,2.9,Neutre,3,2,2022-10-20,65442,France,0
+EMP00069,ALICE PETIT,32,F,Ventes,Licence,4.9,7.5,2944.0,2.9,Neutre,1,4,2020-02-08,62109,France,0
+EMP00070,Marc Dubois,42,M,IT,Licence,1.8,10.0,2625.0,5.1,Neutre,0,0,2023-03-15,29483,France,0
+EMP00071,karim martin,22,F,Marketing,Bac,6.0,7.3,2292.0,3.4,Satisfait,2,2,2019-01-02,21169,France,0
+EMP00072,paul laurent,57,M,R&D,Licence,13.2,8.0,3157.0,2.7,Neutre,0,5,2011-10-23,80007,France,0
+EMP00073,Théo Laurent,36,F,Marketing,Licence,2.3,19.1,2673.0,10.2,Très insatisfait,3,0,2022-09-14,82316,France,0
+EMP00074,Nora Durand,34,M,Ventes,Licence,0.5,11.1,2793.0,1.8,Satisfait,5,0,2024-07-02,70192,France,0
+EMP00075,Bob Michel,28,M,R&D,Licence,1.3,26.7,2731.0,5.8,Neutre,2,2,2023-09-14,66528,France,0
+EMP00076,Bob Moreau,48,F,R&D,Master,6.5,13.0,4026.0,5.0,Insatisfait,2,1,2018-07-04,88024,France,1
+EMP00077,Alice Petit,53,M,Ventes,Master,8.0,20.6,4286.0,0.3,Très satisfait,1,0,2017-01-02,58118,France,0
+EMP00078,BOB MOREAU,25,M,Production,Doctorat,2.8,18.8,,1.0,Neutre,1,3,2022-03-16,17021,France,0
+EMP00079,Jules Martin,32,F,R&D,Licence,2.4,14.5,2457.0,0.9,Neutre,1,4,2022-08-08,81660,France,0
+EMP00080,Claire Roux,47,M,Ventes,Master,0.0,4.3,3034.0,7.7,Insatisfait,1,3,2024-12-31,26107,France,0
+EMP00081,Théo Dubois,42,M,Ventes,Master,10.6,15.4,3790.0,2.0,Satisfait,1,0,2014-05-29,89544,France,0
+EMP00082,Inès Michel,30,M,Ventes,Licence,0.6,29.5,2297.0,0.9,Neutre,0,3,2024-05-26,18613,France,0
+EMP00083,ROSE PETIT,40,F,R&D,Licence,6.7,16.0,2761.0,6.4,Insatisfait,2,0,2018-04-22,77722,France,0
+EMP00084,François Dubois,47,F,Ventes,Bac,0.6,11.0,1569.0,11.8,Insatisfait,0,2,2024-05-26,67921,France,1
+EMP00085,MARC DURAND,29,M,R&D,Licence,11.1,24.0,3016.0,2.4,Neutre,0,3,2013-11-28,98592,France,0
+EMP00086,Karim Moreau,43,M,Ventes,Bac,3.2,2.0,1786.0,3.3,Neutre,1,0,2021-10-20,38197,France,0
+EMP00087,Claire Moreau,48,M,Marketing,Licence,2.6,7.3,2529.0,8.8,Neutre,4,3,2022-05-27,19025,France,0
+EMP00088,Inès Roux,38,M,IT,Master,10.0,47.7,3894.0,7.9,Neutre,2,1,2015-01-03,45207,France,0
+EMP00089,QUENTIN LAURENT,31,F,Ventes,Licence,6.8,15.9,2503.0,4.4,Satisfait,1,2,2018-03-16,59860,France,0
+EMP00090,Quentin Durand,43,F,Production,Master,2.4,14.6,3744.0,4.4,SATISFAIT,2,3,2022-08-08,70102,France,0
+EMP00091,Alice Michel,33,M,Ventes,Licence,3.5,9.1,2739.0,1.0,Neutre,2,3,2021-07-03,39621,France,0
+EMP00092,Nora Roux,61,M,Production,Licence,24.8,17.6,3820.0,5.0,Très satisfait,1,2,2000-03-20,37393,France,0
+EMP00093,François Michel,27,M,IT,Bac,1.0,23.1,1651.0,5.4,Insatisfait,0,1,2024-01-01,91564,France,0
+EMP00094,Olivier Durand,41,M,R&D,Licence,0.6,2.0,2205.0,1.5,Très satisfait,0,2,2024-05-26,77328,France,0
+EMP00095,Hugo Fournier,51,M,Marketing,Licence,7.9,16.2,3006.0,0.6,Neutre,3,3,2017-02-08,73517,France,0
+EMP00096,Nora Garcia,33,F,Ventes,Licence,3.4,14.9,2621.0,1.3,Satisfait,1,2,2021-08-08,46468,France,0
+EMP00097,Quentin Fournier,25,F,Marketing,Licence,2.0,21.9,2867.0,1.7,Satisfait,0,3,2023-01-01,92664,France,0
+EMP00098,Marc Roux,26,F,R&D,Master,0.4,34.6,3314.0,9.0,Satisfait,5,0,2024-08-07,42535,France,0
+EMP00099,Inès Laurent,29,M,Production,Bac,4.7,18.6,2349.0,6.5,Insatisfait,3,2,2020-04-21,25462,France,1
+EMP00100,Olivier Fournier,32,M,RH,Licence,5.4,4.6,2428.0,3.8,Neutre,3,2,2019-08-09,56471,France,0
+EMP00101,Jules Michel,38,M,Production,Bac,5.8,9.1,1907.0,6.8,Neutre,1,3,2019-03-16,31618,France,0
+EMP00102,David Simon,39,Autre,IT,Master,1.5,19.0,2948.0,4.3,Satisfait,5,1,2023-07-03,45844,France,1
+EMP00103,Bob Martin,44,F,R&D,Master,6.9,20.2,4034.0,0.1,Satisfait,3,0,2018-02-08,98319,France,0
+EMP00104,Théo Petit,42,M,Production,Master,4.4,10.2,3707.0,8.1,Insatisfait,0,3,2020-08-08,98417,France,0
+EMP00105,Olivier Martin,21,F,Ventes,Licence,4.0,17.4,,2.0,,2,1,2021-01-01,19507,France,0
+EMP00106,Bob Moreau,49,M,Production,Licence,4.1,20.3,2439.0,2.8,Neutre,0,0,2020-11-26,29022,France,1
+EMP00107,rose dubois,30,F,Production,Master,7.4,11.7,3560.0,2.4,satisfait,1,2,2017-08-09,49665,France,0
+EMP00108,Bob Vincent,21,M,Production,Master,0.9,14.8,2903.0,3.5,Très insatisfait,0,0,2024-02-07,49094,France,0
+EMP00109,Quentin Garcia,42,M,R&D,Master,4.6,8.7,3661.0,8.1,Neutre,2,2,2020-05-28,96702,France,0
+EMP00110,Marc Roux,36,M,Production,Bac,1.1,7.0,2061.0,2.1,Très satisfait,0,3,2023-11-26,32440,France,0
+EMP00111,Sam Moreau,31,F,R&D,Master,5.5,16.4,4118.0,7.5,Insatisfait,1,2,2019-07-04,37794,France,0
+EMP00112,marc garcia,32,F,Production,Bac,11.1,7.5,2383.0,3.0,Satisfait,3,2,2013-11-28,32864,France,0
+EMP00113,Bob Petit,47,M,IT,Bac,10.0,27.5,2113.0,2.6,Satisfait,1,3,2015-01-03,81047,France,0
+EMP00114,Nora Laurent,37,F,Production,Bac,8.5,20.4,2255.0,1.1,Satisfait,2,3,2016-07-04,79507,France,0
+EMP00115,Hugo Leroy,36,F,Marketing,Bac,2.2,12.9,1753.0,2.3,Satisfait,2,2,2022-10-20,44570,France,0
+EMP00116,Paul Fournier,40,F,Production,Bac,4.6,15.3,1946.0,0.6,Satisfait,2,2,2020-05-28,95083,France,0
+EMP00117,Emma Fournier,24,M,Ventes,Master,4.7,20.9,3869.0,3.3,Satisfait,2,0,2020-04-21,16938,France,0
+EMP00118,Hugo Moreau,38,F,Production,Licence,5.8,18.7,3063.0,4.6,Insatisfait,2,2,2019-03-16,76486,France,0
+EMP00119,Théo Garcia,35,M,Production,Master,7.8,18.3,3976.0,0.3,Neutre,1,2,2017-03-16,48509,France,0
+EMP00120,David Bernard,46,F,Ventes,Master,3.4,12.0,3465.0,5.4,Satisfait,2,4,2021-08-08,35649,France,0
+EMP00121,Hugo Durand,39,F,R&D,Master,12.0,12.0,4860.0,3.7,Satisfait,3,0,2013-01-03,54010,France,0
+EMP00122,Bob Moreau,56,M,RH,Licence,14.0,16.4,3149.0,4.9,Neutre,2,3,2011-01-04,98533,France,0
+EMP00123,François Leroy,43,M,R&D,Master,1.1,23.3,2848.0,8.7,Très satisfait,0,3,2023-11-26,85288,France,0
+EMP00124,Bob Michel,39,F,Production,Bac,0.5,9.4,2004.0,6.4,,2,4,2024-07-02,81417,France,0
+EMP00125,Quentin Moreau,31,M,Production,Licence,2.1,10.1,2397.0,4.4,Satisfait,1,2,2022-11-26,89989,France,0
+EMP00126,Karim Michel,26,F,R&D,Bac,6.1,14.7,2361.0,7.6,,3,2,2018-11-27,92348,France,0
+EMP00127,Théo Bernard,28,M,Production,Licence,2.9,,2722.0,3.6,Insatisfait,3,0,2022-02-07,62439,France,1
+EMP00128,Théo Fournier,55,F,Marketing,Licence,1.9,14.7,2638.0,3.3,Satisfait,4,0,2023-02-07,77356,France,0
+EMP00129,Hugo Moreau,43,F,RH,Master,7.4,35.0,4101.0,5.7,Satisfait,3,1,2017-08-09,49332,France,1
+EMP00130,  Karim  Laurent  ,34,M,R&D,Bac,11.7,26.6,2245.0,2.2,,1,1,2013-04-23,27791,France,0
+EMP00131,David Durand,50,F,Production,Licence,1.5,52.8,2681.0,2.4,Neutre,2,2,2023-07-03,98535,France,0
+EMP00132,Sam Leroy,18,F,Marketing,Master,12.3,8.2,3761.0,1.5,Très satisfait,1,2,2012-09-16,79284,France,0
+EMP00133,David Bernard,29,M,R&D,Master,0.1,9.1,2978.0,3.5,Très satisfait,1,2,2024-11-25,55311,France,0
+EMP00134,Quentin Dubois,35,F,Production,Bac,6.4,17.1,2467.0,4.9,Neutre,2,1,2018-08-09,23691,France,1
+EMP00135,François Laurent,18,M,Ventes,Licence,4.2,10.4,2309.0,3.9,Insatisfait,3,0,2020-10-20,72028,France,0
+EMP00136,Claire Roux,54,M,Ventes,Bac,4.3,5.0,1831.0,0.8,Neutre,1,3,2020-09-14,76064,France,0
+EMP00137,NORA MOREAU,52,M,Marketing,Master,0.2,10.7,3516.0,5.2,Très satisfait,0,2,2024-10-19,60503,France,0
+EMP00138,Gabrielle Durand,32,M,R&D,Licence,2.3,12.5,2800.0,2.0,Très satisfait,3,0,2022-09-14,81399,France,0
+EMP00139,  Inès  Fournier  ,38,M,IT,Master,6.0,5.8,4169.0,3.6,Neutre,1,3,2019-01-02,21016,France,0
+EMP00140,Marc Petit,36,M,Production,Licence,0.4,9.5,2400.0,5.8,Neutre,1,2,2024-08-07,37847,France,0
+EMP00141,Nora Simon,51,M,R&D,Licence,11.1,22.4,2837.0,2.5,Très satisfait,3,2,2013-11-28,12156,France,0
+EMP00142,David Petit,46,F,Ventes,Doctorat,6.0,9.4,5770.0,4.5,Neutre,2,2,2019-01-02,48383,France,0
+EMP00143,Nora Roux,38,M,IT,Licence,6.6,8.1,2920.0,3.5,Très satisfait,2,3,2018-05-28,26355,France,0
+EMP00144,Sam Laurent,62,F,R&D,Master,9.8,12.9,4396.0,4.6,Neutre,3,0,2015-03-17,34005,France,0
+EMP00145,MARC DURAND,28,M,Production,Bac,4.0,33.4,2092.0,4.8,Neutre,1,3,2021-01-01,81929,France,0
+EMP00146,Bob Moreau,34,F,Ventes,Licence,1.8,12.4,2481.0,8.7,Neutre,1,3,2023-03-15,87254,France,1
+EMP00147,Emma Leroy,43,M,R&D,Bac,0.0,,1704.0,3.8,,2,2,2024-12-31,14270,France,1
+EMP00148,  François  Dubois  ,41,F,R&D,Bac,2.3,3.3,1853.0,10.6,Très insatisfait,0,2,2022-09-14,65621,France,1
+EMP00149,Claire Fournier,44,F,Production,Licence,3.8,34.8,2868.0,2.9,Satisfait,3,1,2021-03-15,75993,France,0
+EMP00150,Claire Moreau,37,F,RH,Licence,2.4,7.7,2504.0,1.2,Très satisfait,1,3,2022-08-08,60411,France,0
+EMP00151,François Bernard,48,M,Ventes,Licence,5.2,15.5,3151.0,3.7,Insatisfait,0,3,2019-10-21,39691,France,0
+EMP00152,Rose Garcia,47,F,Production,Master,0.2,18.0,3481.0,2.3,Insatisfait,2,2,2024-10-19,83993,France,1
+EMP00153,THÉO VINCENT,47,M,Production,Master,14.0,18.4,5180.0,1.9,satisfait,0,3,2011-01-04,93813,France,0
+EMP00154,Sam Petit,40,F,R&D,Master,3.1,26.7,3884.0,2.9,Satisfait,1,0,2021-11-26,50759,France,0
+EMP00155,Rose Simon,49,M,Production,Licence,1.4,18.0,2487.0,7.0,Insatisfait,2,0,2023-08-09,12309,France,1
+EMP00156,Rose Laurent,32,M,Production,Bac,1.1,15.6,2050.0,3.1,Très satisfait,1,3,2023-11-26,25264,France,0
+EMP00157,Karim Petit,54,Autre,Ventes,Master,1.0,9.1,3672.0,6.2,Insatisfait,0,1,2024-01-01,93152,France,0
+EMP00158,Quentin Vincent,42,F,Production,Doctorat,0.4,16.3,4473.0,1.1,Neutre,2,5,2024-08-07,20593,France,0
+EMP00159,  Marc  Petit  ,44,M,Ventes,Licence,2.6,10.4,2647.0,2.7,Neutre,4,2,2022-05-27,92086,France,0
+EMP00160,Alice Fournier,23,F,Production,Licence,0.6,17.6,2569.0,7.4,Insatisfait,4,3,2024-05-26,42895,France,0
+EMP00161,Quentin Fournier,23,M,Production,Bac,3.8,12.9,1785.0,4.5,Insatisfait,4,2,2021-03-15,97782,France,1
+EMP00162,Paul Martin,25,M,Ventes,Bac,1.8,22.9,1824.0,3.5,Neutre,3,0,2023-03-15,90455,France,0
+EMP00163,  Jules  Garcia  ,52,F,Marketing,Master,1.1,30.4,3560.0,6.7,Neutre,2,2,2023-11-26,30484,France,0
+EMP00164,David Bernard,34,F,Production,Licence,4.7,15.4,2877.0,4.7,Neutre,0,2,2020-04-21,76301,France,0
+EMP00165,NORA VINCENT,29,F,IT,Bac,3.0,19.6,2194.0,6.4,Très insatisfait,1,4,2022-01-01,83231,France,0
+EMP00166,Olivier Moreau,39,M,Ventes,Licence,2.1,11.1,2872.0,4.1,Satisfait,0,5,2022-11-26,96547,France,0
+EMP00167,Nora Dubois,18,F,Marketing,Licence,4.1,14.4,,6.9,Insatisfait,0,5,2020-11-26,25236,France,0
+EMP00168,sam dubois,64,M,RH,Master,2.7,43.6,3064.0,3.4,Neutre,1,4,2022-04-21,12002,France,0
+EMP00169,Rose Garcia,54,F,R&D,Bac,4.0,5.9,2261.0,7.4,Neutre,5,0,2021-01-01,86193,France,0
+EMP00170,Emma Laurent,37,F,Ventes,Master,6.6,6.9,3878.0,1.4,Satisfait,3,0,2018-05-28,99851,France,0
+EMP00171,Gabrielle Leroy,35,M,R&D,Licence,5.4,9.3,3163.0,1.7,Très satisfait,2,2,2019-08-09,28540,France,0
+EMP00172,QUENTIN MICHEL,43,M,Production,Doctorat,3.0,25.8,4291.0,6.5,Neutre,0,2,2022-01-01,95466,France,0
+EMP00173,Bob Vincent,42,F,Production,Master,1.1,4.5,2865.0,4.1,Insatisfait,2,2,2023-11-26,17524,France,1
+EMP00174,Théo Petit,41,F,Marketing,Master,7.1,6.8,3680.0,1.6,Neutre,2,2,2017-11-27,54170,France,0
+EMP00175,EMMA VINCENT,37,M,Production,Bac,2.5,15.4,1908.0,2.1,Neutre,1,0,2022-07-03,98308,France,0
+EMP00176,théo leroy,44,M,Ventes,Master,6.2,12.1,4118.0,2.5,Neutre,4,3,2018-10-21,11312,France,0
+EMP00177,THÉO DUBOIS,40,M,Ventes,Licence,5.9,21.3,2804.0,7.2,Satisfait,2,3,2019-02-08,69252,France,0
+EMP00178,David Laurent,34,M,Production,Licence,1.9,25.8,2391.0,1.6,Insatisfait,1,2,2023-02-07,74878,France,1
+EMP00179,Emma Durand,32,F,Ventes,Licence,8.5,13.2,3415.0,3.0,Très satisfait,1,5,2016-07-04,64135,France,0
+EMP00180,Emma Laurent,48,F,R&D,Licence,1.8,21.7,2723.0,3.4,Neutre,1,0,2023-03-15,61561,France,0
+EMP00181,Marc Moreau,38,F,Ventes,Master,0.1,18.5,3420.0,5.6,Neutre,3,2,2024-11-25,97442,France,1
+EMP00182,Quentin Moreau,37,M,Production,Licence,10.2,19.6,2889.0,0.9,,2,0,2014-10-23,30478,France,0
+EMP00183,François Fournier,30,M,Production,Master,2.6,7.3,3244.0,5.5,Très insatisfait,1,5,2022-05-27,65047,France,0
+EMP00184,Nora Fournier,33,F,IT,Master,16.0,24.2,5415.0,4.1,Neutre,4,3,2009-01-04,43924,France,0
+EMP00185,Théo Fournier,36,F,R&D,Master,2.5,30.4,3388.0,11.2,Insatisfait,1,4,2022-07-03,10879,France,0
+EMP00186,Jules Leroy,35,M,R&D,Master,4.8,2.9,4147.0,12.5,Insatisfait,1,0,2020-03-15,29658,France,0
+EMP00187,Bob Michel,41,F,Production,Licence,1.6,30.8,2717.0,4.2,Satisfait,0,3,2023-05-27,34463,France,0
+EMP00188,  Alice  Roux  ,39,F,Ventes,Master,3.8,,3256.0,1.4,Satisfait,6,1,2021-03-15,29438,France,0
+EMP00189,Olivier Michel,37,F,IT,Licence,3.7,7.2,2661.0,1.3,Insatisfait,0,3,2021-04-21,42055,France,0
+EMP00190,  Marc  Roux  ,35,M,Marketing,Licence,1.8,10.4,2487.0,0.9,Très satisfait,1,4,2023-03-15,39131,France,0
+EMP00191,  Bob  Durand  ,36,M,Marketing,Master,3.0,19.7,3812.0,6.0,Neutre,3,0,2022-01-01,36183,France,0
+EMP00192,Gabrielle Bernard,48,M,Production,Master,0.5,12.1,2936.0,2.0,Neutre,1,2,2024-07-02,44268,France,0
+EMP00193,Théo Garcia,37,F,Production,Licence,5.0,15.7,2865.0,2.7,Très satisfait,1,4,2020-01-02,46813,France,0
+EMP00194,paul simon,56,M,IT,Licence,4.9,12.1,3092.0,3.5,Neutre,1,3,2020-02-08,30062,France,0
+EMP00195,Olivier Durand,49,M,Ventes,Master,0.3,10.6,2912.0,1.9,Satisfait,5,3,2024-09-13,42490,France,0
+EMP00196,Marc Fournier,27,F,Production,Licence,1.5,28.1,2279.0,4.2,Insatisfait,2,3,2023-07-03,25553,France,1
+EMP00197,Hugo Michel,27,M,Ventes,Licence,7.8,2.7,2577.0,11.0,Satisfait,5,1,2017-03-16,92526,France,0
+EMP00198,Quentin Vincent,60,M,Ventes,Master,3.0,14.2,3022.0,1.6,Satisfait,3,0,2022-01-01,22064,France,0
+EMP00199,Karim Leroy,27,M,Marketing,Licence,3.8,11.4,2840.0,0.6,Satisfait,4,4,2021-03-15,96443,France,0
+EMP00200,David Durand,18,M,Ventes,Licence,6.2,22.6,2981.0,5.3,Neutre,2,3,2018-10-21,88635,France,0
+EMP00201,Nora Dubois,48,M,Marketing,Doctorat,3.0,7.1,5599.0,5.1,Très satisfait,2,3,2022-01-01,72127,France,0
+EMP00202,Jules Laurent,59,M,Production,Licence,7.3,14.9,2815.0,3.1,SATISFAIT,1,3,2017-09-15,31139,France,0
+EMP00203,Léa Moreau,35,F,Marketing,Licence,1.4,6.0,2137.0,2.0,Très satisfait,0,1,2023-08-09,68294,France,0
+EMP00204,Sam Martin,41,M,Ventes,Master,2.0,5.7,3247.0,12.0,Neutre,2,0,2023-01-01,51295,France,0
+EMP00205,Léa Moreau,33,M,Ventes,Master,6.2,6.7,3425.0,4.3,Satisfait,2,0,2018-10-21,57123,France,0
+EMP00206,Sam Leroy,47,Autre,Ventes,Licence,0.1,17.2,2611.0,9.1,Très insatisfait,0,1,2024-11-25,63782,France,0
+EMP00207,sam moreau,48,F,Production,Master,14.2,30.2,4102.0,1.8,Très satisfait,3,0,2010-10-23,27815,France,0
+EMP00208,Claire Simon,18,F,Ventes,Licence,16.8,23.5,4063.0,3.8,Neutre,1,4,2008-03-18,22983,France,0
+EMP00209,Jules Moreau,43,F,R&D,Doctorat,4.2,10.1,4988.0,0.9,Très satisfait,1,0,2020-10-20,82900,France,0
+EMP00210,Rose Martin,28,F,R&D,Licence,9.5,12.2,,1.5,Satisfait,2,0,2015-07-05,13751,France,0
+EMP00211,Emma Dubois,49,M,R&D,Licence,13.0,36.5,3046.0,8.9,Très insatisfait,1,2,2012-01-04,29479,France,0
+EMP00212,Emma Garcia,25,M,Marketing,Bac,2.0,20.5,,5.4,Satisfait,2,3,2023-01-01,89855,France,0
+EMP00213,Jules Bernard,40,F,IT,Master,17.6,10.6,4394.0,1.2,Très satisfait,4,2,2007-05-31,23976,France,0
+EMP00214,Alice Martin,36,F,IT,Master,0.5,31.8,3414.0,1.3,Satisfait,5,0,2024-07-02,45927,France,0
+EMP00215,Théo Martin,30,F,Ventes,Licence,3.4,8.7,2532.0,0.8,Satisfait,1,2,2021-08-08,63471,France,0
+EMP00216,paul dubois,24,M,Ventes,Master,2.8,8.6,3840.0,10.6,Insatisfait,2,0,2022-03-16,73898,France,0
+EMP00217,Jules Michel,24,F,Ventes,Bac,7.3,24.2,,3.5,Insatisfait,0,0,2017-09-15,75812,France,1
+EMP00218,Bob Moreau,33,F,Production,Master,7.8,8.5,4026.0,3.2,Très satisfait,1,0,2017-03-16,72236,France,0
+EMP00219,Marc Garcia,31,M,Marketing,Master,6.1,3.2,4186.0,1.4,Satisfait,4,0,2018-11-27,16108,France,1
+EMP00220,Claire Petit,56,M,Production,Bac,3.5,16.5,2036.0,1.0,Satisfait,0,0,2021-07-03,35508,France,0
+EMP00221,THÉO ROUX,36,F,Ventes,Master,14.3,15.6,5219.0,2.3,Très satisfait,2,1,2010-09-17,83661,France,0
+EMP00222,Karim Garcia,44,F,R&D,Master,2.3,10.4,2983.0,2.8,Neutre,5,3,2022-09-14,90905,France,0
+EMP00223,Hugo Martin,27,F,R&D,Master,0.8,24.0,3662.0,7.0,Insatisfait,2,2,2024-03-14,50799,France,1
+EMP00224,Sam Michel,28,M,IT,Bac,-1.0,46.9,2406.0,2.3,Neutre,1,4,2016-02-09,10407,France,0
+EMP00225,Olivier Simon,30,M,Ventes,Master,6.9,1.0,4184.0,6.4,Neutre,2,0,2018-02-08,48335,France,0
+EMP00226,Karim Michel,41,F,Marketing,Licence,10.6,10.5,2731.0,3.2,Neutre,1,3,2014-05-29,44652,France,0
+EMP00227,Quentin Michel,32,F,Production,Licence,12.7,11.4,3240.0,5.7,Satisfait,0,3,2012-04-23,84892,France,0
+EMP00228,Léa Martin,29,F,Marketing,Licence,1.3,10.6,,1.0,Satisfait,3,3,2023-09-14,44954,France,0
+EMP00229,Alice Michel,41,M,Ventes,Licence,1.9,7.1,2776.0,5.2,Neutre,2,2,2023-02-07,92124,France,0
+EMP00230,Sam Dubois,31,M,Marketing,Master,4.0,30.7,3352.0,2.0,Neutre,1,2,2021-01-01,74437,France,0
+EMP00231,Claire Laurent,31,M,RH,Licence,0.6,32.3,2483.0,5.8,Insatisfait,0,1,2024-05-26,38803,France,0
+EMP00232,Paul Bernard,24,F,Production,Licence,0.9,11.2,2761.0,3.0,Satisfait,2,0,2024-02-07,32762,France,0
+EMP00233,Nora Fournier,32,F,Production,Master,0.5,14.6,3420.0,2.2,Satisfait,4,0,2024-07-02,39086,France,0
+EMP00234,Emma Bernard,30,M,R&D,Master,2.9,34.1,3141.0,4.4,Satisfait,1,3,2022-02-07,34638,France,0
+EMP00235,Sam Vincent,28,F,R&D,Master,6.1,1.3,3318.0,4.1,Neutre,4,1,2018-11-27,54618,France,0
+EMP00236,François Garcia,41,Autre,RH,Master,0.1,36.9,2942.0,6.0,Neutre,2,1,2024-11-25,54910,France,0
+EMP00237,Théo Roux,34,F,Ventes,Licence,0.4,15.9,2289.0,3.2,Satisfait,6,2,2024-08-07,33121,France,1
+EMP00238,Sam Leroy,40,F,Ventes,Master,7.1,24.2,3347.0,6.4,Insatisfait,2,4,2017-11-27,71809,France,0
+EMP00239,Marc Roux,50,F,Production,Licence,2.1,4.2,2654.0,4.6,Neutre,0,2,2022-11-26,15120,France,0
+EMP00240,Rose Michel,48,F,Ventes,Master,2.8,23.5,3761.0,2.5,Très satisfait,4,0,2022-03-16,17642,France,1
+EMP00241,JULES LEROY,19,M,R&D,Master,0.3,20.6,,10.4,Neutre,4,2,2024-09-13,81344,France,0
+EMP00242,Nora Michel,39,M,R&D,Master,5.4,31.7,3955.0,5.0,Neutre,3,2,2019-08-09,35917,France,0
+EMP00243,Alice Durand,30,F,Ventes,Bac,4.1,5.2,2033.0,6.6,Satisfait,2,0,2020-11-26,89235,France,0
+EMP00244,Sam Martin,36,M,R&D,Licence,2.0,11.8,2381.0,9.6,Très insatisfait,0,0,2023-01-01,97661,France,0
+EMP00245,olivier garcia,47,F,R&D,Bac,5.7,8.8,2330.0,7.6,Satisfait,4,1,2019-04-22,91537,France,0
+EMP00246,Claire Martin,41,M,Production,Master,2.2,25.5,3139.0,1.5,Neutre,0,3,2022-10-20,44756,France,0
+EMP00247,Claire Dubois,36,F,Ventes,Master,0.6,9.3,2836.0,3.3,Satisfait,2,3,2024-05-26,82118,France,0
+EMP00248,Rose Leroy,36,M,Production,Master,3.8,34.8,3447.0,7.6,Insatisfait,5,2,2021-03-15,95603,France,0
+EMP00249,Gabrielle Michel,38,F,Ventes,Licence,1.6,9.1,2154.0,5.1,Satisfait,3,3,2023-05-27,44631,France,0
+EMP00250,gabrielle fournier,23,Autre,IT,Licence,2.8,3.8,,0.9,,3,0,2022-03-16,33114,France,0
+EMP00251,Sam Leroy,36,F,R&D,Bac,15.8,16.4,2924.0,8.6,Insatisfait,1,0,2009-03-18,84969,France,1
+EMP00252,Léa Leroy,49,M,R&D,Master,1.7,,3291.0,9.1,Neutre,7,1,2023-04-21,39666,France,1
+EMP00253,Théo Martin,30,M,Marketing,Licence,15.5,33.2,3975.0,5.2,Neutre,3,1,2009-07-06,76290,France,0
+EMP00254,QUENTIN SIMON,37,F,Ventes,Licence,5.3,18.0,3189.0,0.6,Neutre,2,2,2019-09-15,72638,France,0
+EMP00255,Karim Durand,49,F,Production,Master,1.8,24.2,3370.0,14.2,Très insatisfait,4,3,2023-03-15,58676,France,1
+EMP00256,Gabrielle Simon,57,M,IT,Master,0.5,10.6,3561.0,3.2,Neutre,2,3,2024-07-02,18721,France,0
+EMP00257,Jules Simon,18,M,Production,Licence,12.8,4.4,3805.0,0.6,Satisfait,2,2,2012-03-17,48125,France,0
+EMP00258,Théo Garcia,34,Autre,Ventes,Licence,2.4,18.1,2376.0,4.6,Très satisfait,2,0,2022-08-08,90299,France,0
+EMP00259,JULES ROUX,28,Autre,RH,Licence,0.1,6.6,2382.0,4.3,Très satisfait,2,3,2024-11-25,24932,France,0
+EMP00260,Gabrielle Simon,31,F,Production,Bac,14.2,9.4,2485.0,0.5,Très satisfait,3,3,2010-10-23,66967,France,0
+EMP00261,rose bernard,50,F,Ventes,Master,2.4,17.1,3258.0,6.3,Insatisfait,2,4,2022-08-08,10597,France,0
+EMP00262,Inès Martin,38,F,Production,Master,1.2,33.2,3346.0,0.8,Neutre,2,2,2023-10-20,16558,France,0
+EMP00263,Olivier Petit,37,F,Production,Master,14.7,9.5,4295.0,6.6,Très insatisfait,5,4,2010-04-24,23565,France,0
+EMP00264,Jules Laurent,28,M,R&D,Licence,11.2,13.4,2816.0,1.8,Satisfait,0,0,2013-10-23,66684,France,0
+EMP00265,Jules Moreau,50,M,Marketing,Master,4.5,13.4,4114.0,5.6,,0,0,2020-07-03,91042,France,0
+EMP00266,François Roux,31,F,IT,Master,3.6,11.1,3456.0,4.3,Satisfait,2,2,2021-05-27,38870,France,0
+EMP00267,Rose Vincent,35,F,Marketing,Licence,8.3,16.5,3038.0,5.8,Très insatisfait,1,2,2016-09-15,27230,France,0
+EMP00268,Claire Petit,41,F,Marketing,Licence,24.5,20.1,4039.0,5.2,Neutre,4,0,2000-07-08,76598,France,0
+EMP00269,olivier fournier,34,F,R&D,Master,0.2,19.4,3303.0,4.9,Satisfait,0,2,2024-10-19,76375,France,0
+EMP00270,Léa Dubois,39,M,R&D,Bac,0.2,9.4,1695.0,4.5,Satisfait,1,0,2024-10-19,14044,France,1
+EMP00271,Quentin Moreau,36,M,R&D,Master,2.8,16.5,3252.0,1.9,Très satisfait,1,0,2022-03-16,43584,France,0
+EMP00272,Emma Simon,35,F,Ventes,Licence,11.1,15.9,3018.0,1.4,Neutre,3,4,2013-11-28,90749,France,0
+EMP00273,  Sam  Dubois  ,25,F,Production,Master,4.1,25.3,3478.0,7.4,Insatisfait,3,3,2020-11-26,19117,France,0
+EMP00274,Paul Vincent,35,F,Ventes,Master,10.5,37.6,4132.0,2.3,,2,2,2014-07-05,94070,France,0
+EMP00275,Sam Petit,62,F,R&D,Licence,21.7,32.7,4165.0,1.0,Satisfait,1,0,2003-04-26,31274,France,1
+EMP00276,Hugo Simon,33,F,R&D,Licence,1.8,17.2,2558.0,0.4,Très satisfait,3,0,2023-03-15,11931,France,0
+EMP00277,David Petit,32,F,IT,Master,10.4,8.9,4663.0,8.0,Insatisfait,1,4,2014-08-10,30511,France,0
+EMP00278,Quentin Petit,39,F,R&D,Master,0.5,12.0,3039.0,4.8,Satisfait,0,5,2024-07-02,26977,France,0
+EMP00279,Jules Dubois,38,F,IT,Master,1.4,30.6,3597.0,3.4,Satisfait,0,3,2023-08-09,80149,France,0
+EMP00280,Bob Laurent,28,M,R&D,Master,2.8,16.9,3398.0,2.2,Satisfait,3,0,2022-03-16,74134,France,0
+EMP00281,Léa Garcia,31,M,R&D,Bac,4.3,19.8,1979.0,1.4,Satisfait,0,0,2020-09-14,32424,France,0
+EMP00282,nora garcia,29,F,IT,Bac,5.7,5.6,,2.2,Satisfait,2,0,2019-04-22,10873,France,0
+EMP00283,Marc Michel,37,F,Production,Bac,20.7,21.2,3288.0,12.2,Très insatisfait,2,0,2004-04-25,76642,France,1
+EMP00284,inès petit,22,F,Ventes,Master,3.5,14.5,,2.4,Insatisfait,2,4,2021-07-03,24095,France,0
+EMP00285,JULES LEROY,41,M,Ventes,Bac,4.8,4.2,1968.0,2.1,Très satisfait,1,2,2020-03-15,39678,France,0
+EMP00286,Bob Simon,33,Autre,R&D,Master,1.4,14.2,3760.0,3.6,Neutre,3,3,2023-08-09,12654,France,0
+EMP00287,Bob Martin,38,F,Production,Master,0.3,24.2,2924.0,6.0,Neutre,3,2,2024-09-13,33281,France,0
+EMP00288,Claire Fournier,36,M,IT,Bac,7.4,15.9,2101.0,0.9,Satisfait,0,3,2017-08-09,37548,France,0
+EMP00289,Marc Laurent,38,F,Marketing,Master,6.8,11.7,3789.0,2.7,Insatisfait,0,0,2018-03-16,92480,France,0
+EMP00290,Bob Martin,24,F,Production,Master,1.1,302.92663567339935,3641.0,3.8,Neutre,4,0,2023-11-26,30057,France,1
+EMP00291,Emma Moreau,46,F,Production,Bac,4.7,15.3,1909.0,7.2,Neutre,2,1,2020-04-21,82953,France,0
+EMP00292,léa roux,40,M,Ventes,Master,0.0,13.9,3013.0,4.0,Neutre,2,1,2024-12-31,12733,France,0
+EMP00293,Marc Dubois,27,F,Marketing,Licence,0.8,9.1,2490.0,4.3,Satisfait,1,2,2024-03-14,23360,France,0
+EMP00294,Jules Leroy,29,M,R&D,Master,13.2,31.9,4615.0,3.9,Très insatisfait,1,1,2011-10-23,80955,France,0
+EMP00295,  Karim  Petit  ,18,F,Ventes,Bac,7.8,21.0,,3.8,Neutre,0,4,2017-03-16,11308,France,0
+EMP00296,Rose Vincent,35,M,R&D,Licence,22.5,21.5,3737.0,5.2,Insatisfait,0,2,2002-07-08,89986,France,0
+EMP00297,Marc Moreau,35,F,Ventes,Master,0.6,13.9,2803.0,1.8,Très satisfait,5,0,2024-05-26,67339,France,0
+EMP00298,LÉA SIMON,41,F,Production,Licence,1.8,28.6,2872.0,12.2,Neutre,1,0,2023-03-15,78103,France,1
+EMP00299,Gabrielle Simon,18,F,R&D,Bac,4.8,8.0,2265.0,6.2,Très insatisfait,1,0,2020-03-15,73017,France,0
+EMP00300,Léa Roux,18,M,Ventes,Master,9.1,8.8,4275.0,4.4,Satisfait,2,3,2015-11-28,40997,France,0
+EMP00301,Rose Durand,47,M,IT,Bac,3.3,34.0,1995.0,0.4,Neutre,1,0,2021-09-14,43140,France,1
+EMP00302,  David  Durand  ,46,F,R&D,Licence,1.5,12.6,2335.0,2.8,Satisfait,3,2,2023-07-03,84212,France,0
+EMP00303,Hugo Vincent,39,F,Production,Doctorat,8.1,2.3,4899.0,8.3,Satisfait,3,0,2016-11-27,80375,France,0
+EMP00304,Marc Fournier,22,M,Production,Licence,4.5,8.3,2775.0,0.9,Très satisfait,0,1,2020-07-03,97746,France,0
+EMP00305,Léa Simon,36,M,Production,Bac,5.0,36.9,2074.0,1.9,Très satisfait,1,4,2020-01-02,62352,France,0
+EMP00306,Marc Moreau,56,F,Production,Licence,1.0,9.7,2566.0,1.3,Très satisfait,2,5,2024-01-01,66452,France,0
+EMP00307,Gabrielle Laurent,39,F,Production,Licence,0.3,15.2,2165.0,7.5,Très insatisfait,4,3,2024-09-13,92453,France,0
+EMP00308,OLIVIER PETIT,34,M,RH,Licence,2.1,22.3,2355.0,1.7,Satisfait,1,1,2022-11-26,83415,France,0
+EMP00309,QUENTIN GARCIA,32,F,Production,Bac,24.8,19.3,3217.0,4.4,,2,2,2000-03-20,81489,France,0
+EMP00310,Olivier Fournier,21,M,Marketing,Master,6.2,9.5,,0.6,Très satisfait,1,4,2018-10-21,35576,France,0
+EMP00311,Nora Simon,40,F,R&D,Licence,5.4,19.1,2447.0,1.6,Satisfait,2,3,2019-08-09,84445,France,0
+EMP00312,David Martin,62,M,Production,Licence,9.7,12.2,2977.0,0.7,Satisfait,3,0,2015-04-23,38601,France,0
+EMP00313,Claire Garcia,30,M,Production,Bac,0.2,18.3,1599.0,2.5,Insatisfait,1,3,2024-10-19,60716,France,0
+EMP00314,François Bernard,34,F,IT,Bac,2.0,28.8,2056.0,2.1,Très satisfait,1,1,2023-01-01,39507,France,0
+EMP00315,Emma Durand,43,F,Marketing,Bac,3.3,,2213.0,4.6,Insatisfait,1,2,2021-09-14,75006,France,0
+EMP00316,Alice Garcia,22,F,Production,Bac,4.5,11.1,2289.0,9.1,Neutre,3,3,2020-07-03,43081,France,0
+EMP00317,Marc Fournier,44,F,Ventes,Bac,11.6,23.7,2648.0,0.2,Très satisfait,5,1,2013-05-29,98939,France,0
+EMP00318,Claire Bernard,38,Autre,Ventes,Master,8.1,23.9,4267.0,2.8,Satisfait,1,2,2016-11-27,66166,France,0
+EMP00319,Bob Vincent,25,F,RH,Licence,14.3,18.7,3283.0,7.7,Neutre,2,3,2010-09-17,97743,France,0
+EMP00320,THÉO LEROY,38,M,Ventes,Licence,1.4,7.6,2666.0,4.3,Neutre,1,0,2023-08-09,10306,France,0
+EMP00321,Léa Fournier,55,F,R&D,Doctorat,7.0,,5220.0,3.0,Satisfait,1,0,2018-01-02,25403,France,1
+EMP00322,François Durand,32,M,R&D,Licence,1.7,8.0,2281.0,5.5,Satisfait,1,4,2023-04-21,53636,France,0
+EMP00323,David Martin,22,F,Ventes,Licence,26.3,8.2,3912.0,8.2,Neutre,1,3,1998-09-20,41210,France,0
+EMP00324,Bob Dubois,45,M,Production,Licence,8.2,13.8,2939.0,6.2,Satisfait,2,0,2016-10-22,72999,France,0
+EMP00325,Théo Garcia,28,M,Ventes,Licence,3.3,14.2,2819.0,3.5,Neutre,3,2,2021-09-14,29259,France,0
+EMP00326,Inès Vincent,48,M,R&D,Master,0.5,9.9,3308.0,4.8,Neutre,0,3,2024-07-02,41486,France,0
+EMP00327,hugo martin,34,F,R&D,Master,3.6,19.4,3367.0,3.2,satisfait,3,3,2021-05-27,88069,France,0
+EMP00328,Emma Moreau,50,F,Marketing,Master,5.8,3.0,4078.0,2.1,Insatisfait,1,2,2019-03-16,66661,France,1
+EMP00329,Claire Martin,36,F,Production,Licence,3.9,21.6,3073.0,4.2,Satisfait,2,3,2021-02-07,74962,France,0
+EMP00330,Rose Dubois,30,F,Ventes,Licence,3.2,27.9,2485.0,4.8,Neutre,1,1,2021-10-20,84014,France,0
+EMP00331,Gabrielle Roux,40,F,IT,Licence,10.8,13.4,3562.0,3.7,Insatisfait,2,4,2014-03-17,83406,France,0
+EMP00332,David Moreau,35,M,Marketing,Doctorat,6.1,12.0,47660.0,3.9,Satisfait,3,3,2018-11-27,53132,France,0
+EMP00333,Jules Garcia,26,F,Production,Licence,1.3,14.6,2254.0,1.4,Très satisfait,2,2,2023-09-14,88560,France,1
+EMP00334,Bob Fournier,36,F,Marketing,Master,1.9,10.7,3303.0,5.9,Satisfait,4,4,2023-02-07,32188,France,0
+EMP00335,Alice Garcia,25,M,Marketing,Master,1.8,16.3,3172.0,2.2,Neutre,3,3,2023-03-15,18774,France,0
+EMP00336,Marc Moreau,21,M,RH,Bac,1.1,4.0,2002.0,4.1,Insatisfait,2,3,2023-11-26,78344,France,0
+EMP00337,Léa Moreau,39,M,Ventes,Licence,2.3,6.1,2700.0,4.0,Satisfait,0,2,2022-09-14,95138,France,0
+EMP00338,Léa Dubois,38,M,Ventes,Master,0.4,8.2,3313.0,0.2,Satisfait,2,0,2024-08-07,48147,France,0
+EMP00339,Théo Martin,53,M,Ventes,Licence,1.6,13.4,2298.0,2.7,Satisfait,1,2,2023-05-27,34191,France,0
+EMP00340,Rose Michel,27,M,Ventes,Master,4.1,20.6,4116.0,1.2,Neutre,1,0,2020-11-26,17523,France,0
+EMP00341,Rose Dubois,37,M,Ventes,Licence,0.0,7.7,2177.0,7.2,Neutre,4,0,2024-12-31,14840,France,1
+EMP00342,olivier vincent,27,F,Ventes,Licence,10.7,18.2,2704.0,14.7,Très insatisfait,1,2,2014-04-23,71035,France,0
+EMP00343,  Paul  Petit  ,46,F,Ventes,Bac,4.6,9.7,2000.0,3.2,Insatisfait,3,0,2020-05-28,75338,France,0
+EMP00344,Nora Leroy,45,M,R&D,Bac,6.2,18.5,1932.0,0.3,Insatisfait,2,0,2018-10-21,30613,France,0
+EMP00345,Théo Leroy,41,F,Ventes,Licence,1.0,30.6,2401.0,1.6,Insatisfait,3,4,2024-01-01,16257,France,0
+EMP00346,Nora Durand,57,M,Production,Bac,0.7,6.3,2113.0,3.0,Neutre,0,1,2024-04-20,75990,France,0
+EMP00347,Léa Durand,51,Autre,Ventes,Master,22.8,12.6,5667.0,2.2,Satisfait,3,1,2002-03-20,47653,France,0
+EMP00348,Sam Simon,32,F,IT,Master,7.4,19.6,3388.0,10.4,Insatisfait,2,1,2017-08-09,52575,France,0
+EMP00349,Nora Leroy,44,M,Ventes,Licence,2.1,10.1,2243.0,0.9,Satisfait,1,2,2022-11-26,56755,France,0
+EMP00350,Gabrielle Martin,34,M,RH,Licence,0.4,17.1,2309.0,4.5,Neutre,2,2,2024-08-07,70691,France,0
+EMP00351,Léa Dubois,38,M,R&D,Doctorat,7.9,10.9,5590.0,5.6,Très insatisfait,1,2,2017-02-08,35542,France,0
+EMP00352,bob garcia,27,F,Production,Master,4.3,19.6,3108.0,3.8,Très insatisfait,0,3,2020-09-14,13022,France,0
+EMP00353,Olivier Roux,37,F,R&D,Master,4.7,1.2,3165.0,0.4,Très satisfait,0,0,2020-04-21,42182,France,0
+EMP00354,FRANÇOIS ROUX,54,M,Marketing,Licence,0.0,,2702.0,4.3,Neutre,2,0,2024-12-31,49227,France,0
+EMP00355,Emma Garcia,30,F,Ventes,Master,11.4,12.0,4766.0,4.2,Très satisfait,2,0,2013-08-10,36553,France,0
+EMP00356,Emma Moreau,21,F,IT,Licence,0.1,30.0,2618.0,2.5,Satisfait,3,2,2024-11-25,52249,France,0
+EMP00357,Gabrielle Bernard,33,F,Production,Licence,4.0,20.7,2296.0,9.3,Insatisfait,0,3,2021-01-01,73220,France,0
+EMP00358,quentin michel,37,M,R&D,Bac,2.5,8.1,1828.0,1.6,Satisfait,2,2,2022-07-03,37722,France,0
+EMP00359,Emma Leroy,38,F,IT,Bac,5.8,14.3,1901.0,3.9,Très satisfait,4,3,2019-03-16,95656,France,0
+EMP00360,Emma Durand,31,F,Ventes,Doctorat,0.3,15.5,4318.0,0.3,Satisfait,1,3,2024-09-13,49207,France,0
+EMP00361,Olivier Leroy,32,M,Ventes,Bac,2.6,17.2,1790.0,19.9,Très insatisfait,4,3,2022-05-27,36769,France,0
+EMP00362,Claire Simon,55,M,Production,Master,7.9,29.1,3946.0,8.2,Satisfait,0,1,2017-02-08,83300,France,0
+EMP00363,Alice Vincent,44,M,R&D,Licence,1.2,11.3,2595.0,2.2,Satisfait,3,2,2023-10-20,11868,France,0
+EMP00364,  Paul  Simon  ,38,M,Production,Licence,6.8,8.3,3287.0,3.7,Satisfait,1,1,2018-03-16,62117,France,0
+EMP00365,Claire Durand,34,M,Production,Master,2.6,10.2,3934.0,0.6,Satisfait,2,0,2022-05-27,96840,France,0
+EMP00366,Bob Dubois,19,F,IT,Master,2.2,18.0,3179.0,6.5,Insatisfait,0,2,2022-10-20,18709,France,0
+EMP00367,  Olivier  Durand  ,57,F,Production,Master,0.4,15.0,3342.0,6.0,Neutre,6,0,2024-08-07,61421,France,0
+EMP00368,inès michel,31,F,R&D,Bac,0.6,14.4,1973.0,2.9,Satisfait,2,1,2024-05-26,99108,France,1
+EMP00369,Nora Leroy,33,M,Ventes,Licence,4.7,6.9,2447.0,2.9,Très satisfait,2,4,2020-04-21,44674,France,0
+EMP00370,François Fournier,55,F,Marketing,Bac,1.9,22.1,1874.0,1.3,Très satisfait,5,0,2023-02-07,73437,France,0
+EMP00371,CLAIRE LEROY,45,M,R&D,Master,1.2,15.9,2953.0,3.8,Satisfait,2,2,2023-10-20,50905,France,0
+EMP00372,Léa Dubois,43,F,Production,Bac,2.0,10.1,2149.0,3.0,Très satisfait,0,1,2023-01-01,47676,France,0
+EMP00373,nora dubois,22,M,Ventes,Licence,5.3,13.0,28200.0,0.5,Très satisfait,3,0,2019-09-15,95503,France,1
+EMP00374,Inès Martin,41,F,IT,Licence,10.1,9.4,3030.0,1.0,Satisfait,1,1,2014-11-28,45604,France,0
+EMP00375,Nora Vincent,30,M,RH,Master,4.6,12.0,3627.0,2.5,Satisfait,1,2,2020-05-28,27333,France,0
+EMP00376,Bob Michel,59,F,IT,Master,7.7,7.4,3872.0,2.6,Satisfait,3,0,2017-04-22,17125,France,0
+EMP00377,Paul Fournier,39,F,Ventes,Licence,2.6,16.1,2582.0,7.4,Neutre,1,2,2022-05-27,94523,France,0
+EMP00378,DAVID SIMON,46,M,R&D,Licence,5.2,8.7,3056.0,3.8,Neutre,0,2,2019-10-21,41024,France,0
+EMP00379,Alice Garcia,38,M,R&D,Licence,0.7,11.7,2143.0,6.1,Satisfait,2,4,2024-04-20,52190,France,0
+EMP00380,Olivier Durand,51,F,Production,Master,0.8,7.2,2977.0,5.1,Satisfait,4,2,2024-03-14,83900,France,0
+EMP00381,Marc Moreau,40,M,Production,Bac,0.2,12.7,1917.0,1.1,Très satisfait,3,0,2024-10-19,21155,France,0
+EMP00382,Olivier Roux,25,F,Production,Master,4.5,7.4,4164.0,1.1,Satisfait,2,1,2020-07-03,71528,France,0
+EMP00383,Théo Roux,18,F,Ventes,Licence,11.3,8.2,3235.0,2.2,Satisfait,1,4,2013-09-16,39743,France,0
+EMP00384,Emma Roux,39,F,Marketing,Master,1.6,20.8,3754.0,4.7,Satisfait,1,0,2023-05-27,84694,France,0
+EMP00385,Nora Leroy,29,M,R&D,Licence,11.1,11.0,2839.0,1.9,Satisfait,3,2,2013-11-28,80310,France,0
+EMP00386,Léa Vincent,58,F,Production,Bac,12.1,1.1,2636.0,4.6,Satisfait,1,1,2012-11-28,18892,France,0
+EMP00387,  Sam  Dubois  ,48,F,Marketing,Master,9.8,2.6,4042.0,4.6,Satisfait,1,3,2015-03-17,35476,France,0
+EMP00388,GABRIELLE MOREAU,39,F,Marketing,Master,0.2,12.4,3490.0,4.6,Très satisfait,2,2,2024-10-19,94286,France,0
+EMP00389,Hugo Laurent,49,F,Ventes,Bac,3.4,18.4,2036.0,9.7,Insatisfait,1,0,2021-08-08,19204,France,0
+EMP00390,Claire Roux,31,M,Ventes,Licence,8.7,44.5,2825.0,10.2,Très insatisfait,4,1,2016-04-22,88371,France,0
+EMP00391,Sam Leroy,18,F,R&D,Licence,1.0,3.7,2404.0,5.5,Insatisfait,4,0,2024-01-01,10490,France,1
+EMP00392,Théo Simon,31,F,Production,Licence,2.7,21.5,2557.0,2.1,Neutre,6,0,2022-04-21,40900,France,0
+EMP00393,ALICE ROUX,41,M,Ventes,Licence,3.4,6.0,2820.0,3.4,Insatisfait,1,0,2021-08-08,35010,France,0
+EMP00394,  Inès  Simon  ,19,F,Marketing,Bac,1.4,21.9,1653.0,2.5,,3,1,2023-08-09,19906,France,0
+EMP00395,françois dubois,36,M,Ventes,Master,3.5,25.7,3431.0,1.3,Très satisfait,2,0,2021-07-03,71767,France,0
+EMP00396,Gabrielle Dubois,44,M,IT,Master,5.6,14.7,3501.0,2.5,Très satisfait,4,2,2019-05-29,18363,France,0
+EMP00397,Gabrielle Leroy,25,M,Production,Doctorat,3.3,22.0,4609.0,1.2,Très satisfait,0,0,2021-09-14,20857,France,0
+EMP00398,Karim Leroy,39,F,Production,Licence,10.8,5.5,2746.0,4.9,Insatisfait,1,3,2014-03-17,45601,France,0
+EMP00399,Karim Laurent,44,M,Ventes,Bac,0.4,26.6,1607.0,6.8,Très insatisfait,7,3,2024-08-07,73793,France,0
+EMP00400,François Petit,35,M,Production,Licence,1.9,2.4,2769.0,3.2,Satisfait,0,0,2023-02-07,37564,France,0
+EMP00401,INÈS PETIT,59,F,Production,Bac,0.9,29.6,1963.0,3.1,Insatisfait,3,1,2024-02-07,55172,France,1
+EMP00402,léa garcia,28,F,Ventes,Bac,7.6,17.7,2009.0,3.0,Neutre,1,0,2017-05-28,36399,France,0
+EMP00403,  Quentin  Leroy  ,40,M,Production,Master,6.5,14.0,3980.0,4.6,Neutre,2,1,2018-07-04,38132,France,0
+EMP00404,Claire Bernard,36,M,RH,Doctorat,1.2,16.0,5218.0,1.3,Insatisfait,0,0,2023-10-20,87372,France,0
+EMP00405,François Dubois,41,M,R&D,Bac,9.7,20.3,2221.0,0.4,Neutre,4,2,2015-04-23,48361,France,0
+EMP00406,Jules Durand,34,F,Ventes,Bac,1.8,25.2,1979.0,2.9,Très satisfait,5,2,2023-03-15,34567,France,0
+EMP00407,Claire Petit,46,F,Ventes,Master,0.0,21.8,2874.0,5.7,Satisfait,7,3,2024-12-31,98234,France,1
+EMP00408,  Karim  Petit  ,45,F,R&D,Bac,1.3,11.9,2148.0,2.7,Très satisfait,2,2,2023-09-14,92776,France,0
+EMP00409,ROSE ROUX,23,F,Production,Licence,2.0,12.2,2327.0,3.2,Satisfait,0,3,2023-01-01,37097,France,0
+EMP00410,Marc Bernard,29,F,Ventes,Licence,0.5,7.9,,7.8,Insatisfait,4,0,2024-07-02,86699,France,0
+EMP00411,Jules Michel,27,F,Production,Master,9.0,6.8,3746.0,2.6,Neutre,1,1,2016-01-03,79140,France,0
+EMP00412,Paul Bernard,40,M,RH,Licence,13.8,20.7,3725.0,7.8,Insatisfait,1,1,2011-03-18,70680,France,1
+EMP00413,Paul Martin,41,M,R&D,Master,4.9,18.4,3567.0,4.2,Neutre,3,3,2020-02-08,27175,France,0
+EMP00414,Gabrielle Vincent,48,F,Production,Doctorat,0.3,23.7,4353.0,4.6,satisfait,0,3,2024-09-13,59645,France,0
+EMP00415,  Paul  Vincent  ,48,F,RH,Licence,8.6,9.7,2602.0,2.1,Insatisfait,0,0,2016-05-28,35585,France,0
+EMP00416,François Petit,43,F,R&D,Master,9.7,23.5,4017.0,0.9,Neutre,2,3,2015-04-23,23686,France,0
+EMP00417,Alice Moreau,40,M,RH,Doctorat,5.9,19.3,5447.0,0.9,Satisfait,3,3,2019-02-08,65641,France,0
+EMP00418,Gabrielle Dubois,42,M,R&D,Bac,1.8,12.8,1846.0,1.5,Satisfait,4,0,2023-03-15,56459,France,0
+EMP00419,Emma Petit,50,F,R&D,Bac,0.3,12.1,1894.0,5.6,Insatisfait,2,0,2024-09-13,54593,France,0
+EMP00420,Alice Durand,24,M,Production,Master,0.5,38.7,2771.0,12.8,Insatisfait,1,0,2024-07-02,63623,France,1
+EMP00421,Nora Petit,32,F,Ventes,Bac,2.2,7.0,1715.0,1.2,Satisfait,1,4,2022-10-20,48177,France,0
+EMP00422,Claire Simon,23,F,Marketing,Licence,2.4,27.4,2221.0,3.2,Insatisfait,4,2,2022-08-08,99584,France,0
+EMP00423,Inès Leroy,65,M,Ventes,Master,4.3,3.1,3217.0,2.7,Satisfait,1,3,2020-09-14,69870,France,0
+EMP00424,EMMA MARTIN,42,M,R&D,Bac,5.4,7.6,2055.0,7.6,Neutre,2,0,2019-08-09,71698,France,0
+EMP00425,Jules Dubois,32,F,Ventes,Bac,1.8,38.6,1951.0,4.4,Insatisfait,1,2,2023-03-15,89417,France,0
+EMP00426,Olivier Bernard,19,M,RH,Licence,5.7,11.3,3142.0,7.0,Satisfait,2,1,2019-04-22,21950,France,1
+EMP00427,Olivier Durand,26,F,Production,Master,4.4,5.4,4138.0,0.9,Satisfait,3,0,2020-08-08,77855,France,0
+EMP00428,Olivier Vincent,33,F,Ventes,Master,2.4,5.2,3429.0,8.4,Neutre,5,0,2022-08-08,90371,France,0
+EMP00429,rose simon,52,F,Production,Licence,0.1,10.3,2108.0,0.1,Satisfait,2,1,2024-11-25,98415,France,1
+EMP00430,Emma Fournier,53,F,Ventes,Licence,0.9,13.8,2502.0,3.0,Très satisfait,2,1,2024-02-07,78863,France,0
+EMP00431,David Fournier,50,M,Production,Licence,2.7,24.8,2791.0,5.5,Neutre,1,2,2022-04-21,47207,France,0
+EMP00432,Claire Vincent,36,M,R&D,Master,5.9,4.5,4083.0,10.9,Insatisfait,4,0,2019-02-08,67514,France,1
+EMP00433,David Garcia,28,Autre,Ventes,Bac,0.0,11.3,,5.6,Satisfait,0,0,2024-12-31,83921,France,0
+EMP00434,Claire Vincent,55,M,R&D,Licence,0.9,26.8,2493.0,3.4,Neutre,0,0,2024-02-07,38326,France,0
+EMP00435,Marc Vincent,44,M,R&D,Licence,10.5,10.6,3488.0,0.1,Neutre,4,1,2014-07-05,91761,France,0
+EMP00436,Marc Simon,37,M,Production,Licence,1.9,8.8,2451.0,2.1,Satisfait,4,0,2023-02-07,37375,France,0
+EMP00437,David Martin,34,M,Ventes,Licence,5.1,10.5,2361.0,2.7,Satisfait,2,0,2019-11-27,40811,France,0
+EMP00438,Olivier Fournier,47,F,IT,Bac,1.2,42.0,1996.0,4.4,Insatisfait,2,0,2023-10-20,15216,France,0
+EMP00439,Nora Bernard,30,M,R&D,Master,4.1,17.4,3747.0,6.5,Insatisfait,5,3,2020-11-26,15649,France,0
+EMP00440,Karim Bernard,30,M,R&D,Bac,1.3,6.7,2110.0,2.9,Satisfait,3,0,2023-09-14,18624,France,0
+EMP00441,Paul Moreau,34,M,Ventes,Bac,0.3,8.8,1570.0,10.6,Satisfait,3,1,2024-09-13,14353,France,0
+EMP00442,Hugo Vincent,53,M,Marketing,Master,1.1,14.8,3047.0,0.8,Insatisfait,2,0,2023-11-26,90611,France,1
+EMP00443,bob roux,38,M,Marketing,Licence,2.5,6.9,2629.0,4.0,Insatisfait,2,5,2022-07-03,63599,France,0
+EMP00444,David Michel,45,M,R&D,Bac,12.4,24.9,2191.0,5.2,Satisfait,2,0,2012-08-10,44356,France,0
+EMP00445,  Quentin  Simon  ,54,F,Ventes,Doctorat,14.3,22.9,6152.0,1.3,Très satisfait,2,4,2010-09-17,25824,France,0
+EMP00446,Nora Laurent,32,M,R&D,Bac,9.7,14.1,2337.0,2.9,Satisfait,3,4,2015-04-23,66204,France,0
+EMP00447,Marc Michel,28,M,Production,Master,1.1,13.3,2835.0,0.8,Neutre,2,0,2023-11-26,36383,France,0
+EMP00448,Hugo Garcia,22,M,Ventes,Master,1.7,3.5,,4.1,Neutre,2,0,2023-04-21,96545,France,0
+EMP00449,Karim Martin,23,F,RH,Bac,7.6,28.3,2423.0,1.0,Neutre,0,1,2017-05-28,61298,France,0
+EMP00450,Alice Bernard,48,M,Marketing,Licence,5.8,13.6,2579.0,5.3,Insatisfait,4,0,2019-03-16,97881,France,0
+EMP00451,Rose Martin,42,F,Ventes,Bac,1.5,7.7,1798.0,1.7,Très satisfait,1,3,2023-07-03,45403,France,0
+EMP00452,Hugo Moreau,54,F,Production,Licence,3.5,2.1,2260.0,2.4,Très satisfait,1,4,2021-07-03,46338,France,0
+EMP00453,Paul Vincent,31,M,Ventes,Master,2.5,10.2,3154.0,4.2,Très satisfait,1,0,2022-07-03,43418,France,0
+EMP00454,sam martin,22,M,Production,Bac,0.9,16.7,1847.0,3.9,Neutre,0,0,2024-02-07,59920,France,1
+EMP00455,Bob Simon,27,M,Marketing,Licence,5.9,12.2,2961.0,0.6,Très satisfait,1,4,2019-02-08,68906,France,0
+EMP00456,Inès Durand,46,F,Production,Licence,12.6,6.7,3157.0,3.6,Très satisfait,2,0,2012-05-29,66942,France,0
+EMP00457,Quentin Fournier,31,M,Ventes,Licence,6.1,31.5,2801.0,4.6,Satisfait,0,4,2018-11-27,56790,France,0
+EMP00458,  Léa  Durand  ,30,M,R&D,Master,11.0,31.2,3682.0,1.8,Satisfait,4,2,2014-01-03,66402,France,0
+EMP00459,SAM ROUX,27,F,Production,Bac,5.4,24.0,1980.0,0.2,Satisfait,2,3,2019-08-09,46782,France,0
+EMP00460,Bob Leroy,41,M,Production,Licence,9.1,17.6,3067.0,2.3,Très satisfait,3,3,2015-11-28,16918,France,0
+EMP00461,Inès Moreau,45,F,Ventes,Licence,4.9,8.6,3036.0,6.1,Satisfait,2,2,2020-02-08,87983,France,0
+EMP00462,olivier durand,37,M,Ventes,Master,1.4,10.6,2928.0,3.3,Très insatisfait,2,4,2023-08-09,38175,France,0
+EMP00463,Olivier Moreau,24,F,Ventes,Licence,4.1,24.6,,1.8,Satisfait,3,0,2020-11-26,54492,France,0
+EMP00464,Marc Dubois,26,M,Ventes,Bac,3.7,13.6,1708.0,4.1,Satisfait,4,3,2021-04-21,31941,France,0
+EMP00465,Paul Moreau,50,F,Ventes,Master,3.8,13.4,3975.0,0.9,Neutre,0,0,2021-03-15,36555,France,0
+EMP00466,Sam Laurent,41,M,Marketing,Bac,0.0,15.8,1995.0,4.2,Insatisfait,0,2,2024-12-31,72821,France,0
+EMP00467,karim petit,33,M,Production,Master,11.8,27.5,4853.0,2.0,Neutre,1,3,2013-03-17,99635,France,0
+EMP00468,GABRIELLE MARTIN,25,F,Production,Master,2.5,6.5,,3.3,Neutre,0,0,2022-07-03,36295,France,0
+EMP00469,Jules Simon,39,F,Ventes,Bac,8.3,9.7,2093.0,3.0,Neutre,1,1,2016-09-15,57138,France,0
+EMP00470,Inès Leroy,54,F,Production,Doctorat,18.4,19.3,7926.0,1.0,Très satisfait,1,1,2006-08-13,94157,France,0
+EMP00471,Rose Moreau,30,F,Ventes,Licence,15.9,15.6,3242.0,3.9,Très satisfait,4,2,2009-02-10,89940,France,0
+EMP00472,Jules Roux,34,F,R&D,Master,1.6,11.3,3802.0,8.8,Neutre,0,1,2023-05-27,21346,France,0
+EMP00473,MARC LEROY,38,M,R&D,Bac,4.1,4.0,1887.0,2.9,Très satisfait,0,1,2020-11-26,59342,France,0
+EMP00474,Nora Laurent,25,M,Ventes,Master,1.4,23.8,3573.0,4.1,Neutre,0,0,2023-08-09,13814,France,0
+EMP00475,Nora Martin,50,F,Marketing,Licence,3.2,14.7,2829.0,6.0,Neutre,1,0,2021-10-20,79432,France,0
+EMP00476,Nora Simon,49,M,Production,Master,4.0,13.1,3728.0,10.7,Très insatisfait,0,1,2021-01-01,40111,France,0
+EMP00477,léa dubois,18,F,Ventes,Master,10.9,6.6,4647.0,4.7,Satisfait,3,4,2014-02-09,79476,France,0
+EMP00478,Gabrielle Roux,42,F,R&D,Doctorat,22.8,22.0,6858.0,5.2,Neutre,3,0,2002-03-20,52252,France,0
+EMP00479,Claire Roux,18,M,RH,Master,8.1,23.5,4554.0,1.9,Satisfait,1,3,2016-11-27,63835,France,0
+EMP00480,Karim Simon,40,F,Production,Licence,2.0,27.1,2204.0,4.1,Satisfait,0,4,2023-01-01,81408,France,0
+EMP00481,françois moreau,49,M,Marketing,Licence,5.5,27.3,2658.0,3.1,Insatisfait,2,2,2019-07-04,72925,France,0
+EMP00482,Rose Garcia,42,M,Production,Licence,2.2,40.9,2189.0,0.3,Satisfait,2,1,2022-10-20,76084,France,0
+EMP00483,David Leroy,35,M,Production,Licence,11.7,19.9,3303.0,4.2,Insatisfait,2,4,2013-04-23,38802,France,0
+EMP00484,Gabrielle Garcia,51,F,R&D,Master,8.0,26.6,4481.0,1.4,Satisfait,5,4,2017-01-02,43674,France,0
+EMP00485,Quentin Martin,35,F,R&D,Licence,11.9,7.8,3093.0,1.0,Satisfait,2,0,2013-02-09,18430,France,1
+EMP00486,Rose Moreau,24,M,RH,Licence,4.1,13.6,2460.0,1.5,Très satisfait,0,0,2020-11-26,29628,France,0
+EMP00487,Léa Michel,38,M,R&D,Licence,1.7,11.8,2387.0,0.8,Très satisfait,1,2,2023-04-21,43575,France,0
+EMP00488,Paul Vincent,30,F,R&D,Bac,5.9,31.1,1977.0,1.2,Très satisfait,2,2,2019-02-08,61314,France,0
+EMP00489,Quentin Martin,33,F,Ventes,Licence,4.8,7.7,2473.0,2.8,Neutre,4,2,2020-03-15,12202,France,0
+EMP00490,bob michel,65,M,Production,Licence,7.4,13.5,3281.0,1.4,Satisfait,0,3,2017-08-09,54794,France,0
+EMP00491,Sam Simon,37,M,Production,Licence,5.8,9.4,2930.0,5.3,Neutre,3,0,2019-03-16,48705,France,0
+EMP00492,Alice Durand,20,F,R&D,Master,3.8,14.8,3678.0,1.5,,1,0,2021-03-15,33500,France,0
+EMP00493,Karim Durand,40,M,R&D,Master,8.0,10.7,3526.0,6.0,Neutre,2,2,2017-01-02,17923,France,0
+EMP00494,Rose Leroy,26,M,Ventes,Master,5.0,12.2,,1.8,Satisfait,2,0,2020-01-02,43020,France,0
+EMP00495,Claire Bernard,58,M,IT,Licence,6.9,10.3,2629.0,2.4,Très satisfait,0,1,2018-02-08,18569,France,0
+EMP00496,Paul Leroy,20,F,Marketing,Bac,0.4,4.2,1945.0,4.3,Insatisfait,2,4,2024-08-07,18149,France,0
+EMP00497,Gabrielle Simon,42,M,Ventes,Bac,8.4,8.9,1975.0,6.9,Très insatisfait,0,0,2016-08-09,95976,France,0
+EMP00498,Théo Simon,44,F,Ventes,Master,2.3,15.4,3762.0,3.8,Satisfait,0,3,2022-09-14,93256,France,0
+EMP00499,  Karim  Dubois  ,43,F,Production,Master,0.7,17.0,3715.0,1.5,Satisfait,2,1,2024-04-20,91562,France,0
+EMP00500,Bob Martin,38,F,Marketing,Bac,8.6,24.4,2036.0,10.3,Très insatisfait,1,2,2016-05-28,12043,France,0
+EMP00501,Claire Moreau,21,M,Production,Licence,3.4,25.3,,3.0,Neutre,3,0,2021-08-08,29884,France,0
+EMP00502,Karim Garcia,39,F,RH,Licence,33.9,10.1,5213.0,1.8,Neutre,2,0,1991-02-15,90181,France,0
+EMP00503,Nora Garcia,39,F,Production,Licence,0.6,428.8346637396986,2242.0,3.9,Neutre,0,1,2024-05-26,69667,France,0
+EMP00504,Alice Durand,55,F,Marketing,Licence,12.3,7.2,3535.0,0.6,Satisfait,7,0,2012-09-16,33167,France,0
+EMP00505,Emma Garcia,51,F,R&D,Bac,2.8,19.0,1742.0,5.4,Très insatisfait,3,2,2022-03-16,38943,France,1
+EMP00506,Paul Roux,42,M,Production,Licence,21.5,31.9,4141.0,3.3,Neutre,1,0,2003-07-08,62424,France,0
+EMP00507,Claire Martin,49,F,R&D,Master,1.1,30.5,2979.0,13.8,,1,0,2023-11-26,30891,France,1
+EMP00508,Sam Martin,21,M,Production,Bac,2.0,10.7,1829.0,0.9,Satisfait,0,0,2023-01-01,68223,France,1
+EMP00509,Inès Leroy,33,M,Production,Licence,8.7,7.4,3182.0,11.8,Insatisfait,0,1,2016-04-22,97613,France,0
+EMP00510,Hugo Bernard,52,M,Production,Master,0.4,12.8,3408.0,3.1,Insatisfait,2,3,2024-08-07,12161,France,0
+EMP00511,  Nora  Bernard  ,52,M,Marketing,Licence,6.0,14.5,2828.0,13.5,Insatisfait,0,1,2019-01-02,63305,France,0
+EMP00512,David Leroy,47,M,Production,Licence,4.1,9.5,2475.0,3.9,Neutre,4,4,2020-11-26,26207,France,0
+EMP00513,david vincent,32,M,Ventes,Licence,8.5,9.2,2718.0,3.0,Neutre,1,2,2016-07-04,44345,France,0
+EMP00514,François Michel,37,F,Ventes,Master,0.1,10.8,2744.0,15.7,Insatisfait,1,4,2024-11-25,92703,France,0
+EMP00515,KARIM SIMON,32,M,IT,Master,8.4,3.4,4411.0,3.2,Satisfait,4,2,2016-08-09,46060,France,0
+EMP00516,Emma Garcia,18,M,R&D,Master,4.1,10.0,3644.0,9.1,Insatisfait,2,3,2020-11-26,69818,France,0
+EMP00517,Quentin Bernard,39,M,Ventes,Bac,4.8,7.2,1792.0,2.0,,4,1,2020-03-15,33925,France,0
+EMP00518,Quentin Moreau,40,F,IT,Licence,15.0,12.7,3238.0,1.1,Très satisfait,0,1,2010-01-04,95414,France,0
+EMP00519,olivier roux,40,F,Ventes,Master,3.1,6.8,3393.0,4.6,Très satisfait,2,1,2021-11-26,21289,France,0
+EMP00520,Hugo Martin,34,M,R&D,Master,0.7,3.3,3644.0,4.8,Neutre,3,3,2024-04-20,54291,France,0
+EMP00521,Inès Leroy,33,M,IT,Doctorat,10.6,25.8,5689.0,2.3,Neutre,3,2,2014-05-29,39813,France,0
+EMP00522,Jules Roux,29,M,R&D,Bac,7.1,5.0,2189.0,2.9,Très satisfait,2,3,2017-11-27,76046,France,0
+EMP00523,Paul Michel,31,M,Production,Licence,2.8,8.3,2498.0,7.2,Neutre,1,2,2022-03-16,63317,France,0
+EMP00524,Sam Moreau,31,M,RH,Master,17.3,12.9,4353.0,7.9,Neutre,4,4,2007-09-18,69064,France,0
+EMP00525,  Olivier  Martin  ,25,M,RH,Master,10.7,16.8,3833.0,1.3,Très satisfait,4,2,2014-04-23,48680,France,0
+EMP00526,Alice Petit,46,M,Marketing,Licence,0.8,22.6,2139.0,0.6,Très satisfait,2,0,2024-03-14,15528,France,0
+EMP00527,Emma Petit,52,F,IT,Doctorat,4.5,11.7,4686.0,3.6,Très satisfait,2,2,2020-07-03,95616,France,0
+EMP00528,Gabrielle Simon,47,F,IT,Bac,1.4,2.6,1700.0,2.5,Satisfait,5,3,2023-08-09,68414,France,0
+EMP00529,Emma Durand,38,M,RH,Licence,0.7,10.8,2251.0,1.9,Satisfait,2,1,2024-04-20,53080,France,0
+EMP00530,Marc Simon,24,M,Production,Master,1.1,8.0,3701.0,8.7,Satisfait,3,3,2023-11-26,85222,France,0
+EMP00531,Quentin Vincent,32,M,R&D,Master,5.2,14.8,3783.0,3.2,Très insatisfait,1,1,2019-10-21,11242,France,0
+EMP00532,Inès Durand,37,M,Marketing,Bac,6.2,15.6,2147.0,1.5,Satisfait,5,4,2018-10-21,48818,France,0
+EMP00533,Rose Laurent,34,F,IT,Master,2.7,6.0,3672.0,1.4,Satisfait,3,4,2022-04-21,88853,France,0
+EMP00534,Karim Laurent,35,M,Ventes,Licence,0.9,5.9,2736.0,3.9,Neutre,3,0,2024-02-07,80417,France,0
+EMP00535,Jules Petit,32,M,IT,Master,18.7,13.2,5396.0,1.5,Neutre,0,2,2006-04-25,75147,France,0
+EMP00536,Marc Garcia,41,M,Marketing,Bac,0.5,13.9,1621.0,3.3,SATISFAIT,3,0,2024-07-02,42940,France,1
+EMP00537,  Karim  Garcia  ,44,F,Production,Master,10.7,19.9,4072.0,2.8,Insatisfait,1,0,2014-04-23,38985,France,0
+EMP00538,Alice Roux,31,M,Ventes,Licence,2.2,53.4,2579.0,10.4,Insatisfait,3,0,2022-10-20,46216,France,1
+EMP00539,Bob Roux,57,M,R&D,Master,8.4,13.5,4319.0,7.7,Très insatisfait,4,0,2016-08-09,65516,France,0
+EMP00540,François Bernard,47,M,Ventes,Master,2.1,7.1,3684.0,2.3,Neutre,5,0,2022-11-26,50638,France,0
+EMP00541,Jules Simon,44,Autre,Marketing,Bac,2.0,16.2,1796.0,2.2,Neutre,0,4,2023-01-01,61260,France,0
+EMP00542,Marc Moreau,45,M,R&D,Licence,2.4,14.0,2910.0,5.5,Neutre,3,2,2022-08-08,68903,France,0
+EMP00543,DAVID MARTIN,27,F,R&D,Master,4.5,17.5,3262.0,2.5,Très satisfait,0,1,2020-07-03,20201,France,0
+EMP00544,inès leroy,43,M,Production,Licence,15.5,2.9,3443.0,1.9,Insatisfait,3,4,2009-07-06,60060,France,0
+EMP00545,Paul Vincent,36,F,RH,Licence,0.5,25.8,2111.0,3.6,Neutre,1,0,2024-07-02,54957,France,0
+EMP00546,Léa Michel,35,M,Production,Licence,4.0,8.2,2352.0,1.6,Satisfait,3,0,2021-01-01,53904,France,0
+EMP00547,Paul Laurent,42,M,RH,Licence,0.9,4.2,2772.0,4.6,Très insatisfait,3,2,2024-02-07,53868,France,0
+EMP00548,David Bernard,37,M,Ventes,Bac,2.6,23.8,1736.0,1.2,Satisfait,4,0,2022-05-27,38170,France,0
+EMP00549,Alice Laurent,53,F,Production,Master,5.3,30.2,3472.0,4.6,Très satisfait,5,2,2019-09-15,76691,France,0
+EMP00550,Inès Simon,54,M,Ventes,Master,6.3,25.8,4149.0,2.1,Neutre,0,0,2018-09-15,38405,France,0
+EMP00551,Bob Bernard,52,F,Ventes,Licence,4.8,14.2,3054.0,3.4,Satisfait,1,0,2020-03-15,10308,France,0
+EMP00552,David Vincent,34,M,IT,Master,2.7,10.4,3614.0,6.9,Très insatisfait,0,3,2022-04-21,32075,France,1
+EMP00553,Rose Leroy,51,M,Ventes,Licence,9.4,13.1,2916.0,2.6,Neutre,3,2,2015-08-10,93951,France,0
+EMP00554,Nora Laurent,38,F,IT,Bac,5.0,31.1,1822.0,2.7,Satisfait,3,2,2020-01-02,48147,France,0
+EMP00555,Olivier Fournier,46,F,R&D,Doctorat,2.7,41.0,5360.0,7.3,Neutre,1,3,2022-04-21,11279,France,0
+EMP00556,Marc Moreau,34,M,Production,Master,0.3,29.8,3283.0,3.2,Satisfait,2,1,2024-09-13,72988,France,0
+EMP00557,Quentin Fournier,55,M,R&D,Master,0.2,12.9,3098.0,2.0,Satisfait,3,3,2024-10-19,61771,France,0
+EMP00558,Paul Petit,48,F,Marketing,Bac,0.8,14.9,1875.0,2.2,Très insatisfait,0,0,2024-03-14,39708,France,1
+EMP00559,  Quentin  Fournier  ,32,M,Ventes,Doctorat,16.8,16.0,6358.0,5.3,Très satisfait,2,2,2008-03-18,46796,France,0
+EMP00560,  Théo  Garcia  ,50,F,IT,Bac,12.4,39.0,2768.0,3.1,Neutre,2,0,2012-08-10,15497,France,1
+EMP00561,Paul Laurent,33,M,Ventes,Licence,10.5,22.6,3201.0,3.2,Neutre,2,4,2014-07-05,82320,France,0
+EMP00562,Jules Dubois,33,M,Ventes,Licence,9.4,7.7,2794.0,1.2,Très satisfait,0,1,2015-08-10,36846,France,0
+EMP00563,Olivier Roux,46,F,RH,Licence,1.5,5.6,2656.0,1.4,Satisfait,4,0,2023-07-03,56979,France,0
+EMP00564,Karim Moreau,27,M,R&D,Licence,16.0,14.2,3210.0,2.0,Satisfait,1,2,2009-01-04,12555,France,0
+EMP00565,Paul Simon,31,M,Production,Master,10.3,19.8,4716.0,2.1,Satisfait,1,1,2014-09-16,63621,France,0
+EMP00566,Rose Petit,38,M,Marketing,Master,5.8,20.6,4186.0,3.9,Très satisfait,0,3,2019-03-16,96986,France,0
+EMP00567,Bob Vincent,37,F,Production,Master,35.0,7.5,6261.0,3.1,Satisfait,2,2,1990-01-09,96679,France,0
+EMP00568,  Marc  Bernard  ,56,M,Marketing,Bac,1.5,6.3,1923.0,1.2,Très satisfait,0,4,2023-07-03,52506,France,0
+EMP00569,Gabrielle Simon,37,M,Marketing,Master,4.4,10.1,3985.0,0.7,Très satisfait,4,1,2020-08-08,78952,France,0
+EMP00570,Quentin Garcia,49,F,Ventes,Doctorat,1.8,8.7,4137.0,6.1,Satisfait,4,5,2023-03-15,40766,France,0
+EMP00571,Nora Moreau,28,F,Production,Licence,8.5,25.3,2737.0,0.9,Satisfait,3,2,2016-07-04,96101,France,0
+EMP00572,Claire Fournier,35,F,Production,Bac,0.6,13.8,2094.0,3.7,Satisfait,1,2,2024-05-26,67666,France,0
+EMP00573,Alice Moreau,50,F,Ventes,Master,1.7,18.8,3793.0,1.2,Neutre,0,0,2023-04-21,59731,France,1
+EMP00574,Léa Garcia,23,F,R&D,Licence,4.7,26.9,2640.0,3.2,Satisfait,0,0,2020-04-21,72382,France,0
+EMP00575,Emma Martin,43,M,Ventes,Bac,4.9,21.1,1867.0,8.6,Neutre,1,3,2020-02-08,96355,France,0
+EMP00576,Gabrielle Moreau,30,F,Ventes,Master,0.0,3.1,3568.0,5.0,Insatisfait,1,0,2024-12-31,48833,France,0
+EMP00577,Nora Fournier,24,F,RH,Bac,7.1,5.6,2246.0,0.9,Satisfait,3,3,2017-11-27,61565,France,0
+EMP00578,Claire Roux,23,M,Production,Bac,0.0,5.5,1661.0,0.6,Neutre,2,1,2024-12-31,29459,France,0
+EMP00579,Nora Martin,40,F,Marketing,Master,0.1,8.9,3687.0,10.7,Insatisfait,2,3,2024-11-25,26103,France,1
+EMP00580,  Paul  Vincent  ,21,M,Marketing,Licence,8.0,11.9,,0.7,Neutre,0,2,2017-01-02,26923,France,0
+EMP00581,David Garcia,33,M,Production,Master,2.9,19.0,3790.0,2.3,Satisfait,2,0,2022-02-07,58620,France,0
+EMP00582,Inès Leroy,52,M,Production,Licence,0.0,35.2,2085.0,2.8,Satisfait,1,3,2024-12-31,29695,France,0
+EMP00583,Inès Roux,47,F,Production,Master,2.6,21.7,3321.0,4.4,Satisfait,2,3,2022-05-27,92653,France,0
+EMP00584,jules dubois,40,F,IT,Master,5.6,15.7,4238.0,3.5,Neutre,2,0,2019-05-29,83534,France,0
+EMP00585,François Durand,36,M,R&D,Licence,9.7,12.8,2634.0,5.1,Très satisfait,2,2,2015-04-23,99128,France,0
+EMP00586,Nora Simon,37,F,R&D,Licence,0.1,8.6,2657.0,2.0,Très satisfait,3,3,2024-11-25,57830,France,1
+EMP00587,Marc Laurent,47,F,Marketing,Licence,17.1,27.3,3311.0,4.3,Satisfait,2,3,2007-11-30,22671,France,0
+EMP00588,Nora Fournier,29,Autre,Production,Doctorat,4.2,17.1,4725.0,8.6,Insatisfait,1,1,2020-10-20,47443,France,1
+EMP00589,Léa Bernard,59,M,RH,Bac,7.9,7.2,2358.0,1.6,Satisfait,1,2,2017-02-08,64985,France,0
+EMP00590,Nora Petit,42,F,Production,Bac,5.3,13.8,1932.0,0.5,Neutre,2,3,2019-09-15,65893,France,0
+EMP00591,Paul Leroy,33,M,Ventes,Master,6.9,27.7,3920.0,0.3,Neutre,2,2,2018-02-08,76414,France,0
+EMP00592,Léa Bernard,28,M,R&D,Master,3.6,14.2,3126.0,1.1,Très satisfait,1,2,2021-05-27,73788,France,0
+EMP00593,quentin simon,47,M,R&D,Licence,0.9,4.0,2517.0,7.4,Insatisfait,2,1,2024-02-07,86131,France,0
+EMP00594,Olivier Moreau,39,M,Production,Licence,3.0,15.4,2477.0,1.8,Satisfait,3,0,2022-01-01,92156,France,0
+EMP00595,Quentin Leroy,33,M,RH,Licence,2.8,18.2,2891.0,5.2,,2,3,2022-03-16,23932,France,0
+EMP00596,Claire Fournier,21,F,Production,Licence,2.7,12.8,2547.0,0.1,,1,2,2022-04-21,89602,France,0
+EMP00597,Paul Martin,54,F,R&D,Licence,10.0,2.9,3368.0,2.1,Neutre,2,2,2015-01-03,59701,France,0
+EMP00598,Théo Simon,50,M,Ventes,Bac,5.4,16.5,1963.0,1.2,Très satisfait,2,2,2019-08-09,41448,France,0
+EMP00599,Théo Martin,41,M,R&D,Master,3.3,36.7,3437.0,0.7,Satisfait,0,2,2021-09-14,88966,France,0
+EMP00600,Rose Leroy,25,F,IT,Licence,5.3,15.5,2920.0,3.2,Très satisfait,0,2,2019-09-15,12760,France,0
+EMP00601,François Bernard,43,M,IT,Licence,3.3,13.5,2785.0,0.5,Très satisfait,0,2,2021-09-14,59535,France,0
+EMP00602,Rose Laurent,45,M,R&D,Licence,0.6,5.7,2182.0,1.9,Très satisfait,2,0,2024-05-26,45116,France,0
+EMP00603,Sam Laurent,33,M,Ventes,Master,3.8,36.1,3154.0,0.4,Très satisfait,3,3,2021-03-15,51070,France,0
+EMP00604,Gabrielle Dubois,43,F,IT,Licence,1.2,7.0,2370.0,1.2,Neutre,1,0,2023-10-20,75718,France,0
+EMP00605,  Alice  Bernard  ,42,M,Ventes,Licence,8.1,6.8,3402.0,2.7,Satisfait,3,3,2016-11-27,57593,France,0
+EMP00606,Paul Garcia,46,M,IT,Master,2.8,18.1,3361.0,1.9,Neutre,2,0,2022-03-16,70228,France,0
+EMP00607,Sam Leroy,45,F,R&D,Licence,7.6,7.4,3346.0,3.0,Neutre,0,0,2017-05-28,23578,France,0
+EMP00608,jules moreau,22,F,R&D,Master,5.3,11.0,3407.0,1.7,Neutre,1,4,2019-09-15,74430,France,0
+EMP00609,Paul Vincent,31,F,R&D,Licence,1.8,22.8,2583.0,1.3,Très satisfait,4,0,2023-03-15,58879,France,1
+EMP00610,Quentin Vincent,25,M,IT,Licence,4.1,17.7,2362.0,4.2,Satisfait,1,0,2020-11-26,73882,France,0
+EMP00611,Emma Simon,46,M,Ventes,Bac,6.7,21.5,1908.0,3.6,Très satisfait,2,3,2018-04-22,22787,France,0
+EMP00612,HUGO GARCIA,26,F,R&D,Master,1.5,9.3,2972.0,4.3,Insatisfait,1,2,2023-07-03,52228,France,0
+EMP00613,GABRIELLE DURAND,29,F,IT,Licence,2.3,34.9,2791.0,4.1,Insatisfait,1,0,2022-09-14,35381,France,0
+EMP00614,Alice Laurent,35,M,Ventes,Licence,3.4,12.2,2848.0,2.0,Très satisfait,4,0,2021-08-08,99961,France,1
+EMP00615,  Quentin  Roux  ,28,M,R&D,Master,4.7,2.9,3529.0,3.7,Neutre,3,4,2020-04-21,52242,France,0
+EMP00616,THÉO BERNARD,31,M,IT,Master,30.3,12.5,5646.0,2.9,Satisfait,2,3,1994-09-21,36519,France,0
+EMP00617,Rose Michel,54,M,Production,Doctorat,1.9,22.1,5188.0,1.3,,2,1,2023-02-07,78380,France,0
+EMP00618,  David  Petit  ,29,F,Production,Master,5.0,22.4,3752.0,4.5,Satisfait,4,1,2020-01-02,53136,France,0
+EMP00619,Emma Moreau,41,F,Ventes,Master,1.1,10.4,3673.0,12.3,,3,0,2023-11-26,19354,France,0
+EMP00620,Rose Bernard,34,F,RH,Master,2.9,43.1,3745.0,2.4,Insatisfait,6,1,2022-02-07,26673,France,0
+EMP00621,Jules Michel,55,M,Ventes,Licence,26.7,17.4,4775.0,1.3,Satisfait,2,1,1998-04-27,35095,France,1
+EMP00622,Paul Moreau,53,F,R&D,Licence,3.1,4.0,2977.0,2.8,Satisfait,4,2,2021-11-26,66508,France,0
+EMP00623,Théo Petit,49,F,Ventes,Master,0.1,10.2,2779.0,1.8,Très satisfait,5,1,2024-11-25,20407,France,0
+EMP00624,David Bernard,28,F,R&D,Licence,4.4,11.5,2412.0,4.6,,0,0,2020-08-08,87697,France,1
+EMP00625,Nora Martin,33,M,IT,Doctorat,8.1,35.9,6030.0,10.4,Neutre,3,0,2016-11-27,77088,France,1
+EMP00626,Bob Petit,33,M,Ventes,Master,1.3,8.6,3645.0,0.9,Très satisfait,1,5,2023-09-14,55300,France,0
+EMP00627,David Garcia,20,M,Production,Licence,0.1,20.3,2683.0,0.3,Très satisfait,1,0,2024-11-25,80600,France,0
+EMP00628,NORA FOURNIER,45,F,Marketing,Licence,0.7,2.9,2466.0,1.8,Satisfait,3,0,2024-04-20,76256,France,0
+EMP00629,Rose Garcia,39,M,Ventes,Master,4.1,7.3,3891.0,2.1,Neutre,2,2,2020-11-26,78386,France,0
+EMP00630,Alice Roux,45,Autre,RH,Master,0.1,6.7,3472.0,10.8,Insatisfait,1,0,2024-11-25,27294,France,0
+EMP00631,Emma Roux,43,F,Production,Master,1.6,17.4,3840.0,4.4,Insatisfait,1,3,2023-05-27,25411,France,0
+EMP00632,Hugo Martin,33,M,R&D,Bac,3.2,9.6,1931.0,0.9,Neutre,0,4,2021-10-20,89270,France,0
+EMP00633,François Moreau,24,M,R&D,Licence,7.6,13.0,3043.0,3.7,Satisfait,0,2,2017-05-28,92517,France,0
+EMP00634,Olivier Garcia,33,M,Production,Master,1.8,,3457.0,7.7,Satisfait,1,0,2023-03-15,91574,France,0
+EMP00635,Sam Michel,37,M,IT,Bac,12.3,7.3,2449.0,9.1,Neutre,4,5,2012-09-16,32289,France,0
+EMP00636,Hugo Moreau,26,M,Ventes,Licence,3.6,9.8,2848.0,5.4,Neutre,0,2,2021-05-27,79540,France,0
+EMP00637,Léa Leroy,27,M,R&D,Master,8.6,9.3,3490.0,1.0,Très satisfait,1,0,2016-05-28,38204,France,0
+EMP00638,Quentin Moreau,57,F,Ventes,Bac,10.6,6.2,2642.0,3.2,Très insatisfait,1,4,2014-05-29,99143,France,0
+EMP00639,Bob Michel,52,F,Ventes,Licence,2.2,7.6,2904.0,2.9,Satisfait,0,3,2022-10-20,42649,France,0
+EMP00640,  David  Leroy  ,38,M,R&D,Licence,1.6,4.5,2603.0,4.4,satisfait,1,0,2023-05-27,16859,France,0
+EMP00641,David Moreau,61,M,Ventes,Master,0.1,9.9,3141.0,7.6,Neutre,2,0,2024-11-25,27162,France,0
+EMP00642,gabrielle dubois,48,F,RH,Licence,6.5,4.7,2681.0,1.8,Satisfait,1,0,2018-07-04,39418,France,0
+EMP00643,Hugo Martin,34,M,R&D,Doctorat,0.4,,5212.0,10.4,Insatisfait,2,2,2024-08-07,63011,France,1
+EMP00644,David Laurent,35,F,Ventes,Licence,0.6,21.4,2754.0,1.9,Satisfait,0,2,2024-05-26,28216,France,0
+EMP00645,Léa Roux,38,F,IT,Master,9.2,9.8,3900.0,5.4,Satisfait,1,3,2015-10-23,55363,France,0
+EMP00646,David Laurent,37,F,Production,Master,0.3,9.2,3541.0,3.4,Insatisfait,5,3,2024-09-13,86848,France,1
+EMP00647,David Fournier,57,M,IT,Licence,0.3,5.8,2352.0,0.8,Très satisfait,2,0,2024-09-13,17128,France,0
+EMP00648,David Laurent,35,F,R&D,Licence,0.3,13.3,2617.0,15.1,Très insatisfait,3,0,2024-09-13,99150,France,1
+EMP00649,Claire Laurent,38,M,Production,Master,11.1,7.0,3897.0,2.6,Satisfait,1,3,2013-11-28,38758,France,0
+EMP00650,PAUL VINCENT,27,M,IT,Master,21.8,21.0,4576.0,8.3,Insatisfait,2,2,2003-03-20,48092,France,0
+EMP00651,Théo Dubois,44,M,IT,Master,2.9,16.5,3558.0,3.3,Neutre,1,5,2022-02-07,42950,France,0
+EMP00652,Alice Vincent,39,M,Production,Master,19.6,10.0,4983.0,5.5,Satisfait,1,5,2005-05-31,97719,France,0
+EMP00653,Karim Moreau,47,M,RH,Licence,2.1,29.9,2265.0,8.8,Neutre,3,4,2022-11-26,17273,France,0
+EMP00654,FRANÇOIS MOREAU,20,M,Ventes,Licence,4.7,9.4,3115.0,4.8,Satisfait,5,1,2020-04-21,73752,France,0
+EMP00655,David Petit,26,M,R&D,Licence,3.2,13.1,2567.0,2.0,Très satisfait,6,1,2021-10-20,22198,France,0
+EMP00656,Rose Simon,34,M,Production,Licence,4.8,29.8,2721.0,7.6,Insatisfait,1,2,2020-03-15,76756,France,1
+EMP00657,Jules Bernard,24,M,IT,Licence,3.0,21.0,2427.0,0.3,Insatisfait,2,0,2022-01-01,67851,France,0
+EMP00658,Rose Michel,18,M,R&D,Master,1.5,17.2,2943.0,6.3,Insatisfait,1,5,2023-07-03,97903,France,0
+EMP00659,Hugo Laurent,25,M,RH,Master,4.3,20.5,3789.0,2.4,Neutre,2,0,2020-09-14,69083,France,1
+EMP00660,Marc Vincent,48,F,Marketing,Bac,3.6,12.2,1979.0,4.2,Insatisfait,2,2,2021-05-27,88729,France,0
+EMP00661,David Petit,38,M,Production,Licence,0.4,33.8,2693.0,5.7,Satisfait,1,2,2024-08-07,27902,France,0
+EMP00662,Marc Fournier,54,F,IT,Master,2.4,16.3,2944.0,1.0,Très satisfait,1,1,2022-08-08,77463,France,0
+EMP00663,gabrielle garcia,24,F,Production,Master,0.3,24.8,3012.0,1.5,Très satisfait,4,2,2024-09-13,18419,France,0
+EMP00664,Quentin Dubois,46,M,Production,Doctorat,21.8,11.7,8308.0,3.2,Satisfait,5,0,2003-03-20,42705,France,0
+EMP00665,Léa Fournier,39,M,Production,Bac,0.1,15.2,1992.0,4.7,Satisfait,1,0,2024-11-25,91141,France,0
+EMP00666,Hugo Laurent,34,M,R&D,Master,11.7,20.3,4850.0,3.1,Insatisfait,2,0,2013-04-23,29376,France,1
+EMP00667,Claire Dubois,23,M,Production,Licence,12.7,5.2,3367.0,4.6,Satisfait,4,0,2012-04-23,24358,France,0
+EMP00668,Inès Bernard,32,M,Production,Bac,4.4,22.5,2182.0,0.7,Satisfait,1,0,2020-08-08,94494,France,0
+EMP00669,Emma Roux,40,F,RH,Licence,0.5,2.7,2575.0,7.8,Insatisfait,2,2,2024-07-02,58458,France,0
+EMP00670,Gabrielle Bernard,43,F,Production,Master,0.0,5.5,2974.0,2.2,Neutre,1,3,2024-12-31,55392,France,0
+EMP00671,Bob Simon,51,M,Ventes,Licence,4.0,16.5,2372.0,0.5,Très satisfait,2,3,2021-01-01,54404,France,0
+EMP00672,Léa Fournier,29,F,Marketing,Licence,0.3,6.9,2184.0,2.6,Neutre,1,2,2024-09-13,36091,France,0
+EMP00673,Paul Michel,44,F,Ventes,Master,0.7,9.0,2877.0,6.8,Insatisfait,3,4,2024-04-20,50655,France,0
+EMP00674,Karim Leroy,44,M,RH,Master,3.0,4.1,3840.0,3.4,,2,2,2022-01-01,38636,France,0
+EMP00675,Sam Garcia,40,M,Production,Licence,4.7,25.9,3012.0,0.6,Très satisfait,2,2,2020-04-21,49539,France,0
+EMP00676,Marc Bernard,29,F,Ventes,Licence,3.1,6.6,2567.0,4.2,,2,1,2021-11-26,17995,France,0
+EMP00677,Rose Garcia,42,M,Ventes,Master,0.5,9.1,3237.0,2.5,Insatisfait,2,2,2024-07-02,94962,France,0
+EMP00678,Gabrielle Vincent,40,F,Production,Master,4.5,4.9,3834.0,9.9,Insatisfait,4,3,2020-07-03,51260,France,0
+EMP00679,Jules Bernard,30,M,IT,Bac,2.8,4.9,1788.0,4.9,Neutre,7,0,2022-03-16,27962,France,1
+EMP00680,  Léa  Bernard  ,25,F,RH,Bac,0.9,21.3,,1.4,Satisfait,2,5,2024-02-07,38042,France,0
+EMP00681,David Moreau,41,M,IT,Licence,4.5,30.5,2965.0,3.8,Neutre,0,3,2020-07-03,61855,France,0
+EMP00682,Paul Moreau,34,M,Production,Master,2.1,1.7,3622.0,4.1,Satisfait,3,3,2022-11-26,92591,France,0
+EMP00683,Quentin Garcia,47,M,Production,Licence,3.8,9.6,2291.0,7.2,Neutre,0,0,2021-03-15,45611,France,1
+EMP00684,  Quentin  Vincent  ,35,F,Ventes,Doctorat,3.8,17.1,5665.0,5.9,Satisfait,1,1,2021-03-15,72658,France,0
+EMP00685,Rose Vincent,28,F,R&D,Licence,15.2,7.5,2981.0,2.7,Satisfait,2,0,2009-10-23,13612,France,0
+EMP00686,Alice Simon,31,F,IT,Licence,18.6,9.6,3396.0,3.9,Très satisfait,2,2,2006-05-31,55912,France,0
+EMP00687,Alice Durand,50,F,Ventes,Master,2.7,8.3,3456.0,3.5,,4,3,2022-04-21,40978,France,0
+EMP00688,Karim Dubois,29,M,Production,Bac,10.2,15.1,2275.0,0.5,Neutre,2,4,2014-10-23,78249,France,0
+EMP00689,léa vincent,19,F,Ventes,Master,2.2,8.3,3159.0,1.0,Très satisfait,3,3,2022-10-20,28787,France,0
+EMP00690,MARC DURAND,31,F,Marketing,Master,6.7,14.8,3686.0,4.3,Insatisfait,1,3,2018-04-22,61390,France,0
+EMP00691,Léa Leroy,37,M,Production,Bac,1.0,12.5,2107.0,5.9,Satisfait,3,1,2024-01-01,25642,France,1
+EMP00692,ALICE DUBOIS,42,M,IT,Master,10.8,32.7,3704.0,4.9,,4,3,2014-03-17,82198,France,0
+EMP00693,Hugo Roux,43,M,Production,Bac,6.8,2.8,2009.0,2.9,Très satisfait,0,4,2018-03-16,74689,France,0
+EMP00694,Alice Laurent,29,F,Ventes,Master,0.1,7.5,3005.0,9.5,Très insatisfait,0,0,2024-11-25,29028,France,0
+EMP00695,Quentin Fournier,39,F,Production,Doctorat,9.0,8.8,6319.0,2.3,Très satisfait,0,3,2016-01-03,27842,France,0
+EMP00696,Quentin Simon,50,F,RH,Bac,4.5,4.6,1925.0,5.2,Neutre,2,3,2020-07-03,65711,France,1
+EMP00697,Théo Petit,43,M,Ventes,Master,4.3,5.5,3985.0,1.0,Satisfait,2,4,2020-09-14,49461,France,0
+EMP00698,QUENTIN MARTIN,25,F,Ventes,Doctorat,3.8,20.5,5510.0,0.9,Très satisfait,1,2,2021-03-15,45723,France,0
+EMP00699,Gabrielle Petit,18,M,Marketing,Licence,8.6,25.2,3419.0,7.4,Insatisfait,2,2,2016-05-28,25677,France,0
+EMP00700,Inès Garcia,30,M,RH,Master,0.6,37.6,3297.0,6.7,Insatisfait,1,2,2024-05-26,70470,France,0
+EMP00701,Jules Vincent,27,F,Ventes,Bac,2.1,12.6,2199.0,2.9,Très satisfait,8,1,2022-11-26,36208,France,0
+EMP00702,Hugo Laurent,49,F,Marketing,Licence,7.9,8.7,2836.0,6.1,Neutre,1,3,2017-02-08,88653,France,0
+EMP00703,David Fournier,46,F,RH,Master,1.9,16.6,3107.0,4.6,Neutre,3,4,2023-02-07,40929,France,0
+EMP00704,  Olivier  Leroy  ,35,M,R&D,Licence,7.8,14.1,3193.0,3.8,Très satisfait,1,0,2017-03-16,80382,France,0
+EMP00705,Olivier Durand,18,F,IT,Bac,1.9,6.5,1922.0,4.6,Neutre,2,2,2023-02-07,21647,France,1
+EMP00706,David Petit,30,F,Ventes,Bac,6.4,7.3,1931.0,4.9,Très satisfait,2,0,2018-08-09,18166,France,0
+EMP00707,Théo Bernard,35,F,R&D,Licence,0.5,19.1,2608.0,2.3,Satisfait,3,1,2024-07-02,85366,France,0
+EMP00708,THÉO DUBOIS,40,F,Ventes,Master,7.0,14.3,4097.0,1.3,Neutre,2,1,2018-01-02,73267,France,0
+EMP00709,Alice Bernard,51,F,R&D,Master,25.2,5.7,4793.0,2.6,Satisfait,2,2,1999-10-26,92361,France,0
+EMP00710,Jules Petit,32,M,Ventes,Master,0.6,20.0,3131.0,3.2,Insatisfait,4,2,2024-05-26,17630,France,0
+EMP00711,Gabrielle Roux,34,M,Ventes,Licence,9.0,16.2,3440.0,0.1,Très satisfait,5,0,2016-01-03,62445,France,0
+EMP00712,Gabrielle Roux,33,F,IT,Licence,6.1,9.2,3206.0,2.5,Satisfait,0,4,2018-11-27,30069,France,0
+EMP00713,Karim Laurent,51,M,RH,Master,3.0,18.3,3451.0,0.7,Satisfait,2,2,2022-01-01,59082,France,0
+EMP00714,  Alice  Simon  ,40,F,R&D,Master,6.7,12.4,3739.0,5.3,Très satisfait,2,5,2018-04-22,71796,France,0
+EMP00715,THÉO FOURNIER,36,M,Marketing,Bac,1.8,9.3,1812.0,1.8,Très satisfait,1,1,2023-03-15,82084,France,0
+EMP00716,Alice Laurent,29,F,RH,Master,5.3,17.6,4187.0,2.2,Très satisfait,2,1,2019-09-15,94027,France,0
+EMP00717,Emma Dubois,33,F,Production,Licence,0.1,28.7,2428.0,2.1,Satisfait,1,0,2024-11-25,24682,France,0
+EMP00718,bob bernard,48,M,Production,Master,3.9,6.8,3392.0,2.3,Très satisfait,1,1,2021-02-07,36337,France,0
+EMP00719,Emma Leroy,48,F,Production,Licence,1.1,6.7,2109.0,4.6,Satisfait,0,2,2023-11-26,66911,France,0
+EMP00720,Inès Simon,41,M,R&D,Bac,1.6,16.1,1858.0,4.2,Neutre,2,0,2023-05-27,77063,France,0
+EMP00721,Hugo Garcia,46,F,Production,Licence,21.1,6.7,3760.0,2.1,Neutre,3,3,2003-12-01,53159,France,0
+EMP00722,Rose Moreau,18,M,Ventes,Bac,3.2,23.3,1911.0,2.4,Très satisfait,0,0,2021-10-20,19955,France,1
+EMP00723,Sam Vincent,44,M,Ventes,Licence,7.9,5.7,3262.0,17.5,Insatisfait,1,0,2017-02-08,45342,France,0
+EMP00724,  Alice  Dubois  ,37,F,RH,Bac,6.0,18.5,2150.0,2.3,Satisfait,0,1,2019-01-02,42281,France,0
+EMP00725,Bob Simon,28,M,Ventes,Master,0.9,14.5,3151.0,3.7,Neutre,1,0,2024-02-07,10168,France,0
+EMP00726,MARC LEROY,33,M,RH,Master,13.9,3.6,4092.0,3.8,Très satisfait,0,3,2011-02-10,42475,France,0
+EMP00727,Claire Martin,48,M,Production,Bac,1.8,2.0,2077.0,18.5,Très insatisfait,3,2,2023-03-15,38592,France,1
+EMP00728,Léa Dubois,39,M,Ventes,Licence,1.4,33.8,2535.0,1.3,Neutre,3,1,2023-08-09,71354,France,0
+EMP00729,Théo Laurent,40,M,Production,Master,1.3,4.6,3742.0,1.1,Neutre,0,2,2023-09-14,79952,France,0
+EMP00730,Rose Durand,50,F,Production,Bac,1.7,10.7,1651.0,2.1,Neutre,3,2,2023-04-21,47531,France,0
+EMP00731,Marc Leroy,33,M,R&D,Licence,0.9,4.4,2572.0,3.2,Satisfait,1,0,2024-02-07,39155,France,0
+EMP00732,  François  Durand  ,33,M,Ventes,Bac,3.8,14.8,1904.0,10.5,Neutre,3,2,2021-03-15,63717,France,0
+EMP00733,Alice Bernard,25,F,IT,Bac,10.2,12.7,2505.0,9.5,Très insatisfait,0,2,2014-10-23,95165,France,0
+EMP00734,nora dubois,18,M,Marketing,Licence,0.4,16.0,,3.4,Satisfait,1,0,2024-08-07,48617,France,0
+EMP00735,Jules Bernard,53,F,R&D,Licence,0.0,17.3,2398.0,2.3,Très satisfait,5,4,2024-12-31,74588,France,0
+EMP00736,NORA LEROY,39,M,Ventes,Bac,1.9,22.6,2041.0,4.1,Neutre,0,3,2023-02-07,12446,France,1
+EMP00737,Léa Bernard,39,F,RH,Bac,0.4,7.6,1900.0,4.6,Neutre,1,4,2024-08-07,59230,France,0
+EMP00738,Emma Garcia,40,M,Marketing,Licence,4.4,11.4,2888.0,0.8,Satisfait,3,0,2020-08-08,90624,France,0
+EMP00739,Marc Martin,38,M,R&D,Licence,5.0,11.5,2942.0,7.5,Insatisfait,2,4,2020-01-02,43290,France,0
+EMP00740,  Emma  Michel  ,45,M,Marketing,Master,7.5,10.5,3340.0,2.6,Très satisfait,2,4,2017-07-04,32694,France,0
+EMP00741,Sam Roux,44,M,Production,Master,12.6,13.7,3916.0,3.4,Satisfait,2,0,2012-05-29,35415,France,0
+EMP00742,Claire Michel,38,F,R&D,Master,2.2,30.6,3104.0,5.5,Très insatisfait,4,1,2022-10-20,32347,France,0
+EMP00743,François Michel,38,F,IT,Licence,10.3,11.4,2864.0,7.0,Neutre,0,3,2014-09-16,83162,France,0
+EMP00744,Bob Vincent,36,F,Ventes,Master,5.4,12.8,3652.0,5.9,Neutre,4,0,2019-08-09,68282,France,0
+EMP00745,Emma Bernard,33,F,R&D,Master,4.4,,3080.0,4.4,Satisfait,4,2,2020-08-08,71289,France,0
+EMP00746,Marc Laurent,33,F,IT,Bac,7.5,2.7,2433.0,1.4,Très satisfait,3,1,2017-07-04,68373,France,0
+EMP00747,Rose Simon,30,M,R&D,Licence,5.7,24.8,2597.0,2.2,Satisfait,2,0,2019-04-22,20320,France,0
+EMP00748,Marc Leroy,35,M,Production,Master,3.8,32.6,3537.0,3.1,Satisfait,2,2,2021-03-15,91585,France,0
+EMP00749,Jules Petit,54,F,Marketing,Master,2.4,4.9,3509.0,3.3,Satisfait,1,1,2022-08-08,40314,France,0
+EMP00750,  Léa  Vincent  ,41,M,R&D,Licence,8.8,22.4,2941.0,3.9,Insatisfait,2,0,2016-03-16,58335,France,0
+EMP00751,Claire Roux,34,F,Production,Licence,0.2,27.7,2305.0,0.8,,3,3,2024-10-19,87009,France,0
+EMP00752,Olivier Moreau,46,F,R&D,Doctorat,7.1,32.6,5089.0,3.2,Insatisfait,1,0,2017-11-27,10044,France,1
+EMP00753,Paul Simon,43,M,R&D,Bac,2.4,16.4,1910.0,6.3,Satisfait,2,2,2022-08-08,19083,France,0
+EMP00754,Rose Simon,39,M,Production,Licence,0.4,19.9,2778.0,0.8,Satisfait,2,2,2024-08-07,76269,France,0
+EMP00755,Inès Michel,40,F,R&D,Master,3.4,10.8,3703.0,4.4,Neutre,1,1,2021-08-08,27633,France,0
+EMP00756,Théo Fournier,58,F,Production,Licence,3.6,7.1,2736.0,2.0,Neutre,0,2,2021-05-27,22352,France,0
+EMP00757,Marc Durand,63,F,Ventes,Licence,11.6,4.5,3629.0,4.1,Neutre,4,1,2013-05-29,76669,France,0
+EMP00758,alice fournier,40,M,Production,Master,0.4,10.1,3216.0,1.2,Neutre,2,0,2024-08-07,11492,France,0
+EMP00759,DAVID GARCIA,36,F,Production,Master,10.0,34.8,3733.0,1.7,Satisfait,2,0,2015-01-03,14520,France,0
+EMP00760,Karim Fournier,44,M,R&D,Licence,4.9,12.2,2702.0,5.4,Neutre,2,2,2020-02-08,47189,France,0
+EMP00761,alice michel,29,F,R&D,Master,8.6,8.2,,0.1,Très satisfait,1,2,2016-05-28,52143,France,0
+EMP00762,Bob Garcia,41,F,R&D,Licence,3.7,36.0,2574.0,2.9,Neutre,1,1,2021-04-21,85049,France,0
+EMP00763,Hugo Dubois,53,F,Marketing,Master,5.4,,3522.0,3.7,Satisfait,2,3,2019-08-09,39364,France,0
+EMP00764,Inès Moreau,55,F,RH,Licence,0.3,,2286.0,6.3,Très insatisfait,5,3,2024-09-13,23353,France,0
+EMP00765,Bob Bernard,34,F,Production,Master,12.3,8.3,4033.0,4.1,Neutre,3,0,2012-09-16,77894,France,0
+EMP00766,Karim Leroy,49,M,Ventes,Bac,4.4,45.3,1886.0,7.6,Insatisfait,0,3,2020-08-08,51416,France,1
+EMP00767,LÉA VINCENT,39,M,Marketing,Licence,9.2,7.6,3486.0,2.3,Très satisfait,0,1,2015-10-23,69949,France,0
+EMP00768,Emma Vincent,36,M,RH,Master,12.4,37.7,3822.0,2.1,Neutre,2,0,2012-08-10,46388,France,0
+EMP00769,sam garcia,18,F,Marketing,Licence,2.7,7.8,,0.9,Très satisfait,1,2,2022-04-21,15724,France,0
+EMP00770,Inès Laurent,35,M,Production,Licence,4.1,27.7,2715.0,1.9,Très satisfait,1,0,2020-11-26,87372,France,0
+EMP00771,Jules Martin,40,F,Production,Bac,4.9,10.4,2213.0,1.8,Neutre,4,3,2020-02-08,51090,France,0
+EMP00772,Quentin Simon,33,F,Marketing,Master,2.2,10.7,3854.0,0.5,Neutre,3,2,2022-10-20,32906,France,0
+EMP00773,  François  Bernard  ,37,F,R&D,Licence,9.5,33.5,3419.0,4.0,Neutre,1,3,2015-07-05,26152,France,0
+EMP00774,Bob Roux,53,M,R&D,Bac,2.3,15.0,2008.0,7.7,Insatisfait,0,2,2022-09-14,38711,France,0
+EMP00775,alice michel,55,M,R&D,Master,7.3,21.6,3850.0,0.4,Très satisfait,3,2,2017-09-15,44663,France,0
+EMP00776,Gabrielle Dubois,29,F,IT,Bac,1.5,32.1,1718.0,2.4,Très satisfait,1,4,2023-07-03,70767,France,0
+EMP00777,Quentin Petit,30,M,R&D,Licence,0.5,14.3,2630.0,4.2,,2,3,2024-07-02,35711,France,0
+EMP00778,Karim Garcia,28,M,Production,Master,2.4,13.0,3354.0,6.5,Neutre,1,3,2022-08-08,82755,France,0
+EMP00779,Rose Martin,35,F,R&D,Master,6.2,12.9,4358.0,4.0,Satisfait,1,2,2018-10-21,65126,France,0
+EMP00780,Inès Moreau,28,F,Production,Master,2.2,16.7,3839.0,0.9,Satisfait,1,0,2022-10-20,35164,France,0
+EMP00781,JULES GARCIA,21,F,R&D,Licence,1.9,13.6,2435.0,3.9,Satisfait,1,0,2023-02-07,86034,France,0
+EMP00782,Alice Dubois,18,M,R&D,Licence,8.5,9.8,3110.0,1.8,Satisfait,1,2,2016-07-04,64895,France,0
+EMP00783,François Vincent,27,M,Production,Bac,7.7,28.0,2047.0,1.0,Très satisfait,4,3,2017-04-22,61140,France,0
+EMP00784,  Olivier  Fournier  ,44,M,RH,Licence,0.7,2.8,2650.0,2.7,Très satisfait,4,0,2024-04-20,20284,France,1
+EMP00785,François Fournier,49,M,Ventes,Licence,3.2,12.9,2253.0,6.5,Neutre,1,0,2021-10-20,73587,France,0
+EMP00786,  Théo  Durand  ,61,F,Ventes,Master,0.8,36.8,3067.0,7.1,,2,0,2024-03-14,77428,France,0
+EMP00787,ALICE ROUX,39,M,Production,Master,6.2,20.0,3888.0,3.2,Neutre,1,0,2018-10-21,91157,France,0
+EMP00788,Paul Martin,36,M,R&D,Master,3.2,3.3,3586.0,5.1,Neutre,1,2,2021-10-20,91642,France,0
+EMP00789,Alice Roux,42,F,Production,Licence,4.2,11.9,3064.0,2.1,Très satisfait,4,3,2020-10-20,30631,France,0
+EMP00790,Bob Garcia,24,M,R&D,Master,3.6,12.2,3763.0,4.0,Neutre,4,2,2021-05-27,68859,France,0
+EMP00791,Alice Martin,43,M,Production,Master,1.6,2.8,3214.0,4.9,Satisfait,2,0,2023-05-27,26482,France,0
+EMP00792,JULES MARTIN,47,M,R&D,Master,1.6,42.1,3785.0,3.6,Insatisfait,2,1,2023-05-27,87153,France,1
+EMP00793,  Gabrielle  Dubois  ,38,M,Marketing,Master,13.5,14.0,4528.0,4.8,Neutre,2,3,2011-07-06,60190,France,0
+EMP00794,Emma Roux,37,F,Production,Bac,8.2,11.1,2310.0,4.3,Insatisfait,4,0,2016-10-22,79439,France,0
+EMP00795,Gabrielle Roux,45,M,Ventes,Master,0.3,13.3,2872.0,1.2,Satisfait,4,0,2024-09-13,59128,France,0
+EMP00796,Rose Bernard,39,M,Ventes,Bac,2.2,11.2,1977.0,1.2,Satisfait,4,3,2022-10-20,90108,France,0
+EMP00797,MARC SIMON,34,F,Ventes,Licence,2.6,26.2,2662.0,12.4,Neutre,2,2,2022-05-27,20311,France,0
+EMP00798,Emma Laurent,44,M,Production,Master,2.5,8.8,2938.0,7.7,,1,3,2022-07-03,92359,France,0
+EMP00799,paul petit,48,M,Production,Master,2.8,4.7,3786.0,2.5,Satisfait,2,2,2022-03-16,68257,France,0
+EMP00800,Emma Laurent,37,F,Ventes,Licence,1.4,26.4,2631.0,0.3,Neutre,1,2,2023-08-09,31916,France,0
+EMP00801,Quentin Durand,36,F,IT,Licence,8.4,15.1,3455.0,2.1,Insatisfait,0,2,2016-08-09,91423,France,0
+EMP00802,Gabrielle Durand,31,Autre,Marketing,Bac,0.1,14.5,2074.0,3.8,Satisfait,2,2,2024-11-25,91930,France,0
+EMP00803,  Nora  Michel  ,34,M,Production,Doctorat,4.5,19.9,4880.0,5.6,Satisfait,5,2,2020-07-03,81449,France,0
+EMP00804,Inès Petit,42,M,R&D,Bac,0.8,12.0,1684.0,0.4,Très satisfait,4,2,2024-03-14,98625,France,0
+EMP00805,Théo Laurent,23,F,Ventes,Master,12.9,6.0,4240.0,4.3,Très satisfait,3,3,2012-02-10,44244,France,0
+EMP00806,Nora Moreau,36,M,Marketing,Bac,9.3,13.4,2016.0,3.9,Satisfait,3,1,2015-09-16,34308,France,0
+EMP00807,DAVID VINCENT,30,M,Ventes,Bac,3.9,22.4,2233.0,3.5,Insatisfait,2,3,2021-02-07,30104,France,0
+EMP00808,Olivier Leroy,39,M,R&D,Licence,2.0,6.5,2902.0,6.4,Neutre,4,0,2023-01-01,43074,France,0
+EMP00809,Olivier Martin,55,F,R&D,Master,13.4,17.0,4882.0,5.4,Neutre,3,4,2011-08-11,15285,France,0
+EMP00810,François Durand,41,F,RH,Doctorat,0.8,12.7,4034.0,2.0,Très satisfait,0,3,2024-03-14,57415,France,0
+EMP00811,quentin fournier,47,M,Ventes,Bac,9.5,6.5,2357.0,0.4,Très satisfait,0,0,2015-07-05,49862,France,0
+EMP00812,Sam Martin,36,M,Ventes,Bac,3.7,,1971.0,1.9,Très satisfait,1,0,2021-04-21,96891,France,0
+EMP00813,Claire Dubois,22,M,Production,Licence,1.0,10.5,,6.8,Insatisfait,2,2,2024-01-01,63457,France,1
+EMP00814,bob roux,43,F,RH,Doctorat,12.7,22.9,6350.0,6.6,Satisfait,3,4,2012-04-23,46604,France,0
+EMP00815,Karim Petit,25,M,Production,Master,4.6,34.7,3258.0,2.1,Satisfait,5,0,2020-05-28,89917,France,0
+EMP00816,EMMA LAURENT,47,M,Production,Master,1.3,20.0,3102.0,7.7,Neutre,0,3,2023-09-14,85455,France,0
+EMP00817,Paul Garcia,28,M,Marketing,Bac,2.5,11.8,2209.0,5.0,Très satisfait,2,2,2022-07-03,71655,France,0
+EMP00818,Nora Fournier,26,F,Ventes,Doctorat,4.3,,5024.0,1.2,Neutre,4,1,2020-09-14,23730,France,0
+EMP00819,Paul Moreau,37,M,Production,Doctorat,1.2,12.5,4276.0,1.9,Satisfait,4,3,2023-10-20,28518,France,0
+EMP00820,Paul Roux,30,M,IT,Master,11.3,9.7,3831.0,3.1,Neutre,2,2,2013-09-16,22709,France,0
+EMP00821,Emma Martin,39,M,Ventes,Master,1.3,15.6,2951.0,8.8,Insatisfait,1,1,2023-09-14,48691,France,1
+EMP00822,Sam Roux,44,F,R&D,Licence,2.5,5.4,2382.0,3.5,Satisfait,0,0,2022-07-03,22591,France,0
+EMP00823,Rose Laurent,50,M,Ventes,Master,17.0,13.1,5373.0,2.0,Très satisfait,4,0,2008-01-05,89992,France,0
+EMP00824,Léa Vincent,34,M,Ventes,Licence,0.2,15.4,2736.0,7.4,Neutre,2,3,2024-10-19,37701,France,0
+EMP00825,Inès Garcia,32,F,Ventes,Master,9.7,15.7,4070.0,1.5,Satisfait,3,0,2015-04-23,37976,France,0
+EMP00826,Bob Dubois,41,F,R&D,Bac,5.9,5.2,2116.0,6.4,Insatisfait,0,2,2019-02-08,58515,France,0
+EMP00827,Sam Durand,29,M,RH,Bac,10.3,14.8,2055.0,1.0,Très satisfait,4,3,2014-09-16,62823,France,0
+EMP00828,Olivier Garcia,39,M,Ventes,Master,3.7,11.3,3060.0,3.3,Neutre,0,0,2021-04-21,57123,France,0
+EMP00829,  Sam  Moreau  ,36,F,Ventes,Bac,24.1,,3271.0,6.8,Insatisfait,1,2,2000-12-01,88087,France,0
+EMP00830,Olivier Simon,44,F,Ventes,Master,5.7,21.8,3211.0,1.5,Satisfait,4,3,2019-04-22,54939,France,0
+EMP00831,Rose Laurent,47,M,Ventes,Licence,5.2,11.3,2876.0,1.8,Neutre,2,2,2019-10-21,18680,France,0
+EMP00832,Karim Moreau,30,F,R&D,Bac,5.3,17.4,1847.0,1.3,Très satisfait,4,2,2019-09-15,70480,France,0
+EMP00833,Emma Simon,33,M,RH,Bac,7.6,15.4,2403.0,7.2,Neutre,6,4,2017-05-28,22414,France,0
+EMP00834,Jules Roux,35,M,R&D,Licence,6.3,10.0,2940.0,1.7,,3,2,2018-09-15,23886,France,0
+EMP00835,Emma Garcia,57,M,Marketing,Licence,14.7,8.8,3197.0,2.7,Satisfait,1,2,2010-04-24,16439,France,0
+EMP00836,Olivier Moreau,31,M,Production,Master,2.4,15.7,2949.0,4.6,Neutre,1,0,2022-08-08,24465,France,0
+EMP00837,Jules Moreau,46,F,Ventes,Master,1.2,14.7,3427.0,2.8,Très satisfait,1,0,2023-10-20,13871,France,0
+EMP00838,Gabrielle Martin,43,F,Ventes,Licence,3.1,4.4,2713.0,2.4,Satisfait,1,5,2021-11-26,24089,France,0
+EMP00839,alice leroy,52,M,Ventes,Master,1.3,21.1,3823.0,8.4,Insatisfait,0,0,2023-09-14,48067,France,0
+EMP00840,Gabrielle Petit,53,F,Ventes,Bac,1.9,11.6,2035.0,4.7,Très insatisfait,0,2,2023-02-07,61532,France,0
+EMP00841,Nora Martin,40,M,Ventes,Licence,0.8,8.4,2376.0,3.1,Insatisfait,1,0,2024-03-14,26043,France,0
+EMP00842,  Jules  Bernard  ,37,M,Production,Master,1.0,3.8,3050.0,2.7,Satisfait,2,4,2024-01-01,43326,France,0
+EMP00843,Théo Dubois,55,F,Ventes,Master,6.7,7.1,3978.0,0.7,Très satisfait,4,1,2018-04-22,60939,France,0
+EMP00844,Alice Laurent,27,M,Marketing,Master,0.5,26.6,2866.0,2.4,Neutre,5,0,2024-07-02,30762,France,0
+EMP00845,Olivier Martin,48,M,Ventes,Bac,11.0,25.8,2070.0,6.7,Neutre,0,2,2014-01-03,53636,France,0
+EMP00846,jules fournier,36,M,R&D,Bac,0.6,10.9,1839.0,2.9,Neutre,2,2,2024-05-26,74118,France,0
+EMP00847,Sam Bernard,47,F,Marketing,Master,1.7,6.7,3201.0,0.8,Satisfait,4,0,2023-04-21,66227,France,0
+EMP00848,Rose Garcia,35,M,Marketing,Master,3.6,10.9,3207.0,5.9,Satisfait,6,0,2021-05-27,77825,France,0
+EMP00849,Emma Leroy,30,F,Ventes,Master,0.5,16.4,3038.0,1.3,Très satisfait,5,0,2024-07-02,67249,France,0
+EMP00850,Gabrielle Garcia,59,M,Production,Licence,13.4,3.2,3499.0,2.4,Neutre,1,1,2011-08-11,60856,France,0
+EMP00851,Quentin Laurent,30,Autre,Ventes,Bac,9.1,8.5,2473.0,3.2,Satisfait,0,2,2015-11-28,57681,France,0
+EMP00852,Sam Laurent,56,M,R&D,Licence,12.1,21.1,3032.0,4.0,SATISFAIT,1,4,2012-11-28,64082,France,0
+EMP00853,Nora Moreau,36,M,Ventes,Bac,5.1,23.7,2205.0,3.6,Neutre,0,3,2019-11-27,55257,France,0
+EMP00854,  Alice  Laurent  ,46,F,RH,Licence,1.4,18.9,2511.0,8.9,Insatisfait,2,1,2023-08-09,95785,France,1
+EMP00855,Gabrielle Simon,48,F,Ventes,Bac,0.5,1.5,1870.0,1.8,Très satisfait,2,5,2024-07-02,37356,France,0
+EMP00856,Hugo Roux,36,M,RH,Master,8.3,11.4,4001.0,11.1,Neutre,2,4,2016-09-15,76578,France,0
+EMP00857,FRANÇOIS VINCENT,42,F,Production,Licence,12.1,7.0,2870.0,0.6,Satisfait,2,4,2012-11-28,41515,France,0
+EMP00858,Emma Vincent,30,F,IT,Bac,1.9,7.8,1786.0,3.3,satisfait,2,2,2023-02-07,38908,France,0
+EMP00859,FRANÇOIS LEROY,47,F,Ventes,Master,9.5,21.5,3746.0,2.6,Satisfait,2,0,2015-07-05,64308,France,0
+EMP00860,Sam Leroy,40,F,Ventes,Bac,5.2,15.6,1837.0,7.8,Insatisfait,2,0,2019-10-21,10193,France,0
+EMP00861,Léa Bernard,29,F,R&D,Master,5.5,20.6,3681.0,2.4,Très satisfait,2,3,2019-07-04,45185,France,0
+EMP00862,Quentin Bernard,36,M,R&D,Bac,0.2,15.7,1602.0,4.3,Neutre,1,2,2024-10-19,87082,France,0
+EMP00863,David Petit,49,M,RH,Licence,1.8,12.0,2246.0,2.7,Très satisfait,0,3,2023-03-15,18941,France,1
+EMP00864,gabrielle simon,18,Autre,R&D,Licence,6.9,20.9,2615.0,5.0,Satisfait,1,3,2018-02-08,97802,France,0
+EMP00865,Rose Roux,47,M,R&D,Master,5.7,14.5,3221.0,7.9,Insatisfait,2,0,2019-04-22,65746,France,0
+EMP00866,David Petit,25,F,Production,Master,4.0,14.0,3408.0,1.3,Satisfait,5,4,2021-01-01,33810,France,0
+EMP00867,Nora Durand,42,M,RH,Doctorat,6.4,15.3,4696.0,5.7,Neutre,0,0,2018-08-09,65364,France,0
+EMP00868,Olivier Simon,34,F,Ventes,Master,11.6,7.7,4241.0,8.8,Très insatisfait,4,0,2013-05-29,85906,France,1
+EMP00869,François Vincent,45,F,Production,Bac,10.5,11.2,2451.0,3.3,Très satisfait,0,0,2014-07-05,15774,France,0
+EMP00870,DAVID FOURNIER,36,M,Production,Master,8.7,18.8,3627.0,4.2,Neutre,2,1,2016-04-22,73017,France,0
+EMP00871,Hugo Roux,42,F,Ventes,Licence,0.3,,2286.0,0.9,Très satisfait,1,2,2024-09-13,93656,France,0
+EMP00872,Karim Roux,39,M,Production,Master,0.3,14.1,3331.0,4.4,Insatisfait,2,4,2024-09-13,43488,France,0
+EMP00873,ALICE BERNARD,24,F,IT,Master,2.1,24.7,3344.0,4.7,Neutre,1,2,2022-11-26,79409,France,0
+EMP00874,Hugo Leroy,31,M,RH,Master,4.3,8.7,3181.0,8.5,Satisfait,3,2,2020-09-14,99535,France,0
+EMP00875,Sam Dubois,43,F,Production,Bac,1.5,31.1,1613.0,6.7,Satisfait,1,1,2023-07-03,72721,France,0
+EMP00876,Marc Michel,27,F,IT,Master,2.0,11.7,2920.0,7.1,Insatisfait,0,2,2023-01-01,65733,France,0
+EMP00877,Claire Bernard,22,M,Ventes,Master,2.0,12.7,3658.0,1.5,Neutre,3,2,2023-01-01,62263,France,0
+EMP00878,Nora Petit,51,M,Production,Doctorat,7.8,21.0,5929.0,3.7,Très satisfait,5,4,2017-03-16,42859,France,0
+EMP00879,Marc Bernard,45,M,R&D,Licence,0.6,13.7,2479.0,3.1,Neutre,0,3,2024-05-26,72317,France,0
+EMP00880,Alice Michel,40,M,IT,Bac,0.1,17.1,1679.0,3.2,Neutre,0,2,2024-11-25,29192,France,0
+EMP00881,paul dubois,47,F,Production,Master,4.6,14.9,4144.0,3.4,Neutre,2,0,2020-05-28,84630,France,0
+EMP00882,HUGO FOURNIER,39,F,R&D,Licence,7.4,6.5,2613.0,1.8,Satisfait,3,2,2017-08-09,30476,France,0
+EMP00883,Claire Fournier,32,F,R&D,Master,0.8,12.7,3007.0,3.1,Très satisfait,0,1,2024-03-14,94256,France,0
+EMP00884,Alice Petit,25,M,Ventes,Bac,0.2,9.5,1963.0,2.3,Neutre,2,0,2024-10-19,86791,France,0
+EMP00885,Léa Moreau,33,M,Ventes,Doctorat,0.2,14.6,4091.0,4.8,,3,0,2024-10-19,13710,France,0
+EMP00886,Karim Garcia,34,M,Production,Licence,0.1,11.1,2549.0,4.7,Insatisfait,1,4,2024-11-25,35819,France,0
+EMP00887,Claire Simon,34,M,Production,Master,6.5,9.8,4227.0,1.4,Très satisfait,2,2,2018-07-04,50095,France,0
+EMP00888,Gabrielle Fournier,47,M,Production,Licence,3.1,28.0,2404.0,4.7,Neutre,0,0,2021-11-26,45357,France,0
+EMP00889,Jules Garcia,39,F,Production,Master,4.6,29.0,3214.0,2.4,Neutre,1,0,2020-05-28,74742,France,0
+EMP00890,Quentin Petit,39,M,R&D,Licence,0.8,27.6,2422.0,0.4,Très satisfait,2,0,2024-03-14,80483,France,1
+EMP00891,  Claire  Moreau  ,42,M,R&D,Bac,6.1,3.1,2292.0,7.4,Satisfait,0,1,2018-11-27,55283,France,0
+EMP00892,Paul Roux,44,M,R&D,Master,3.4,15.4,3489.0,4.6,Très satisfait,1,2,2021-08-08,37899,France,0
+EMP00893,  Théo  Martin  ,46,M,IT,Licence,11.3,21.4,3619.0,2.6,Satisfait,4,0,2013-09-16,33369,France,0
+EMP00894,Gabrielle Garcia,39,M,Ventes,Doctorat,0.6,3.8,4065.0,7.8,Neutre,2,3,2024-05-26,60351,France,0
+EMP00895,Jules Garcia,41,F,RH,Master,9.6,11.1,4340.0,3.9,Insatisfait,4,1,2015-05-29,88325,France,0
+EMP00896,Théo Roux,50,F,Production,Licence,0.9,9.0,2469.0,4.0,Neutre,2,2,2024-02-07,13538,France,0
+EMP00897,Sam Martin,37,F,Production,Licence,7.3,17.2,2634.0,3.7,Satisfait,2,2,2017-09-15,70836,France,0
+EMP00898,DAVID FOURNIER,44,F,Production,Master,5.1,13.1,3670.0,3.0,Satisfait,1,2,2019-11-27,80927,France,0
+EMP00899,David Roux,32,F,Production,Master,18.1,21.9,4461.0,2.5,Satisfait,4,0,2006-11-30,98444,France,0
+EMP00900,Alice Michel,50,Autre,RH,Licence,0.3,14.8,2423.0,7.7,Très insatisfait,0,1,2024-09-13,29817,France,0
+EMP00901,jules martin,31,F,R&D,Bac,0.9,26.1,1955.0,3.0,Insatisfait,0,0,2024-02-07,64761,France,0
+EMP00902,François Petit,55,F,Production,Bac,1.5,11.5,2120.0,1.9,Neutre,1,2,2023-07-03,80938,France,1
+EMP00903,sam garcia,31,M,Production,Master,1.9,11.3,3839.0,11.3,Très insatisfait,1,0,2023-02-07,67032,France,1
+EMP00904,Emma Moreau,27,F,Production,Bac,4.2,19.6,1733.0,10.9,Insatisfait,2,0,2020-10-20,47151,France,0
+EMP00905,Inès Vincent,51,F,Ventes,Licence,1.4,5.1,2873.0,1.2,Neutre,3,0,2023-08-09,20236,France,0
+EMP00906,Jules Petit,41,M,Marketing,Licence,2.4,16.1,2524.0,10.7,Neutre,0,0,2022-08-08,68133,France,0
+EMP00907,François Garcia,50,F,RH,Bac,2.6,22.3,1688.0,1.7,Très satisfait,2,0,2022-05-27,13438,France,0
+EMP00908,Jules Vincent,39,F,Production,Master,5.3,13.0,4016.0,1.0,Satisfait,5,2,2019-09-15,26878,France,0
+EMP00909,Olivier Petit,23,M,IT,Master,5.9,3.1,3819.0,4.0,Satisfait,7,0,2019-02-08,15676,France,0
+EMP00910,  Alice  Laurent  ,50,M,Production,Bac,6.8,13.2,1871.0,5.2,Insatisfait,1,1,2018-03-16,76645,France,1
+EMP00911,  Quentin  Dubois  ,52,M,Production,Licence,6.4,17.1,3151.0,2.9,Neutre,1,1,2018-08-09,26453,France,0
+EMP00912,Jules Garcia,43,F,Ventes,Master,3.3,6.4,3212.0,3.0,Satisfait,3,5,2021-09-14,93158,France,0
+EMP00913,Léa Laurent,41,F,R&D,Licence,3.3,11.8,2518.0,1.7,Très satisfait,4,2,2021-09-14,91454,France,0
+EMP00914,Théo Moreau,30,F,Production,Licence,0.5,20.7,2564.0,3.0,Satisfait,4,2,2024-07-02,39725,France,0
+EMP00915,Nora Laurent,27,M,Marketing,Licence,1.7,15.8,2897.0,0.9,Satisfait,1,0,2023-04-21,91566,France,0
+EMP00916,Alice Laurent,29,M,R&D,Licence,3.5,36.8,2562.0,9.1,Très insatisfait,0,3,2021-07-03,59481,France,0
+EMP00917,  Hugo  Bernard  ,25,M,Ventes,Licence,0.6,10.0,,0.6,Satisfait,6,1,2024-05-26,68305,France,0
+EMP00918,  Rose  Petit  ,46,M,Production,Master,3.4,5.5,3464.0,5.3,Insatisfait,0,0,2021-08-08,29757,France,0
+EMP00919,  Emma  Dubois  ,40,F,Ventes,Master,18.4,9.1,5120.0,0.3,Neutre,0,0,2006-08-13,89085,France,0
+EMP00920,Jules Durand,43,F,Ventes,Licence,3.2,34.7,2984.0,2.9,Très satisfait,0,2,2021-10-20,67680,France,0
+EMP00921,Jules Durand,34,M,Production,Master,6.3,28.4,3750.0,5.2,SATISFAIT,2,2,2018-09-15,94389,France,0
+EMP00922,Sam Bernard,38,M,Ventes,Doctorat,3.2,19.8,5652.0,4.5,Insatisfait,2,0,2021-10-20,81325,France,0
+EMP00923,Alice Fournier,32,M,IT,Bac,4.3,25.3,1968.0,3.3,satisfait,2,0,2020-09-14,78038,France,0
+EMP00924,  Paul  Martin  ,56,F,Ventes,Licence,2.0,6.3,2276.0,10.8,Neutre,3,1,2023-01-01,48742,France,0
+EMP00925,Bob Michel,35,M,Ventes,Licence,7.1,13.4,3085.0,2.7,Satisfait,1,3,2017-11-27,69825,France,0
+EMP00926,emma simon,29,M,IT,Master,1.4,11.5,,2.1,Satisfait,1,2,2023-08-09,50019,France,0
+EMP00927,Rose Simon,47,M,Ventes,Licence,2.0,34.2,2868.0,4.0,Neutre,0,1,2023-01-01,96574,France,0
+EMP00928,léa laurent,33,F,R&D,Master,3.3,8.9,3773.0,1.8,Très satisfait,3,0,2021-09-14,55427,France,0
+EMP00929,Théo Martin,27,M,Ventes,Licence,10.2,8.3,2836.0,4.0,Très satisfait,2,0,2014-10-23,53531,France,1
+EMP00930,Théo Dubois,45,F,Ventes,Bac,0.1,7.6,2050.0,4.7,Très satisfait,1,0,2024-11-25,54159,France,0
+EMP00931,Bob Roux,29,M,RH,Master,4.8,18.4,3414.0,1.4,Très satisfait,4,2,2020-03-15,40022,France,0
+EMP00932,Paul Martin,44,F,R&D,Licence,1.2,18.8,2304.0,1.5,Insatisfait,0,0,2023-10-20,75388,France,0
+EMP00933,Jules Martin,42,M,R&D,Licence,4.8,16.6,2924.0,0.7,Très satisfait,0,1,2020-03-15,73439,France,0
+EMP00934,Rose Michel,42,F,Ventes,Licence,6.0,9.0,2546.0,4.5,Très satisfait,2,2,2019-01-02,87339,France,0
+EMP00935,Alice Simon,55,F,Marketing,Licence,6.2,3.0,3008.0,9.2,Satisfait,1,4,2018-10-21,96492,France,0
+EMP00936,Théo Durand,41,F,Marketing,Licence,6.1,18.7,2506.0,3.5,Très satisfait,1,4,2018-11-27,18355,France,0
+EMP00937,Théo Fournier,47,M,Production,Master,10.5,14.5,3980.0,0.8,Très satisfait,2,0,2014-07-05,77332,France,0
+EMP00938,Olivier Laurent,38,F,Marketing,Licence,8.4,17.6,3278.0,2.8,satisfait,3,3,2016-08-09,20002,France,0
+EMP00939,Karim Bernard,50,M,R&D,Licence,1.9,14.8,2176.0,3.2,Neutre,3,2,2023-02-07,28547,France,0
+EMP00940,EMMA SIMON,39,F,Ventes,Bac,4.4,30.5,2182.0,1.2,Satisfait,2,2,2020-08-08,95035,France,0
+EMP00941,Alice Garcia,27,M,Ventes,Licence,0.8,21.1,2603.0,10.1,Très insatisfait,2,1,2024-03-14,48236,France,1
+EMP00942,Alice Laurent,22,M,IT,Master,1.5,25.0,3765.0,5.4,Satisfait,1,2,2023-07-03,70393,France,0
+EMP00943,Marc Vincent,37,M,Production,Master,1.9,20.5,3820.0,10.1,Très insatisfait,1,0,2023-02-07,78308,France,0
+EMP00944,  Quentin  Bernard  ,38,M,Production,Bac,2.5,6.1,2034.0,3.0,Très satisfait,3,3,2022-07-03,92008,France,0
+EMP00945,Gabrielle Martin,52,M,Ventes,Master,0.4,15.7,3722.0,5.5,Neutre,1,0,2024-08-07,89014,France,0
+EMP00946,Olivier Leroy,33,M,RH,Master,2.0,7.7,3593.0,3.2,,4,1,2023-01-01,55610,France,0
+EMP00947,Jules Bernard,40,M,IT,Master,0.1,8.0,3350.0,5.1,Satisfait,6,3,2024-11-25,50231,France,0
+EMP00948,Marc Laurent,31,F,Marketing,Bac,6.5,23.9,2155.0,0.3,Très satisfait,2,1,2018-07-04,10005,France,0
+EMP00949,Bob Bernard,59,F,Production,Licence,0.9,13.5,2474.0,0.4,Neutre,2,0,2024-02-07,36359,France,0
+EMP00950,David Fournier,34,M,R&D,Licence,3.4,28.7,2558.0,3.8,Neutre,2,4,2021-08-08,46358,France,0
+EMP00951,Rose Simon,36,F,Ventes,Bac,5.0,9.6,2067.0,0.8,Neutre,2,1,2020-01-02,10555,France,0
+EMP00952,Hugo Dubois,26,M,IT,Master,8.1,26.7,3837.0,1.7,Satisfait,3,2,2016-11-27,79620,France,0
+EMP00953,Emma Laurent,51,F,Ventes,Bac,5.4,21.9,2187.0,2.4,Satisfait,2,2,2019-08-09,17109,France,0
+EMP00954,François Leroy,26,F,Production,Master,2.5,9.7,3260.0,6.0,Neutre,1,2,2022-07-03,73226,France,0
+EMP00955,Rose Fournier,38,F,IT,Master,0.6,19.1,2940.0,3.6,Neutre,4,0,2024-05-26,15496,France,0
+EMP00956,Bob Leroy,39,F,Production,Master,3.4,14.7,3436.0,8.2,Neutre,2,3,2021-08-08,61518,France,0
+EMP00957,Jules Vincent,36,M,Production,Master,8.3,12.2,4254.0,2.2,Neutre,1,0,2016-09-15,69435,France,0
+EMP00958,léa fournier,38,Autre,IT,Master,22.1,8.8,6040.0,1.3,Très satisfait,0,1,2002-12-01,35846,France,0
+EMP00959,Bob Garcia,48,M,Ventes,Bac,6.6,4.8,1980.0,2.2,Neutre,2,0,2018-05-28,88866,France,0
+EMP00960,Rose Leroy,51,M,R&D,Master,9.7,21.8,3937.0,7.4,Très insatisfait,1,3,2015-04-23,74835,France,1
+EMP00961,François Laurent,48,F,Production,Doctorat,1.0,6.0,4665.0,5.2,Insatisfait,4,2,2024-01-01,58347,France,0
+EMP00962,GABRIELLE MOREAU,45,F,Production,Master,2.6,18.7,3893.0,3.3,Satisfait,1,0,2022-05-27,22064,France,0
+EMP00963,Nora Petit,52,M,Production,Master,1.0,1.8,3499.0,0.8,Très satisfait,3,5,2024-01-01,97741,France,1
+EMP00964,Nora Bernard,38,F,Ventes,Master,3.5,33.0,3787.0,3.8,Satisfait,1,3,2021-07-03,28803,France,0
+EMP00965,Olivier Laurent,33,F,Ventes,Master,1.9,17.2,3003.0,1.5,Très satisfait,3,0,2023-02-07,63218,France,0
+EMP00966,Bob Bernard,49,F,IT,Master,1.9,7.9,3881.0,6.9,Neutre,3,3,2023-02-07,66140,France,0
+EMP00967,ALICE FOURNIER,26,F,RH,Licence,0.0,41.5,2367.0,2.9,Satisfait,2,2,2024-12-31,68585,France,0
+EMP00968,GABRIELLE MICHEL,22,M,R&D,Master,2.1,4.2,,13.9,Neutre,1,5,2022-11-26,23861,France,0
+EMP00969,Théo Fournier,43,M,Ventes,Licence,2.7,,2876.0,1.8,Insatisfait,1,1,2022-04-21,46622,France,0
+EMP00970,nora garcia,56,M,Production,Master,0.2,31.6,3006.0,2.2,Neutre,2,2,2024-10-19,11349,France,0
+EMP00971,Hugo Bernard,31,M,Marketing,Master,19.5,6.1,5079.0,8.6,Très insatisfait,1,2,2005-07-07,36049,France,0
+EMP00972,Sam Martin,38,M,Ventes,Licence,1.2,45.6,2732.0,10.0,Neutre,0,4,2023-10-20,54088,France,0
+EMP00973,Bob Bernard,25,Autre,R&D,Master,5.2,11.9,4178.0,1.6,Insatisfait,1,1,2019-10-21,50888,France,0
+EMP00974,David Dubois,38,F,Production,Licence,8.7,15.0,3125.0,4.5,Neutre,1,2,2016-04-22,88195,France,0
+EMP00975,Paul Laurent,29,Autre,Ventes,Master,1.3,19.6,3688.0,3.0,Neutre,4,2,2023-09-14,49133,France,0
+EMP00976,Rose Durand,45,M,R&D,Licence,8.6,14.4,2601.0,5.8,Satisfait,1,1,2016-05-28,56621,France,0
+EMP00977,Claire Durand,34,F,Production,Licence,12.8,8.3,3701.0,5.2,Satisfait,1,4,2012-03-17,42280,France,0
+EMP00978,Paul Dubois,32,F,Production,Master,4.2,9.6,3515.0,0.9,Satisfait,1,0,2020-10-20,30640,France,0
+EMP00979,Nora Garcia,57,F,IT,Bac,8.4,7.1,2391.0,3.2,Satisfait,1,0,2016-08-09,90634,France,0
+EMP00980,Théo Fournier,32,M,Ventes,Master,1.0,13.3,3463.0,7.7,Satisfait,3,0,2024-01-01,70228,France,0
+EMP00981,Karim Laurent,27,M,Marketing,Master,1.7,33.2,3035.0,3.0,Neutre,2,1,2023-04-21,43489,France,0
+EMP00982,Marc Fournier,35,F,Ventes,Licence,5.8,10.3,3057.0,2.6,Neutre,3,0,2019-03-16,98147,France,0
+EMP00983,David Leroy,46,M,R&D,Licence,1.5,,2237.0,6.8,Neutre,0,2,2023-07-03,20259,France,0
+EMP00984,quentin leroy,60,F,IT,Licence,23.1,,4502.0,6.8,Neutre,2,2,2001-12-01,12876,France,0
+EMP00985,Gabrielle Martin,41,F,Production,Master,17.3,28.9,5564.0,4.8,Neutre,3,3,2007-09-18,99478,France,0
+EMP00986,François Garcia,25,F,Ventes,Master,6.9,4.2,4401.0,3.5,Insatisfait,2,1,2018-02-08,41831,France,1
+EMP00987,Théo Michel,33,F,IT,Licence,11.8,12.6,3361.0,3.6,Insatisfait,1,2,2013-03-17,77095,France,0
+EMP00988,Rose Petit,35,F,IT,Licence,7.8,14.0,2723.0,9.2,Très insatisfait,2,2,2017-03-16,86225,France,0
+EMP00989,nora fournier,56,M,R&D,Master,8.3,,4175.0,2.0,Satisfait,3,0,2016-09-15,66997,France,0
+EMP00990,léa fournier,43,M,Production,Master,13.7,7.1,5027.0,1.6,Très satisfait,3,1,2011-04-24,61483,France,0
+EMP00991,Hugo Michel,42,M,R&D,Master,3.0,22.1,3368.0,13.6,Très insatisfait,2,5,2022-01-01,84831,France,0
+EMP00992,Olivier Martin,25,M,Production,Master,1.8,7.0,3252.0,2.0,Neutre,3,4,2023-03-15,18528,France,1
+EMP00993,Léa Dubois,51,F,R&D,Master,6.1,13.0,3738.0,1.5,Satisfait,5,2,2018-11-27,34414,France,0
+EMP00994,marc roux,35,F,Production,Licence,1.1,17.0,2692.0,2.7,Satisfait,4,0,2023-11-26,83505,France,1
+EMP00995,Léa Dubois,45,M,Ventes,Bac,4.0,13.4,2267.0,1.2,Insatisfait,1,1,2021-01-01,79911,France,1
+EMP00996,Quentin Roux,40,M,RH,Licence,14.9,10.3,3159.0,0.8,Satisfait,3,2,2010-02-10,61642,France,0
+EMP00997,Nora Simon,29,M,Production,Bac,1.6,12.6,1751.0,0.6,Satisfait,1,4,2023-05-27,73046,France,0
+EMP00998,  Léa  Petit  ,28,F,Ventes,Bac,2.4,13.8,2009.0,5.7,Neutre,2,4,2022-08-08,83436,France,0
+EMP00999,Quentin Simon,37,M,IT,Licence,1.2,7.5,2478.0,1.8,,2,0,2023-10-20,81872,France,1
+EMP01000,Inès Petit,43,M,Ventes,Bac,1.8,16.9,2150.0,1.3,Insatisfait,3,3,2023-03-15,24055,France,0
+EMP01001,Emma Petit,51,M,Ventes,Bac,1.2,31.4,2143.0,2.1,Satisfait,2,1,2023-10-20,46524,France,0
+EMP01002,Emma Michel,39,M,Production,Master,0.5,7.1,2969.0,1.1,Satisfait,1,2,2024-07-02,86619,France,0
+EMP01003,Quentin Moreau,33,M,Production,Licence,10.8,44.7,3032.0,4.6,Satisfait,1,3,2014-03-17,94353,France,0
+EMP01004,Paul Fournier,31,F,R&D,Licence,10.2,16.6,3098.0,7.0,Très insatisfait,3,3,2014-10-23,75845,France,0
+EMP01005,Claire Roux,40,F,Marketing,Master,0.8,13.0,3004.0,2.6,Neutre,0,1,2024-03-14,76415,France,0
+EMP01006,Paul Leroy,37,F,Marketing,Master,1.9,30.3,3176.0,2.8,Neutre,3,3,2023-02-07,50884,France,1
+EMP01007,Alice Martin,39,M,Ventes,Bac,3.2,18.0,1732.0,5.1,Insatisfait,0,2,2021-10-20,34022,France,0
+EMP01008,Bob Petit,43,F,Production,Master,5.6,3.8,3541.0,0.9,Neutre,3,0,2019-05-29,57385,France,0
+EMP01009,Quentin Bernard,46,M,Production,Licence,1.9,3.4,2860.0,4.7,Neutre,1,4,2023-02-07,99409,France,0
+EMP01010,BOB MOREAU,43,F,RH,Licence,2.9,30.4,2498.0,5.1,Insatisfait,0,0,2022-02-07,38767,France,0
+EMP01011,  François  Moreau  ,49,M,RH,Doctorat,5.9,23.2,5783.0,9.5,Très insatisfait,2,0,2019-02-08,92165,France,1
+EMP01012,Bob Fournier,50,F,RH,Licence,7.3,11.5,3051.0,3.9,Neutre,3,1,2017-09-15,35258,France,0
+EMP01013,Marc Laurent,29,M,Production,Master,2.2,4.8,3816.0,8.2,Très insatisfait,0,0,2022-10-20,76429,France,0
+EMP01014,Alice Durand,32,M,Ventes,Licence,5.6,5.0,3210.0,1.7,Satisfait,1,0,2019-05-29,43020,France,0
+EMP01015,Sam Laurent,33,M,Production,Licence,3.0,15.0,2747.0,4.5,Neutre,1,1,2022-01-01,45671,France,0
+EMP01016,ROSE MOREAU,29,M,R&D,Master,1.4,13.0,3772.0,4.5,Très satisfait,0,4,2023-08-09,45037,France,0
+EMP01017,Théo Petit,43,M,R&D,Bac,0.9,17.7,2013.0,2.3,Satisfait,0,1,2024-02-07,71915,France,1
+EMP01018,Claire Dubois,45,M,RH,Bac,3.5,6.2,1869.0,6.8,Très satisfait,2,0,2021-07-03,63232,France,0
+EMP01019,  David  Vincent  ,34,M,Marketing,Licence,3.2,16.9,2930.0,1.5,Satisfait,3,2,2021-10-20,65125,France,0
+EMP01020,Alice Laurent,44,M,Marketing,Licence,0.2,6.4,2415.0,0.2,Neutre,1,3,2024-10-19,67898,France,0
+EMP01021,Marc Roux,52,M,R&D,Master,3.9,4.7,3762.0,2.6,Satisfait,4,0,2021-02-07,26486,France,0
+EMP01022,Marc Moreau,30,M,Marketing,Bac,0.3,8.8,1957.0,1.2,Très satisfait,8,1,2024-09-13,59304,France,0
+EMP01023,INÈS BERNARD,30,F,Production,Bac,0.4,24.3,2038.0,3.0,Satisfait,1,0,2024-08-07,81915,France,0
+EMP01024,François Garcia,34,F,R&D,Licence,2.6,31.5,2406.0,7.1,Insatisfait,2,4,2022-05-27,46410,France,0
+EMP01025,Inès Michel,31,F,Production,Master,2.7,5.6,3134.0,5.4,Neutre,1,2,2022-04-21,86523,France,0
+EMP01026,Hugo Fournier,31,M,Ventes,Licence,4.8,18.6,2604.0,0.4,Satisfait,3,2,2020-03-15,76785,France,0
+EMP01027,Gabrielle Petit,31,F,R&D,Master,2.1,26.6,3407.0,4.8,Insatisfait,2,2,2022-11-26,66618,France,0
+EMP01028,EMMA MARTIN,53,F,Marketing,Master,5.2,6.7,3627.0,4.0,Neutre,1,0,2019-10-21,33609,France,0
+EMP01029,françois garcia,43,M,R&D,Bac,8.6,7.6,2429.0,4.7,Satisfait,0,0,2016-05-28,29596,France,0
+EMP01030,Jules Petit,48,M,Production,Licence,2.7,8.9,2606.0,2.7,Satisfait,2,0,2022-04-21,52438,France,0
+EMP01031,Olivier Vincent,44,M,R&D,Master,4.3,6.6,3374.0,2.5,Satisfait,1,0,2020-09-14,89444,France,0
+EMP01032,Emma Simon,29,M,Production,Bac,1.3,21.3,1746.0,2.3,Satisfait,0,3,2023-09-14,85238,France,0
+EMP01033,Olivier Simon,25,F,Production,Bac,20.7,43.6,3197.0,10.5,Insatisfait,4,0,2004-04-25,91523,France,1
+EMP01034,David Vincent,21,M,Production,Bac,1.7,5.4,1777.0,2.4,Satisfait,0,3,2023-04-21,91319,France,0
+EMP01035,LÉA VINCENT,18,M,Marketing,Licence,12.5,12.8,3732.0,4.6,Satisfait,2,3,2012-07-05,31695,France,0
+EMP01036,  Alice  Bernard  ,21,F,Production,Bac,6.6,14.5,2260.0,1.7,Neutre,3,2,2018-05-28,12734,France,0
+EMP01037,hugo moreau,40,M,R&D,Master,1.6,5.8,3067.0,1.9,Neutre,0,2,2023-05-27,14613,France,0
+EMP01038,david moreau,39,F,Marketing,Licence,0.8,26.2,2247.0,4.2,Insatisfait,1,3,2024-03-14,40565,France,0
+EMP01039,Inès Petit,36,M,R&D,Licence,4.0,13.6,2403.0,4.5,Insatisfait,5,0,2021-01-01,95975,France,0
+EMP01040,olivier laurent,37,F,RH,Master,3.5,6.2,3503.0,2.0,Neutre,3,2,2021-07-03,83499,France,0
+EMP01041,Rose Durand,35,F,Marketing,Master,8.6,12.2,4503.0,8.5,Insatisfait,1,4,2016-05-28,12468,France,0
+EMP01042,MARC GARCIA,27,M,RH,Licence,2.5,3.7,2544.0,1.0,Satisfait,0,4,2022-07-03,89899,France,0
+EMP01043,Quentin Leroy,47,M,Production,Master,10.2,9.2,3894.0,2.3,Très satisfait,2,3,2014-10-23,38857,France,0
+EMP01044,Rose Martin,38,F,R&D,Master,8.4,12.1,3665.0,6.3,Neutre,3,3,2016-08-09,79811,France,0
+EMP01045,David Vincent,40,F,Production,Master,4.1,22.5,3244.0,4.5,Très satisfait,6,3,2020-11-26,98189,France,0
+EMP01046,Bob Garcia,24,F,Marketing,Licence,7.3,10.6,,2.8,Satisfait,1,0,2017-09-15,41415,France,0
+EMP01047,Olivier Laurent,24,F,Ventes,Master,2.4,7.6,3147.0,3.9,Très satisfait,1,2,2022-08-08,33663,France,0
+EMP01048,Paul Bernard,46,F,Ventes,Bac,1.8,12.2,1964.0,1.5,Satisfait,1,1,2023-03-15,48397,France,1
+EMP01049,Jules Garcia,43,M,Marketing,Licence,4.7,8.4,2403.0,4.7,Satisfait,2,3,2020-04-21,94146,France,0
+EMP01050,Sam Leroy,47,F,IT,Master,8.6,13.3,3478.0,4.2,Très satisfait,1,0,2016-05-28,50493,France,0
+EMP01051,Rose Simon,36,F,Ventes,Licence,2.9,16.8,2233.0,3.7,Très satisfait,0,0,2022-02-07,78192,France,1
+EMP01052,léa vincent,23,F,R&D,Doctorat,3.7,17.8,5526.0,3.5,Satisfait,6,4,2021-04-21,29718,France,0
+EMP01053,  Olivier  Michel  ,37,M,Production,Licence,3.8,14.2,2986.0,6.4,Insatisfait,4,0,2021-03-15,44412,France,0
+EMP01054,Hugo Garcia,49,M,IT,Licence,7.5,9.0,3114.0,4.0,Très insatisfait,0,2,2017-07-04,71781,France,0
+EMP01055,Paul Garcia,43,M,IT,Bac,7.0,27.6,2474.0,3.5,Satisfait,2,0,2018-01-02,23348,France,0
+EMP01056,François Dubois,38,M,R&D,Licence,4.1,16.8,2475.0,1.3,Satisfait,0,0,2020-11-26,73188,France,0
+EMP01057,Alice Bernard,19,M,Ventes,Licence,18.7,17.5,3993.0,4.8,Insatisfait,0,0,2006-04-25,20880,France,0
+EMP01058,Bob Laurent,40,M,RH,Bac,21.2,11.4,2504.0,1.9,Très satisfait,0,1,2003-10-25,51981,France,1
+EMP01059,François Bernard,43,M,Marketing,Licence,9.0,3.8,3144.0,7.7,Satisfait,2,0,2016-01-03,25893,France,0
+EMP01060,Rose Moreau,33,F,Ventes,Bac,3.1,7.3,1834.0,1.8,Satisfait,3,0,2021-11-26,63750,France,1
+EMP01061,Paul Moreau,35,F,Production,Bac,0.1,24.4,1626.0,2.0,Satisfait,0,3,2024-11-25,21701,France,0
+EMP01062,Olivier Michel,28,F,RH,Licence,0.4,30.0,2749.0,6.9,Satisfait,1,0,2024-08-07,42094,France,0
+EMP01063,Claire Vincent,34,F,RH,Licence,0.9,17.2,2496.0,1.7,Très satisfait,0,0,2024-02-07,26578,France,1
+EMP01064,Rose Laurent,35,M,Marketing,Licence,1.0,3.7,2512.0,5.4,Neutre,3,5,2024-01-01,33224,France,0
+EMP01065,Rose Simon,32,F,Marketing,Master,1.9,8.8,3643.0,8.4,,1,0,2023-02-07,76344,France,1
+EMP01066,Théo Moreau,31,F,Production,Master,0.6,22.2,3129.0,2.6,Satisfait,0,2,2024-05-26,80392,France,0
+EMP01067,Sam Durand,25,M,Ventes,Master,9.8,18.7,3747.0,3.0,Très satisfait,3,2,2015-03-17,96155,France,0
+EMP01068,PAUL VINCENT,40,M,Production,Master,0.7,14.3,3322.0,6.3,Insatisfait,2,0,2024-04-20,35265,France,1
+EMP01069,jules petit,29,F,Production,Doctorat,9.8,32.8,5739.0,2.2,Satisfait,0,0,2015-03-17,28362,France,0
+EMP01070,Claire Leroy,56,M,Production,Doctorat,9.5,9.5,6065.0,1.0,Très satisfait,3,5,2015-07-05,41090,France,0
+EMP01071,Quentin Fournier,24,F,Production,Licence,19.4,14.3,4149.0,3.6,Insatisfait,2,2,2005-08-13,52648,France,0
+EMP01072,Théo Fournier,28,F,IT,Licence,3.0,7.4,2460.0,2.2,Très satisfait,4,4,2022-01-01,84980,France,0
+EMP01073,Emma Vincent,37,F,Ventes,Licence,1.0,5.0,2352.0,1.9,Insatisfait,2,1,2024-01-01,68879,France,1
+EMP01074,Sam Vincent,34,M,R&D,Master,4.2,21.9,3296.0,3.5,Satisfait,4,3,2020-10-20,12950,France,0
+EMP01075,David Durand,36,F,Marketing,Master,17.6,5.4,5501.0,4.5,Satisfait,2,3,2007-05-31,52662,France,0
+EMP01076,Bob Garcia,18,F,Ventes,Licence,2.0,23.1,2502.0,0.4,Satisfait,2,3,2023-01-01,15341,France,0
+EMP01077,Alice Dubois,19,F,R&D,Master,4.5,12.9,3575.0,2.7,Satisfait,2,1,2020-07-03,97606,France,0
+EMP01078,François Dubois,44,F,RH,Bac,0.2,24.6,1648.0,2.8,Très satisfait,2,2,2024-10-19,33132,France,0
+EMP01079,Rose Petit,37,M,Ventes,Licence,6.3,3.2,2731.0,5.1,Satisfait,0,0,2018-09-15,91418,France,1
+EMP01080,Bob Dubois,31,M,Production,Master,2.3,19.7,3063.0,0.7,Neutre,2,0,2022-09-14,17914,France,0
+EMP01081,Karim Petit,36,M,Production,Master,1.4,1.4,3133.0,2.7,,1,2,2023-08-09,18142,France,0
+EMP01082,Olivier Bernard,42,M,Marketing,Licence,7.2,20.5,3182.0,5.6,Neutre,2,2,2017-10-21,49765,France,0
+EMP01083,  Hugo  Martin  ,41,F,Ventes,Licence,5.6,12.9,2642.0,1.9,Très satisfait,0,2,2019-05-29,30820,France,0
+EMP01084,Inès Fournier,37,M,R&D,Master,20.4,5.7,4546.0,3.9,Satisfait,3,0,2004-08-13,37387,France,0
+EMP01085,Bob Michel,27,F,Production,Master,0.0,16.1,3317.0,0.7,Satisfait,0,0,2024-12-31,66629,France,0
+EMP01086,  Rose  Dubois  ,60,F,Ventes,Master,13.0,1.9,4566.0,1.1,Satisfait,0,1,2012-01-04,26003,France,0
+EMP01087,Jules Bernard,24,F,Production,Bac,3.3,2.7,1717.0,1.3,Très satisfait,1,1,2021-09-14,25182,France,0
+EMP01088,Bob Martin,28,F,Production,Master,6.7,20.1,4252.0,8.8,Insatisfait,2,0,2018-04-22,78850,France,0
+EMP01089,Théo Petit,20,F,Production,Bac,4.6,8.4,2095.0,6.5,SATISFAIT,4,1,2020-05-28,81433,France,0
+EMP01090,Jules Vincent,31,F,Ventes,Bac,4.8,19.7,1880.0,5.1,Satisfait,2,1,2020-03-15,84041,France,0
+EMP01091,Bob Bernard,18,M,RH,Bac,11.2,10.4,2187.0,3.7,Neutre,1,2,2013-10-23,96538,France,0
+EMP01092,Bob Vincent,28,F,Production,Master,3.3,12.2,,2.6,Neutre,2,2,2021-09-14,10141,France,0
+EMP01093,David Michel,41,M,RH,Bac,0.8,23.9,1862.0,5.3,Très satisfait,0,2,2024-03-14,72213,France,0
+EMP01094,MARC BERNARD,34,M,R&D,Licence,6.0,8.7,3087.0,5.0,Très satisfait,3,3,2019-01-02,14399,France,0
+EMP01095,Alice Moreau,33,F,IT,Master,2.0,15.8,3038.0,2.5,,1,2,2023-01-01,96879,France,0
+EMP01096,  Marc  Leroy  ,28,F,R&D,Doctorat,7.2,1.7,5706.0,2.1,Neutre,0,2,2017-10-21,60841,France,0
+EMP01097,  Théo  Leroy  ,41,F,Ventes,Licence,2.2,3.9,2319.0,5.4,Insatisfait,4,1,2022-10-20,39574,France,0
+EMP01098,Jules Bernard,37,M,Ventes,Master,3.5,17.7,3523.0,1.7,Neutre,1,4,2021-07-03,35665,France,0
+EMP01099,Sam Fournier,35,F,Marketing,Licence,3.3,6.1,2844.0,5.4,Neutre,2,0,2021-09-14,51434,France,1
+EMP01100,alice vincent,32,M,Marketing,Licence,10.5,7.8,2917.0,4.0,Neutre,3,2,2014-07-05,50074,France,0
+EMP01101,Sam Durand,43,F,Ventes,Licence,2.5,8.0,2298.0,4.8,Très satisfait,1,3,2022-07-03,50270,France,0
+EMP01102,Jules Michel,22,M,IT,Bac,0.1,7.1,1830.0,1.8,Très satisfait,0,0,2024-11-25,13563,France,0
+EMP01103,Bob Durand,48,M,R&D,Master,0.6,11.9,3356.0,0.5,Neutre,3,0,2024-05-26,24371,France,0
+EMP01104,KARIM DURAND,34,F,Ventes,Licence,2.9,14.2,2280.0,8.0,Très insatisfait,2,2,2022-02-07,43970,France,0
+EMP01105,Jules Bernard,25,M,R&D,Master,2.8,10.2,3971.0,8.5,Satisfait,3,3,2022-03-16,91166,France,0
+EMP01106,Bob Petit,49,F,R&D,Licence,4.0,34.3,2608.0,4.0,,0,0,2021-01-01,12930,France,0
+EMP01107,Bob Vincent,39,F,Production,Licence,15.1,6.9,3212.0,4.6,Très satisfait,2,0,2009-11-29,57317,France,0
+EMP01108,Emma Bernard,38,F,Marketing,Master,2.3,38.7,2985.0,4.3,Neutre,3,0,2022-09-14,50386,France,0
+EMP01109,Emma Fournier,37,Autre,Production,Master,1.2,22.7,3164.0,3.1,Insatisfait,1,0,2023-10-20,35935,France,0
+EMP01110,Alice Petit,25,M,RH,Master,7.4,3.2,3979.0,3.4,Satisfait,2,3,2017-08-09,35327,France,0
+EMP01111,Paul Leroy,45,M,Ventes,Licence,0.2,11.4,2321.0,0.5,,2,3,2024-10-19,55898,France,0
+EMP01112,bob martin,30,M,Ventes,Licence,18.2,17.7,3326.0,4.6,Satisfait,1,2,2006-10-24,97958,France,0
+EMP01113,Emma Fournier,18,F,R&D,Doctorat,0.5,19.3,4752.0,0.9,Neutre,3,5,2024-07-02,47537,France,0
+EMP01114,Jules Martin,28,M,Marketing,Master,7.5,14.9,4133.0,1.5,Satisfait,0,4,2017-07-04,11346,France,0
+EMP01115,Jules Martin,31,F,RH,Master,11.1,15.8,4107.0,4.4,Insatisfait,2,2,2013-11-28,59195,France,1
+EMP01116,Bob Dubois,46,F,IT,Master,3.8,26.4,3719.0,3.7,Insatisfait,3,4,2021-03-15,10584,France,1
+EMP01117,Paul Moreau,28,F,Production,Master,0.2,4.3,3219.0,12.1,Neutre,0,2,2024-10-19,60431,France,0
+EMP01118,Emma Moreau,27,F,Ventes,Bac,1.1,12.5,1907.0,4.8,Neutre,2,0,2023-11-26,51111,France,1
+EMP01119,Alice Fournier,42,F,IT,Master,4.3,11.0,3589.0,3.4,Satisfait,2,2,2020-09-14,96554,France,0
+EMP01120,Olivier Dubois,53,F,Production,Master,3.2,12.9,3883.0,2.6,Neutre,3,0,2021-10-20,68192,France,0
+EMP01121,Alice Vincent,43,F,Ventes,Licence,3.4,11.5,2881.0,4.2,Satisfait,0,3,2021-08-08,21160,France,0
+EMP01122,Gabrielle Laurent,41,M,R&D,Doctorat,7.4,39.7,5057.0,1.0,Très satisfait,4,3,2017-08-09,34246,France,0
+EMP01123,Paul Laurent,38,F,RH,Bac,9.9,8.5,2312.0,1.0,Satisfait,2,2,2015-02-09,62977,France,0
+EMP01124,Bob Petit,31,F,R&D,Licence,4.7,18.0,2654.0,2.9,Satisfait,1,3,2020-04-21,80239,France,0
+EMP01125,Alice Durand,35,F,Production,Master,3.9,10.6,3520.0,4.4,Neutre,1,0,2021-02-07,92615,France,0
+EMP01126,Hugo Vincent,54,M,Ventes,Master,4.5,4.0,4128.0,1.5,Satisfait,0,0,2020-07-03,64394,France,0
+EMP01127,Inès Laurent,44,M,R&D,Licence,8.8,23.8,3474.0,8.4,Insatisfait,3,2,2016-03-16,16406,France,0
+EMP01128,Marc Michel,38,M,Ventes,Master,30.7,4.0,5910.0,7.7,Insatisfait,4,2,1994-04-28,17570,France,0
+EMP01129,Emma Dubois,26,F,Ventes,Master,2.2,18.2,,3.6,Très satisfait,2,3,2022-10-20,15851,France,0
+EMP01130,François Garcia,35,M,Production,Licence,3.2,23.9,2458.0,1.5,Neutre,5,1,2021-10-20,40881,France,0
+EMP01131,ROSE SIMON,38,M,RH,Licence,3.5,12.5,2876.0,8.4,Neutre,4,0,2021-07-03,21643,France,0
+EMP01132,Jules Leroy,46,M,Marketing,Master,10.5,23.4,4566.0,2.3,Satisfait,3,0,2014-07-05,80779,France,1
+EMP01133,Rose Fournier,42,M,IT,Master,1.8,15.0,3692.0,5.1,Neutre,2,0,2023-03-15,84029,France,0
+EMP01134,  Inès  Bernard  ,36,F,Marketing,Licence,4.4,15.8,2766.0,4.4,Insatisfait,3,2,2020-08-08,14020,France,0
+EMP01135,Karim Bernard,38,M,Ventes,Master,1.5,33.6,3775.0,3.8,Insatisfait,2,0,2023-07-03,74534,France,0
+EMP01136,Hugo Moreau,46,F,Ventes,Licence,4.2,22.8,2639.0,10.4,Très insatisfait,1,0,2020-10-20,49816,France,1
+EMP01137,Alice Roux,36,M,R&D,Bac,2.1,16.1,2030.0,5.5,Neutre,1,2,2022-11-26,72947,France,0
+EMP01138,Hugo Martin,29,M,Marketing,Master,7.4,16.2,,3.5,Très satisfait,4,0,2017-08-09,41268,France,0
+EMP01139,  Paul  Fournier  ,18,F,Production,Licence,7.4,19.2,2887.0,5.9,Neutre,1,2,2017-08-09,78579,France,0
+EMP01140,Inès Garcia,43,F,Production,Bac,2.3,7.8,2184.0,2.4,Neutre,1,0,2022-09-14,62652,France,0
+EMP01141,EMMA VINCENT,41,F,R&D,Master,3.6,20.0,3415.0,1.4,Satisfait,1,2,2021-05-27,99239,France,0
+EMP01142,LÉA DUBOIS,39,F,IT,Master,0.3,7.8,3173.0,5.1,Très satisfait,1,4,2024-09-13,57872,France,0
+EMP01143,Rose Garcia,29,F,Production,Master,1.8,14.5,3041.0,6.3,Neutre,1,0,2023-03-15,21580,France,0
+EMP01144,Emma Petit,47,F,Ventes,Licence,0.2,14.9,2680.0,1.9,Satisfait,4,0,2024-10-19,44137,France,1
+EMP01145,Claire Durand,20,M,Production,Master,0.4,7.1,3250.0,6.8,Satisfait,5,0,2024-08-07,80964,France,0
+EMP01146,Inès Durand,38,F,Production,Bac,5.1,9.4,1995.0,2.5,Très satisfait,5,3,2019-11-27,81593,France,0
+EMP01147,Olivier Garcia,35,F,Ventes,Licence,10.2,11.9,3433.0,2.9,Satisfait,3,4,2014-10-23,85637,France,0
+EMP01148,Olivier Martin,40,F,IT,Licence,0.7,8.1,2723.0,1.6,Très satisfait,4,3,2024-04-20,75332,France,0
+EMP01149,Inès Simon,34,M,RH,Licence,7.2,27.9,2530.0,4.8,Insatisfait,3,0,2017-10-21,13436,France,0
+EMP01150,Paul Durand,38,M,IT,Master,6.0,19.3,4233.0,0.9,Neutre,1,0,2019-01-02,39201,France,0
+EMP01151,Rose Michel,29,F,R&D,Licence,0.5,7.3,2442.0,3.8,Satisfait,2,0,2024-07-02,80694,France,0
+EMP01152,Inès Durand,36,F,Ventes,Licence,10.2,20.7,2726.0,2.5,Très satisfait,0,1,2014-10-23,92312,France,0
+EMP01153,Hugo Roux,26,F,R&D,Bac,4.1,7.6,,3.6,Très satisfait,3,2,2020-11-26,46586,France,0
+EMP01154,Emma Moreau,34,F,IT,Bac,4.9,33.3,2363.0,0.7,Neutre,1,0,2020-02-08,27082,France,0
+EMP01155,  Emma  Michel  ,31,M,Ventes,Bac,2.2,8.3,1692.0,0.9,Neutre,1,0,2022-10-20,44690,France,0
+EMP01156,Sam Fournier,42,M,IT,Licence,0.1,18.1,2257.0,2.8,Satisfait,4,0,2024-11-25,58131,France,1
+EMP01157,Karim Dubois,46,M,Ventes,Master,1.4,35.7,3249.0,2.8,Très satisfait,3,3,2023-08-09,60547,France,0
+EMP01158,Rose Roux,18,F,Ventes,Master,6.0,24.1,3788.0,3.7,Neutre,4,1,2019-01-02,45739,France,0
+EMP01159,Bob Laurent,28,M,Ventes,Master,8.5,7.2,4294.0,5.0,Neutre,3,0,2016-07-04,45393,France,0
+EMP01160,Karim Moreau,19,M,R&D,Master,0.4,19.2,,1.8,Satisfait,1,0,2024-08-07,77405,France,0
+EMP01161,Hugo Petit,26,F,Production,Licence,0.2,1.8,2400.0,2.8,Très satisfait,1,4,2024-10-19,36778,France,0
+EMP01162,Karim Bernard,28,F,R&D,Licence,4.1,7.2,2358.0,7.1,Neutre,0,0,2020-11-26,75470,France,0
+EMP01163,Emma Vincent,52,F,IT,Master,8.4,6.3,4067.0,8.9,Insatisfait,1,0,2016-08-09,11269,France,0
+EMP01164,OLIVIER SIMON,36,F,IT,Bac,3.0,12.9,2017.0,2.5,Satisfait,3,2,2022-01-01,79508,France,0
+EMP01165,Marc Bernard,28,M,Production,Bac,4.8,46.6,,2.9,Insatisfait,2,3,2020-03-15,11751,France,0
+EMP01166,FRANÇOIS VINCENT,21,M,R&D,Licence,23.6,32.4,3811.0,2.2,Neutre,3,1,2001-06-01,37487,France,0
+EMP01167,  Léa  Simon  ,53,F,IT,Licence,6.9,4.3,3146.0,3.3,Neutre,3,1,2018-02-08,20519,France,0
+EMP01168,Hugo Michel,40,F,R&D,Licence,9.1,12.3,3165.0,6.4,Très satisfait,1,3,2015-11-28,48072,France,0
+EMP01169,inès michel,34,M,R&D,Licence,0.5,25.9,2725.0,9.9,Très insatisfait,0,2,2024-07-02,55466,France,0
+EMP01170,Théo Leroy,36,F,Ventes,Master,1.7,20.1,3135.0,1.7,Neutre,5,0,2023-04-21,74004,France,0
+EMP01171,Rose Bernard,41,F,R&D,Master,2.5,19.8,3723.0,3.3,SATISFAIT,3,1,2022-07-03,18142,France,0
+EMP01172,Gabrielle Bernard,43,M,Production,Licence,1.9,2.6,2580.0,0.8,Neutre,0,3,2023-02-07,18885,France,0
+EMP01173,Alice Simon,56,M,R&D,Bac,7.2,24.3,1926.0,4.0,Insatisfait,3,0,2017-10-21,77499,France,0
+EMP01174,Jules Laurent,25,F,Ventes,Master,6.7,17.1,4058.0,2.2,Très satisfait,1,0,2018-04-22,40201,France,0
+EMP01175,Théo Fournier,46,M,Ventes,Doctorat,8.4,10.2,5529.0,5.5,Neutre,4,2,2016-08-09,65064,France,0
+EMP01176,Emma Bernard,45,M,Marketing,Bac,1.5,12.4,1780.0,1.3,Satisfait,2,0,2023-07-03,78540,France,0
+EMP01177,nora leroy,18,F,Marketing,Master,2.2,9.5,,2.0,Très satisfait,2,0,2022-10-20,23961,France,0
+EMP01178,Olivier Petit,30,M,R&D,Master,7.7,4.3,3633.0,2.1,Satisfait,2,3,2017-04-22,53954,France,0
+EMP01179,Gabrielle Dubois,46,M,RH,Licence,9.4,5.6,2724.0,1.2,Très satisfait,1,0,2015-08-10,85312,France,0
+EMP01180,  Paul  Bernard  ,41,F,Production,Master,0.4,18.5,3714.0,5.5,,2,3,2024-08-07,32957,France,0
+EMP01181,  Sam  Martin  ,30,F,Marketing,Doctorat,4.6,22.3,4917.0,2.6,Très satisfait,2,1,2020-05-28,34969,France,0
+EMP01182,Nora Michel,53,M,IT,Master,0.0,11.3,3135.0,1.1,Très satisfait,5,2,2024-12-31,94040,France,0
+EMP01183,Jules Vincent,45,F,R&D,Master,4.2,9.4,3474.0,5.4,Neutre,1,2,2020-10-20,55652,France,0
+EMP01184,  Bob  Laurent  ,28,M,R&D,Master,2.8,9.2,3408.0,3.9,Satisfait,2,0,2022-03-16,38458,France,0
+EMP01185,ALICE PETIT,24,M,Marketing,Licence,7.6,16.3,3151.0,3.2,Satisfait,2,1,2017-05-28,80527,France,0
+EMP01186,paul leroy,46,M,Ventes,Master,1.2,9.0,3415.0,4.1,Satisfait,2,2,2023-10-20,94399,France,0
+EMP01187,Bob Dubois,36,F,R&D,Bac,2.4,6.4,1811.0,3.4,Satisfait,5,1,2022-08-08,50385,France,0
+EMP01188,Bob Dubois,39,F,Production,Master,1.7,29.7,3334.0,3.7,Neutre,5,1,2023-04-21,75024,France,0
+EMP01189,  Léa  Simon  ,42,M,Production,Master,6.4,10.5,3547.0,2.7,Satisfait,0,3,2018-08-09,77672,France,0
+EMP01190,  Sam  Garcia  ,47,M,Ventes,Licence,6.2,14.5,2967.0,3.4,Satisfait,2,3,2018-10-21,92258,France,0
+EMP01191,Alice Simon,45,F,Production,Licence,0.5,,2400.0,7.1,Insatisfait,3,3,2024-07-02,36157,France,0
+EMP01192,  Léa  Leroy  ,55,F,IT,Bac,5.0,18.4,2327.0,3.4,Neutre,1,0,2020-01-02,23151,France,0
+EMP01193,Rose Roux,25,F,R&D,Bac,2.8,3.4,1770.0,1.5,Satisfait,3,1,2022-03-16,49921,France,0
+EMP01194,Emma Moreau,41,F,Marketing,Master,4.6,2.8,3891.0,9.6,Satisfait,4,1,2020-05-28,84554,France,0
+EMP01195,François Michel,38,M,Marketing,Master,4.6,11.5,3174.0,3.5,Neutre,2,3,2020-05-28,90417,France,0
+EMP01196,Marc Laurent,39,F,R&D,Master,8.2,12.7,3766.0,4.5,Satisfait,3,0,2016-10-22,99238,France,0
+EMP01197,Quentin Bernard,40,M,R&D,Licence,2.9,16.7,2543.0,8.2,Insatisfait,3,1,2022-02-07,99080,France,0
+EMP01198,Claire Petit,41,M,Production,Master,8.1,8.4,4128.0,9.4,Très insatisfait,2,2,2016-11-27,78852,France,0
+EMP01199,Emma Laurent,47,M,RH,Licence,11.5,8.9,3583.0,6.6,,2,0,2013-07-05,59063,France,0
+EMP01200,Sam Vincent,38,M,Ventes,Bac,1.4,6.7,1906.0,1.7,Très satisfait,2,4,2023-08-09,60205,France,0
+EMP01201,David Michel,18,M,Ventes,Master,3.1,10.4,3024.0,6.2,Neutre,3,0,2021-11-26,38318,France,0
+EMP01202,Gabrielle Roux,26,F,Production,Master,5.2,12.7,3704.0,1.3,Insatisfait,5,3,2019-10-21,24034,France,0
+EMP01203,Rose Vincent,35,M,Production,Bac,4.9,11.8,1866.0,1.6,Insatisfait,0,1,2020-02-08,50173,France,0
+EMP01204,Inès Roux,53,F,RH,Licence,3.8,2.2,2431.0,9.8,Neutre,2,2,2021-03-15,70323,France,0
+EMP01205,François Martin,21,M,IT,Licence,0.4,5.1,2143.0,8.1,Neutre,0,0,2024-08-07,76941,France,0
+EMP01206,Inès Simon,51,F,IT,Doctorat,18.6,12.0,6968.0,0.6,Satisfait,2,0,2006-05-31,75412,France,0
+EMP01207,Quentin Moreau,37,M,Production,Master,4.0,12.4,3102.0,3.3,Satisfait,0,3,2021-01-01,63933,France,0
+EMP01208,DAVID ROUX,39,F,Ventes,Master,12.6,22.7,4496.0,3.6,Satisfait,0,0,2012-05-29,70799,France,0
+EMP01209,Olivier Dubois,28,M,IT,Master,14.3,22.0,4008.0,5.5,Insatisfait,1,0,2010-09-17,51830,France,0
+EMP01210,Sam Michel,56,F,Ventes,Master,1.5,7.8,3345.0,6.3,Neutre,0,2,2023-07-03,99001,France,0
+EMP01211,Jules Simon,53,M,RH,Bac,1.6,18.0,2157.0,4.9,Neutre,1,1,2023-05-27,96820,France,0
+EMP01212,David Leroy,51,F,Marketing,Master,3.1,44.9,3991.0,4.0,Satisfait,1,4,2021-11-26,22605,France,0
+EMP01213,Paul Garcia,40,F,R&D,Master,0.6,14.8,3391.0,2.7,Très satisfait,3,1,2024-05-26,92579,France,0
+EMP01214,David Petit,18,F,RH,Master,4.7,14.3,4034.0,0.8,Très satisfait,2,2,2020-04-21,36168,France,0
+EMP01215,François Dubois,40,M,R&D,Master,2.5,16.0,3908.0,1.8,Satisfait,3,4,2022-07-03,32478,France,0
+EMP01216,Hugo Leroy,49,M,Ventes,Licence,5.4,13.8,3201.0,2.4,Neutre,2,0,2019-08-09,85744,France,0
+EMP01217,Léa Roux,43,F,Production,Licence,5.7,4.9,2739.0,4.6,Neutre,1,3,2019-04-22,89233,France,0
+EMP01218,Gabrielle Laurent,47,M,R&D,Licence,0.9,20.4,2781.0,1.2,Satisfait,1,0,2024-02-07,68035,France,0
+EMP01219,Alice Roux,44,F,Marketing,Bac,0.2,13.7,1646.0,3.5,Neutre,2,0,2024-10-19,56999,France,1
+EMP01220,François Martin,30,F,R&D,Licence,1.5,8.3,2620.0,7.0,Satisfait,0,1,2023-07-03,10635,France,0
+EMP01221,Bob Vincent,40,M,Ventes,Licence,1.8,17.0,2572.0,6.9,Insatisfait,3,2,2023-03-15,97736,France,0
+EMP01222,Jules Martin,41,F,Production,Bac,3.8,17.1,2190.0,2.9,Neutre,3,1,2021-03-15,24102,France,0
+EMP01223,EMMA GARCIA,29,F,IT,Master,7.3,21.7,3655.0,2.6,Insatisfait,2,2,2017-09-15,40604,France,0
+EMP01224,Emma Moreau,35,F,Ventes,Licence,1.6,37.4,2172.0,4.1,Neutre,1,1,2023-05-27,66079,France,0
+EMP01225,Emma Durand,43,F,Marketing,Licence,4.8,14.5,2334.0,4.2,Satisfait,4,2,2020-03-15,56722,France,0
+EMP01226,  François  Fournier  ,40,M,Ventes,Licence,20.4,18.1,4114.0,1.9,Neutre,2,2,2004-08-13,17350,France,0
+EMP01227,Jules Petit,27,M,Production,Licence,1.3,27.5,2565.0,0.6,Très satisfait,4,3,2023-09-14,83140,France,1
+EMP01228,Gabrielle Vincent,39,M,Production,Master,24.5,9.9,5597.0,3.5,Satisfait,1,1,2000-07-08,88143,France,0
+EMP01229,Emma Leroy,53,F,Ventes,Bac,3.0,9.2,1908.0,8.5,Insatisfait,2,3,2022-01-01,59540,France,0
+EMP01230,Léa Roux,26,F,Marketing,Master,0.7,20.6,3656.0,10.2,Satisfait,0,0,2024-04-20,25930,France,0
+EMP01231,Inès Petit,35,F,R&D,Licence,2.6,16.5,2421.0,7.8,Neutre,0,5,2022-05-27,25017,France,0
+EMP01232,Jules Dubois,51,M,Ventes,Master,5.5,32.1,3303.0,3.5,Neutre,3,1,2019-07-04,86814,France,1
+EMP01233,Léa Durand,38,F,Ventes,Master,4.3,6.9,3199.0,2.2,Satisfait,2,1,2020-09-14,92142,France,0
+EMP01234,  Sam  Vincent  ,41,M,Ventes,Master,1.6,5.4,3132.0,4.4,Insatisfait,1,4,2023-05-27,95057,France,0
+EMP01235,Karim Durand,47,F,Ventes,Licence,10.4,14.6,3392.0,7.3,Insatisfait,3,0,2014-08-10,13229,France,0
+EMP01236,marc durand,49,F,R&D,Master,1.2,17.3,2990.0,2.8,Très satisfait,1,1,2023-10-20,15554,France,0
+EMP01237,Paul Fournier,42,M,Ventes,Licence,0.7,11.7,2623.0,1.5,Satisfait,0,0,2024-04-20,27134,France,0
+EMP01238,Jules Michel,40,M,Ventes,Bac,0.2,18.6,1863.0,2.8,Très satisfait,1,2,2024-10-19,86269,France,0
+EMP01239,  Alice  Petit  ,47,M,IT,Bac,2.6,10.8,2009.0,0.0,Satisfait,1,5,2022-05-27,46897,France,0
+EMP01240,Rose Roux,54,M,Ventes,Licence,0.5,33.8,2160.0,2.0,Très satisfait,3,3,2024-07-02,88109,France,0
+EMP01241,PAUL DUBOIS,38,M,R&D,Licence,7.2,18.1,3310.0,2.8,Très insatisfait,4,0,2017-10-21,20034,France,0
+EMP01242,Alice Laurent,26,M,Production,Licence,0.5,8.7,2342.0,1.2,Neutre,0,0,2024-07-02,50114,France,1
+EMP01243,François Petit,39,M,R&D,Licence,4.0,13.8,2440.0,6.4,Insatisfait,4,0,2021-01-01,58619,France,0
+EMP01244,Théo Laurent,40,M,R&D,Licence,2.8,26.3,2604.0,2.1,Satisfait,2,0,2022-03-16,34707,France,0
+EMP01245,  Karim  Martin  ,45,M,Marketing,Master,14.3,20.4,4966.0,4.1,Satisfait,2,1,2010-09-17,21932,France,0
+EMP01246,Quentin Laurent,19,M,RH,Master,0.9,39.8,3483.0,3.4,,2,2,2024-02-07,86133,France,0
+EMP01247,Claire Martin,31,M,Production,Bac,7.5,10.0,2427.0,5.5,Insatisfait,3,1,2017-07-04,29166,France,0
+EMP01248,Inès Vincent,27,F,Production,Master,5.1,25.7,4027.0,2.1,Très satisfait,1,3,2019-11-27,20697,France,0
+EMP01249,Emma Bernard,18,M,Production,Master,4.5,11.2,3245.0,3.4,Satisfait,0,3,2020-07-03,50486,France,0
+EMP01250,David Bernard,33,M,IT,Licence,5.2,4.6,3109.0,4.1,Satisfait,2,1,2019-10-21,72679,France,0
+EMP01251,Gabrielle Leroy,42,F,RH,Licence,10.6,11.5,2992.0,0.3,Satisfait,1,5,2014-05-29,49567,France,0
+EMP01252,Alice Michel,32,F,RH,Licence,0.6,10.1,2421.0,3.4,Satisfait,2,3,2024-05-26,83476,France,0
+EMP01253,Inès Simon,48,F,Marketing,Master,0.5,5.9,3372.0,5.9,Très satisfait,1,1,2024-07-02,35566,France,0
+EMP01254,  Gabrielle  Leroy  ,26,M,Marketing,Licence,6.6,13.2,2524.0,5.7,Neutre,1,2,2018-05-28,47475,France,0
+EMP01255,Emma Bernard,58,M,R&D,Bac,6.3,7.0,2150.0,1.7,Neutre,1,1,2018-09-15,58926,France,0
+EMP01256,LÉA MOREAU,42,F,Production,Bac,0.7,4.8,1573.0,1.7,Satisfait,3,0,2024-04-20,68951,France,0
+EMP01257,Karim Durand,37,M,Production,Master,15.2,33.7,4975.0,0.6,Neutre,0,0,2009-10-23,38513,France,1
+EMP01258,Quentin Laurent,29,M,R&D,Master,1.8,19.0,3412.0,4.5,Neutre,0,4,2023-03-15,22932,France,0
+EMP01259,ALICE ROUX,35,F,Ventes,Master,5.3,5.6,3980.0,0.6,Très satisfait,4,1,2019-09-15,23723,France,0
+EMP01260,olivier garcia,44,F,Ventes,Licence,2.5,37.9,2396.0,0.4,Très satisfait,1,0,2022-07-03,15379,France,0
+EMP01261,BOB MARTIN,34,M,Production,Master,3.1,22.5,3855.0,0.5,Satisfait,0,0,2021-11-26,30675,France,0
+EMP01262,Léa Michel,55,F,R&D,Master,4.6,12.9,3677.0,7.0,Satisfait,2,1,2020-05-28,85546,France,0
+EMP01263,Alice Martin,37,M,RH,Licence,9.5,19.0,3288.0,4.4,Satisfait,2,2,2015-07-05,54069,France,0
+EMP01264,  Sam  Laurent  ,37,M,RH,Licence,1.1,6.2,2252.0,1.5,Satisfait,3,1,2023-11-26,50750,France,0
+EMP01265,François Bernard,57,M,Marketing,Master,0.9,4.4,3387.0,1.7,Très satisfait,1,2,2024-02-07,62994,France,0
+EMP01266,bob vincent,19,F,RH,Licence,4.2,24.6,2616.0,4.2,Très satisfait,1,4,2020-10-20,54176,France,0
+EMP01267,Emma Laurent,36,M,R&D,Licence,1.4,40.8,2204.0,1.4,Neutre,2,3,2023-08-09,28858,France,0
+EMP01268,Rose Vincent,35,F,Production,Master,2.7,18.4,3143.0,2.8,Insatisfait,3,4,2022-04-21,48866,France,0
+EMP01269,Léa Leroy,36,M,IT,Master,7.5,7.0,3565.0,2.7,Très satisfait,4,3,2017-07-04,73651,France,0
+EMP01270,Claire Dubois,55,M,IT,Bac,0.1,31.4,1686.0,2.1,Satisfait,1,2,2024-11-25,85525,France,0
+EMP01271,Emma Roux,43,F,Production,Bac,10.6,3.9,2198.0,3.6,Très satisfait,1,0,2014-05-29,36271,France,0
+EMP01272,Inès Roux,33,F,Ventes,Master,0.5,13.3,3458.0,0.5,Satisfait,3,4,2024-07-02,95091,France,1
+EMP01273,Gabrielle Martin,36,M,Production,Bac,6.9,25.3,2368.0,2.6,Satisfait,3,0,2018-02-08,30118,France,0
+EMP01274,Karim Dubois,45,F,R&D,Licence,0.6,,2347.0,7.5,Très satisfait,1,0,2024-05-26,90798,France,0
+EMP01275,Bob Fournier,49,M,R&D,Licence,12.5,13.3,3162.0,5.0,Très satisfait,0,0,2012-07-05,14550,France,0
+EMP01276,Hugo Bernard,24,M,Production,Master,20.6,7.1,4472.0,1.7,Neutre,2,2,2004-05-31,84301,France,0
+EMP01277,Sam Moreau,43,F,RH,Licence,0.9,18.2,2110.0,2.9,Satisfait,2,2,2024-02-07,84157,France,0
+EMP01278,Marc Durand,26,M,R&D,Doctorat,7.0,20.5,5158.0,6.6,Neutre,1,0,2018-01-02,83637,France,0
+EMP01279,Jules Bernard,25,M,Production,Master,3.8,12.5,3395.0,3.1,Satisfait,5,1,2021-03-15,78777,France,0
+EMP01280,Théo Martin,33,F,Ventes,Licence,2.7,19.3,2872.0,2.8,,0,0,2022-04-21,86573,France,0
+EMP01281,Claire Petit,40,M,Ventes,Master,0.3,7.3,2903.0,7.2,,1,3,2024-09-13,97282,France,0
+EMP01282,François Garcia,48,M,Production,Licence,5.4,8.6,2669.0,0.9,Satisfait,2,0,2019-08-09,94260,France,0
+EMP01283,Sam Garcia,50,F,R&D,Bac,2.1,12.0,2150.0,8.0,Neutre,3,0,2022-11-26,81614,France,0
+EMP01284,Théo Moreau,40,M,IT,Licence,3.8,3.1,2991.0,1.2,Très satisfait,0,3,2021-03-15,71646,France,0
+EMP01285,Marc Laurent,39,F,IT,Bac,11.6,10.9,2339.0,1.5,Satisfait,1,2,2013-05-29,42679,France,0
+EMP01286,Bob Roux,65,F,Ventes,Bac,1.5,15.8,1864.0,0.3,Satisfait,2,0,2023-07-03,43642,France,1
+EMP01287,Rose Bernard,34,M,Production,Licence,2.6,2.7,2321.0,0.8,Très satisfait,2,2,2022-05-27,32330,France,0
+EMP01288,François Martin,40,M,IT,Doctorat,6.1,16.8,5178.0,6.0,Neutre,4,3,2018-11-27,15041,France,0
+EMP01289,Théo Roux,36,M,Marketing,Master,3.9,8.4,3837.0,5.5,Satisfait,0,1,2021-02-07,16504,France,0
+EMP01290,Sam Simon,37,F,R&D,Licence,6.7,24.2,3183.0,3.4,Insatisfait,2,3,2018-04-22,31676,France,0
+EMP01291,  Sam  Garcia  ,20,F,R&D,Licence,6.4,11.0,3197.0,6.2,Neutre,1,1,2018-08-09,99870,France,0
+EMP01292,bob simon,36,M,RH,Bac,4.8,4.6,2341.0,4.4,Satisfait,2,0,2020-03-15,30010,France,0
+EMP01293,Gabrielle Vincent,34,M,R&D,Master,1.2,14.7,3498.0,1.6,Insatisfait,1,1,2023-10-20,46787,France,1
+EMP01294,Inès Michel,18,F,Ventes,Master,5.0,7.2,3867.0,2.9,Neutre,1,2,2020-01-02,89777,France,0
+EMP01295,olivier laurent,21,F,Marketing,Master,14.3,15.7,5106.0,6.3,Satisfait,3,3,2010-09-17,21092,France,0
+EMP01296,Karim Vincent,30,F,Marketing,Master,5.1,16.3,4107.0,17.1,Très insatisfait,2,0,2019-11-27,78974,France,1
+EMP01297,  Léa  Dubois  ,33,M,Marketing,Master,1.9,16.4,3227.0,1.2,Neutre,2,2,2023-02-07,75601,France,0
+EMP01298,Quentin Garcia,38,F,Production,Licence,13.0,10.4,2920.0,6.6,Insatisfait,2,3,2012-01-04,73155,France,0
+EMP01299,Olivier Moreau,39,F,IT,Master,8.7,18.1,4559.0,2.7,Très satisfait,3,0,2016-04-22,50227,France,0
+EMP01300,Alice Fournier,29,M,R&D,Master,7.1,15.9,3492.0,1.9,Insatisfait,1,2,2017-11-27,66360,France,0
+EMP01301,Emma Leroy,44,F,IT,Licence,0.5,14.3,2679.0,10.6,Satisfait,0,3,2024-07-02,68691,France,0
+EMP01302,Paul Michel,53,F,Marketing,Master,3.3,18.9,3502.0,4.4,Très satisfait,1,0,2021-09-14,28893,France,0
+EMP01303,Karim Dubois,47,F,R&D,Licence,3.2,10.6,2830.0,5.5,Insatisfait,0,2,2021-10-20,67092,France,0
+EMP01304,Théo Garcia,51,F,R&D,Licence,0.1,14.1,2367.0,0.6,Neutre,1,0,2024-11-25,26851,France,0
+EMP01305,  Marc  Dubois  ,62,M,Production,Licence,5.8,17.3,3235.0,2.7,Satisfait,2,1,2019-03-16,31945,France,0
+EMP01306,Karim Leroy,43,M,R&D,Master,11.9,7.9,4330.0,2.2,Très satisfait,0,0,2013-02-09,99856,France,0
+EMP01307,Jules Bernard,40,M,Production,Doctorat,6.1,20.7,6073.0,2.9,Satisfait,2,0,2018-11-27,91106,France,1
+EMP01308,Emma Leroy,42,M,IT,Master,2.1,7.0,3055.0,5.4,Insatisfait,4,0,2022-11-26,78318,France,1
+EMP01309,Nora Vincent,23,F,R&D,Bac,3.4,18.3,,2.0,Neutre,0,3,2021-08-08,91365,France,0
+EMP01310,alice laurent,37,M,Marketing,Licence,12.4,5.9,3149.0,1.1,Très satisfait,2,2,2012-08-10,24415,France,0
+EMP01311,Sam Bernard,23,F,IT,Doctorat,3.7,27.4,5492.0,7.1,Neutre,3,0,2021-04-21,54537,France,0
+EMP01312,Théo Roux,43,F,IT,Licence,11.0,33.5,3547.0,8.7,Neutre,0,4,2014-01-03,52085,France,0
+EMP01313,Sam Petit,42,F,R&D,Bac,17.6,18.0,2586.0,0.8,Très satisfait,2,2,2007-05-31,14870,France,0
+EMP01314,Sam Dubois,65,M,R&D,Licence,1.2,15.6,2804.0,2.1,Très satisfait,2,2,2023-10-20,65686,France,0
+EMP01315,INÈS MARTIN,52,F,RH,Master,18.0,8.4,5652.0,3.6,Très satisfait,1,2,2007-01-05,75733,France,0
+EMP01316,nora martin,33,M,R&D,Doctorat,12.8,11.2,6847.0,3.5,Neutre,0,2,2012-03-17,42087,France,0
+EMP01317,Rose Vincent,42,M,Production,Licence,6.4,21.8,2766.0,2.4,Neutre,5,0,2018-08-09,33686,France,0
+EMP01318,Gabrielle Petit,48,M,Production,Bac,20.6,,3276.0,0.4,Neutre,3,4,2004-05-31,45481,France,0
+EMP01319,Quentin Durand,38,M,Ventes,Master,12.0,,3742.0,1.9,Neutre,3,3,2013-01-03,50940,France,0
+EMP01320,Bob Roux,46,F,Production,Licence,2.3,23.9,2786.0,3.2,satisfait,4,2,2022-09-14,34810,France,0
+EMP01321,  Théo  Garcia  ,46,M,IT,Licence,2.4,8.2,2387.0,6.2,Insatisfait,3,0,2022-08-08,38776,France,0
+EMP01322,Rose Petit,38,F,IT,Doctorat,6.5,16.9,5518.0,5.6,Satisfait,3,3,2018-07-04,97733,France,0
+EMP01323,Gabrielle Moreau,28,M,Ventes,Master,10.9,11.9,,3.8,Satisfait,1,2,2014-02-09,92760,France,0
+EMP01324,Jules Fournier,42,F,Production,Master,14.0,17.0,5025.0,4.1,Satisfait,2,3,2011-01-04,89133,France,0
+EMP01325,Jules Petit,47,F,Ventes,Master,1.9,16.5,3625.0,5.7,Insatisfait,2,3,2023-02-07,98979,France,0
+EMP01326,Jules Leroy,53,F,Ventes,Licence,0.6,18.7,2351.0,6.2,Insatisfait,4,3,2024-05-26,33468,France,1
+EMP01327,Gabrielle Garcia,35,M,IT,Bac,2.0,25.4,1816.0,2.1,Insatisfait,4,4,2023-01-01,38075,France,0
+EMP01328,Rose Durand,28,F,RH,Master,1.9,14.7,3842.0,1.7,Très satisfait,2,1,2023-02-07,30819,France,1
+EMP01329,Paul Garcia,29,M,RH,Licence,2.6,,2717.0,6.2,Insatisfait,1,0,2022-05-27,24328,France,0
+EMP01330,Claire Simon,41,M,IT,Bac,6.3,15.6,2026.0,2.6,Satisfait,1,0,2018-09-15,16291,France,0
+EMP01331,François Garcia,51,M,Production,Licence,3.1,6.0,2838.0,0.2,Très satisfait,2,1,2021-11-26,20628,France,0
+EMP01332,Claire Martin,51,F,Marketing,Licence,3.0,8.6,2906.0,11.7,Très insatisfait,5,2,2022-01-01,25219,France,0
+EMP01333,Marc Martin,43,M,Ventes,Licence,0.6,11.8,2475.0,1.6,Insatisfait,0,2,2024-05-26,84877,France,0
+EMP01334,Jules Michel,31,M,Production,Bac,5.0,8.3,2015.0,1.9,Insatisfait,2,5,2020-01-02,43922,France,0
+EMP01335,Olivier Martin,39,F,Ventes,Master,6.9,15.2,3316.0,1.2,Insatisfait,1,2,2018-02-08,49862,France,0
+EMP01336,Jules Leroy,22,M,Ventes,Bac,8.6,33.6,2444.0,3.4,Très satisfait,3,4,2016-05-28,34450,France,0
+EMP01337,Bob Bernard,35,M,Ventes,Master,3.5,16.4,3241.0,8.1,Insatisfait,2,1,2021-07-03,36245,France,0
+EMP01338,Marc Laurent,63,F,Ventes,Master,9.6,6.2,3512.0,1.8,Satisfait,1,1,2015-05-29,61040,France,0
+EMP01339,François Simon,24,M,Production,Doctorat,0.1,27.4,4288.0,6.7,Insatisfait,2,0,2024-11-25,22397,France,1
+EMP01340,Sam Martin,35,F,IT,Master,3.8,21.1,3070.0,7.7,Insatisfait,3,3,2021-03-15,40569,France,0
+EMP01341,Léa Moreau,32,F,Marketing,Licence,0.3,,2745.0,2.8,Neutre,5,3,2024-09-13,98872,France,0
+EMP01342,Quentin Durand,27,F,Production,Master,3.1,19.8,,3.8,Très satisfait,4,4,2021-11-26,97487,France,0
+EMP01343,Bob Petit,27,M,RH,Master,14.4,40.7,4997.0,2.6,Satisfait,3,2,2010-08-11,88162,France,0
+EMP01344,Olivier Simon,26,F,Production,Licence,1.0,16.1,2271.0,4.4,Très satisfait,4,3,2024-01-01,97298,France,0
+EMP01345,  Léa  Fournier  ,33,M,Ventes,Master,1.0,16.8,3399.0,3.1,Insatisfait,1,1,2024-01-01,99883,France,0
+EMP01346,hugo simon,41,F,Ventes,Master,1.2,23.3,3118.0,1.2,Satisfait,3,2,2023-10-20,26694,France,1
+EMP01347,Hugo Durand,38,F,Production,Master,0.2,26.2,3204.0,1.3,Satisfait,2,3,2024-10-19,85188,France,0
+EMP01348,Inès Fournier,39,M,R&D,Licence,29.0,25.4,3869.0,0.9,Satisfait,1,0,1996-01-08,49088,France,1
+EMP01349,Bob Laurent,29,M,Production,Master,9.9,6.1,3872.0,2.2,Satisfait,1,1,2015-02-09,72534,France,0
+EMP01350,Inès Bernard,40,M,Ventes,Master,1.8,21.6,3598.0,1.0,Très satisfait,5,4,2023-03-15,37207,France,0
+EMP01351,François Michel,23,F,Production,Licence,0.6,19.3,2742.0,5.4,Satisfait,4,0,2024-05-26,98538,France,0
+EMP01352,Gabrielle Fournier,36,M,Production,Master,11.7,22.8,4762.0,3.2,Très satisfait,0,2,2013-04-23,25862,France,0
+EMP01353,Léa Roux,30,M,Production,Licence,1.1,25.8,2572.0,9.4,Insatisfait,0,3,2023-11-26,92825,France,0
+EMP01354,Quentin Garcia,31,Autre,Ventes,Licence,1.4,12.3,2452.0,8.1,Neutre,3,1,2023-08-09,26446,France,0
+EMP01355,Olivier Michel,28,Autre,Production,Master,12.9,8.7,4058.0,3.1,Satisfait,3,3,2012-02-10,68713,France,0
+EMP01356,Olivier Dubois,24,F,Ventes,Master,2.9,4.0,3505.0,3.1,Satisfait,1,5,2022-02-07,42895,France,0
+EMP01357,EMMA BERNARD,29,M,IT,Master,2.7,18.3,3509.0,1.8,Neutre,2,0,2022-04-21,38109,France,0
+EMP01358,Alice Moreau,25,M,IT,Bac,3.9,3.4,1922.0,2.9,,2,2,2021-02-07,98481,France,0
+EMP01359,Jules Dubois,44,M,R&D,Doctorat,29.3,2.9,8668.0,7.6,Insatisfait,2,0,1995-09-21,29596,France,0
+EMP01360,François Fournier,35,M,IT,Licence,6.6,20.5,3265.0,3.0,SATISFAIT,1,0,2018-05-28,17691,France,0
+EMP01361,François Fournier,36,F,Ventes,Bac,12.9,29.8,2743.0,5.0,,2,1,2012-02-10,62661,France,0
+EMP01362,Claire Martin,19,M,R&D,Licence,2.6,25.4,,3.9,Insatisfait,2,3,2022-05-27,70419,France,0
+EMP01363,Léa Petit,46,F,Production,Licence,0.3,10.7,2567.0,5.7,Satisfait,1,3,2024-09-13,18340,France,0
+EMP01364,François Michel,33,F,Ventes,Licence,9.8,1.9,3151.0,4.1,Satisfait,3,1,2015-03-17,81593,France,0
+EMP01365,Emma Bernard,50,F,Production,Master,5.4,18.1,4047.0,4.1,Satisfait,1,2,2019-08-09,13773,France,0
+EMP01366,léa roux,39,M,Production,Master,3.5,4.0,3946.0,4.0,Neutre,4,2,2021-07-03,78612,France,0
+EMP01367,  Claire  Leroy  ,45,F,R&D,Master,0.6,12.7,2925.0,2.3,Très satisfait,1,0,2024-05-26,98722,France,0
+EMP01368,Paul Fournier,45,F,R&D,Licence,5.3,12.9,2520.0,3.1,Satisfait,2,0,2019-09-15,12551,France,0
+EMP01369,Paul Bernard,35,F,Production,Licence,2.4,2.8,2411.0,6.6,Insatisfait,2,3,2022-08-08,93734,France,0
+EMP01370,Bob Petit,35,M,Ventes,Licence,10.3,25.3,2859.0,6.1,Neutre,2,1,2014-09-16,93655,France,0
+EMP01371,CLAIRE MARTIN,54,M,Ventes,Master,12.5,,4322.0,3.2,Satisfait,0,4,2012-07-05,97446,France,0
+EMP01372,David Moreau,39,Autre,Production,Master,9.1,12.8,4138.0,2.1,Très satisfait,1,1,2015-11-28,44638,France,0
+EMP01373,François Garcia,53,M,Production,Licence,0.1,2.8,2140.0,5.8,Satisfait,2,5,2024-11-25,50631,France,0
+EMP01374,Gabrielle Garcia,37,M,Ventes,Licence,-1.0,5.0,3702.0,6.1,Satisfait,0,2,2013-08-10,72910,France,0
+EMP01375,Gabrielle Petit,39,F,R&D,Master,3.4,23.8,3162.0,0.6,Satisfait,0,3,2021-08-08,36851,France,0
+EMP01376,Claire Moreau,34,F,R&D,Licence,1.6,8.5,2222.0,5.4,Neutre,0,3,2023-05-27,24835,France,0
+EMP01377,Paul Dubois,29,F,Ventes,Licence,14.2,4.9,3604.0,8.8,Neutre,2,0,2010-10-23,13909,France,0
+EMP01378,Inès Martin,21,M,Ventes,Licence,3.9,19.1,3055.0,2.0,Très satisfait,0,2,2021-02-07,85695,France,0
+EMP01379,Sam Garcia,38,M,Ventes,Licence,0.5,5.6,2144.0,2.1,Très satisfait,1,1,2024-07-02,51773,France,1
+EMP01380,Léa Bernard,44,F,RH,Licence,2.5,5.5,2903.0,5.6,Insatisfait,1,1,2022-07-03,44330,France,0
+EMP01381,François Durand,18,F,Production,Licence,2.3,27.1,2394.0,0.8,Très satisfait,1,3,2022-09-14,81212,France,0
+EMP01382,David Garcia,42,F,R&D,Master,1.5,28.8,3813.0,3.4,Neutre,2,3,2023-07-03,96712,France,0
+EMP01383,Hugo Laurent,41,F,Production,Licence,1.2,15.0,2603.0,0.3,Très satisfait,1,1,2023-10-20,12024,France,0
+EMP01384,Gabrielle Vincent,42,M,R&D,Master,0.6,21.8,3435.0,2.8,Satisfait,4,4,2024-05-26,55934,France,0
+EMP01385,  Emma  Garcia  ,47,M,R&D,Licence,1.1,17.4,2417.0,1.9,Neutre,2,2,2023-11-26,32865,France,0
+EMP01386,alice michel,57,F,Ventes,Licence,11.7,20.1,2966.0,0.9,Neutre,0,3,2013-04-23,64271,France,0
+EMP01387,Sam Simon,40,M,Production,Licence,7.9,11.3,2976.0,10.3,Très insatisfait,0,3,2017-02-08,46882,France,0
+EMP01388,Quentin Martin,30,M,Marketing,Licence,0.9,9.9,2295.0,9.9,Neutre,3,1,2024-02-07,78641,France,1
+EMP01389,DAVID MICHEL,57,M,Production,Master,0.4,4.9,2925.0,7.4,Neutre,2,1,2024-08-07,28791,France,1
+EMP01390,Théo Laurent,51,F,Ventes,Licence,0.9,9.8,2606.0,7.1,Neutre,1,0,2024-02-07,37040,France,0
+EMP01391,Marc Dubois,45,F,Production,Master,3.6,6.6,3584.0,1.1,Satisfait,1,2,2021-05-27,68244,France,0
+EMP01392,Rose Roux,33,F,IT,Bac,1.2,23.7,1751.0,1.8,Très satisfait,4,2,2023-10-20,99218,France,0
+EMP01393,Léa Durand,31,F,R&D,Bac,6.5,6.0,1893.0,10.6,Neutre,1,1,2018-07-04,25892,France,0
+EMP01394,Paul Garcia,28,M,RH,Master,0.4,21.8,2900.0,8.3,Insatisfait,2,2,2024-08-07,66951,France,0
+EMP01395,Marc Vincent,51,F,IT,Licence,0.5,26.2,2390.0,6.0,Neutre,5,2,2024-07-02,88107,France,0
+EMP01396,QUENTIN PETIT,41,F,RH,Licence,4.3,15.7,2655.0,7.7,Très insatisfait,1,0,2020-09-14,83095,France,0
+EMP01397,Hugo Leroy,26,F,IT,Master,14.9,25.9,4984.0,0.5,Très satisfait,3,0,2010-02-10,67638,France,0
+EMP01398,Olivier Martin,52,F,Production,Licence,1.4,13.7,2798.0,0.1,Neutre,2,0,2023-08-09,98848,France,0
+EMP01399,Karim Vincent,26,M,Ventes,Licence,5.6,7.5,2740.0,0.6,Neutre,1,2,2019-05-29,73306,France,0
+EMP01400,Quentin Fournier,29,M,R&D,Licence,2.9,36.7,2417.0,4.0,Insatisfait,2,1,2022-02-07,51222,France,0
+EMP01401,emma petit,47,M,Production,Licence,1.1,12.4,2492.0,4.1,Neutre,4,3,2023-11-26,33910,France,0
+EMP01402,François Fournier,45,F,Production,Master,17.5,21.5,5475.0,2.5,Satisfait,3,0,2007-07-07,35451,France,0
+EMP01403,Alice Garcia,44,M,Production,Licence,15.6,15.4,3023.0,2.5,Satisfait,1,0,2009-05-30,83217,France,0
+EMP01404,Karim Fournier,41,F,Production,Licence,3.5,13.6,2897.0,3.2,Neutre,3,3,2021-07-03,39280,France,0
+EMP01405,Nora Laurent,36,F,R&D,Licence,6.1,,3135.0,3.4,Neutre,2,2,2018-11-27,39478,France,0
+EMP01406,  David  Martin  ,35,F,Production,Master,22.2,12.3,5262.0,3.4,Satisfait,2,2,2002-10-25,52044,France,0
+EMP01407,Sam Moreau,29,F,Ventes,Licence,0.5,29.8,2791.0,2.5,Satisfait,1,0,2024-07-02,92584,France,0
+EMP01408,Emma Leroy,26,M,Ventes,Licence,12.3,12.7,3427.0,5.7,Neutre,0,3,2012-09-16,89612,France,0
+EMP01409,Nora Vincent,42,M,Production,Master,1.2,23.5,3043.0,1.7,Neutre,3,0,2023-10-20,92875,France,1
+EMP01410,Rose Martin,35,M,Marketing,Licence,0.8,18.2,2672.0,4.2,Neutre,4,0,2024-03-14,62695,France,0
+EMP01411,Hugo Michel,18,F,Production,Bac,2.1,7.1,2111.0,4.1,Insatisfait,2,4,2022-11-26,97730,France,0
+EMP01412,Marc Durand,37,F,IT,Bac,0.1,7.2,1618.0,6.7,Satisfait,4,1,2024-11-25,77728,France,0
+EMP01413,sam michel,42,M,IT,Master,6.7,27.1,4407.0,1.5,Très satisfait,3,3,2018-04-22,35296,France,0
+EMP01414,Karim Vincent,24,M,RH,Licence,0.9,11.3,23400.0,2.5,Insatisfait,2,3,2024-02-07,30039,France,0
+EMP01415,Alice Moreau,28,F,IT,Licence,1.7,5.8,,6.3,Neutre,3,3,2023-04-21,55905,France,0
+EMP01416,François Dubois,34,M,Production,Bac,4.6,22.2,2249.0,1.4,satisfait,1,2,2020-05-28,51257,France,0
+EMP01417,Sam Moreau,49,M,Ventes,Licence,1.0,18.7,2595.0,7.8,Neutre,1,0,2024-01-01,81166,France,0
+EMP01418,Bob Michel,32,F,Ventes,Licence,0.4,2.3,2223.0,7.7,Neutre,4,2,2024-08-07,63921,France,0
+EMP01419,Marc Fournier,37,F,Ventes,Licence,4.2,32.1,2849.0,1.6,Très satisfait,4,3,2020-10-20,80251,France,0
+EMP01420,Bob Durand,38,Autre,Ventes,Bac,9.5,6.4,2072.0,9.7,Insatisfait,1,2,2015-07-05,33905,France,1
+EMP01421,Léa Roux,33,M,RH,Master,9.5,24.1,4720.0,2.6,Neutre,1,4,2015-07-05,23095,France,0
+EMP01422,Rose Petit,60,F,Ventes,Master,2.6,6.9,3203.0,3.6,Insatisfait,2,2,2022-05-27,18033,France,1
+EMP01423,  Alice  Martin  ,41,M,Ventes,Bac,2.6,8.0,1991.0,1.2,Satisfait,2,1,2022-05-27,64853,France,0
+EMP01424,Jules Petit,24,M,RH,Bac,6.2,19.0,1894.0,1.5,Neutre,1,0,2018-10-21,64077,France,0
+EMP01425,Karim Leroy,52,F,Marketing,Master,7.0,8.6,4015.0,8.3,Neutre,2,3,2018-01-02,69585,France,0
+EMP01426,Karim Moreau,31,F,R&D,Bac,0.6,12.4,1973.0,10.6,Satisfait,2,2,2024-05-26,22704,France,0
+EMP01427,Karim Bernard,35,F,R&D,Master,2.6,12.6,3840.0,3.4,Très satisfait,2,0,2022-05-27,35990,France,0
+EMP01428,  Gabrielle  Michel  ,43,F,R&D,Master,4.0,12.9,4051.0,1.8,Très satisfait,2,3,2021-01-01,44054,France,0
+EMP01429,David Bernard,38,F,Ventes,Master,0.7,10.9,3716.0,3.2,Insatisfait,2,4,2024-04-20,72603,France,1
+EMP01430,Nora Garcia,50,M,RH,Bac,5.9,26.1,2191.0,2.7,Insatisfait,3,0,2019-02-08,84136,France,0
+EMP01431,David Roux,32,M,Ventes,Licence,7.1,3.6,2715.0,10.2,Insatisfait,2,3,2017-11-27,43754,France,1
+EMP01432,Bob Roux,25,M,Production,Bac,4.0,8.1,1923.0,2.3,Neutre,2,0,2021-01-01,19831,France,0
+EMP01433,Rose Martin,29,M,Marketing,Bac,0.7,9.0,1960.0,2.7,Satisfait,2,3,2024-04-20,90598,France,0
+EMP01434,Karim Petit,21,M,Marketing,Licence,1.3,10.7,2738.0,5.2,Neutre,1,0,2023-09-14,97215,France,0
+EMP01435,Léa Fournier,31,F,Ventes,Master,3.2,17.0,3636.0,1.9,Satisfait,0,3,2021-10-20,87421,France,0
+EMP01436,Léa Roux,33,M,Ventes,Doctorat,24.7,6.8,8775.0,1.1,Très satisfait,2,2,2000-04-26,15887,France,0
+EMP01437,Claire Moreau,48,M,R&D,Licence,6.3,12.6,3076.0,1.8,Très satisfait,1,1,2018-09-15,93649,France,0
+EMP01438,paul moreau,48,F,Ventes,Licence,0.1,12.4,2380.0,3.1,Neutre,3,0,2024-11-25,49618,France,1
+EMP01439,Marc Michel,37,M,R&D,Licence,5.2,8.8,2503.0,5.2,Neutre,1,1,2019-10-21,12382,France,0
+EMP01440,Olivier Martin,39,M,Ventes,Licence,9.4,6.3,3297.0,3.7,Satisfait,3,3,2015-08-10,29672,France,0
+EMP01441,Inès Fournier,38,M,R&D,Master,-1.0,19.3,3001.0,2.0,Neutre,3,2,2024-03-14,63333,France,0
+EMP01442,DAVID ROUX,47,F,Production,Licence,3.6,18.5,2460.0,2.9,Très satisfait,2,3,2021-05-27,97956,France,0
+EMP01443,David Garcia,26,F,Ventes,Master,12.0,15.3,4973.0,2.8,Très satisfait,2,3,2013-01-03,42102,France,0
+EMP01444,  Sam  Bernard  ,26,F,Production,Licence,7.0,22.1,2868.0,4.2,Insatisfait,0,3,2018-01-02,63865,France,0
+EMP01445,Marc Bernard,41,M,R&D,Licence,0.4,19.2,2280.0,3.1,Neutre,4,0,2024-08-07,12673,France,1
+EMP01446,Hugo Michel,25,M,IT,Licence,13.6,13.7,,7.1,Insatisfait,1,1,2011-05-30,80482,France,0
+EMP01447,jules bernard,25,M,Ventes,Master,2.1,9.7,3245.0,14.1,Très insatisfait,3,0,2022-11-26,44531,France,1
+EMP01448,bob fournier,27,Autre,Marketing,Master,1.1,25.4,2983.0,2.5,Neutre,4,0,2023-11-26,74486,France,0
+EMP01449,  Bob  Michel  ,21,M,IT,Licence,1.9,15.0,2855.0,3.7,Neutre,1,2,2023-02-07,97539,France,0
+EMP01450,Karim Roux,29,M,Ventes,Licence,9.3,14.1,2692.0,8.7,Insatisfait,3,3,2015-09-16,72462,France,0
+EMP01451,paul laurent,23,M,RH,Master,4.3,12.4,3790.0,1.7,,3,3,2020-09-14,44468,France,0
+EMP01452,Sam Fournier,30,M,Marketing,Licence,2.3,20.1,2903.0,1.6,Neutre,2,3,2022-09-14,64934,France,0
+EMP01453,  François  Vincent  ,57,F,R&D,Licence,0.0,8.4,2754.0,1.0,Très satisfait,2,0,2024-12-31,14514,France,1
+EMP01454,Inès Dubois,36,M,Production,Master,7.4,8.2,3593.0,5.1,Insatisfait,1,1,2017-08-09,58387,France,0
+EMP01455,sam roux,40,M,R&D,Licence,0.1,9.5,2363.0,1.3,Satisfait,1,2,2024-11-25,72047,France,0
+EMP01456,Nora Leroy,45,F,Marketing,Licence,4.9,24.4,2460.0,8.8,Neutre,0,3,2020-02-08,78211,France,0
+EMP01457,Emma Michel,31,M,Production,Bac,0.0,5.0,1915.0,2.2,Neutre,2,2,2024-12-31,11009,France,0
+EMP01458,Rose Michel,40,F,Marketing,Licence,2.9,16.9,2993.0,5.5,Neutre,3,0,2022-02-07,74732,France,0
+EMP01459,CLAIRE BERNARD,50,M,Production,Bac,5.4,3.9,2248.0,1.7,Très satisfait,2,1,2019-08-09,41455,France,0
+EMP01460,Claire Michel,52,M,Ventes,Master,0.0,4.1,3327.0,0.9,Très satisfait,1,1,2024-12-31,64085,France,0
+EMP01461,SAM BERNARD,31,M,R&D,Master,4.5,20.2,3587.0,3.8,Insatisfait,2,1,2020-07-03,68206,France,0
+EMP01462,Inès Petit,40,M,R&D,Licence,3.4,17.1,2381.0,1.7,Neutre,0,3,2021-08-08,63357,France,0
+EMP01463,Quentin Durand,35,M,IT,Bac,14.0,17.5,2540.0,1.7,Insatisfait,2,0,2011-01-04,88019,France,1
+EMP01464,THÉO VINCENT,29,M,Ventes,Licence,8.9,12.2,2799.0,0.7,Satisfait,0,0,2016-02-09,50612,France,0
+EMP01465,Bob Dubois,39,M,Ventes,Licence,3.0,11.6,2278.0,3.8,Insatisfait,1,2,2022-01-01,77460,France,0
+EMP01466,Alice Michel,41,M,Production,Master,0.8,12.4,3248.0,5.4,Neutre,2,3,2024-03-14,47226,France,0
+EMP01467,Inès Laurent,57,F,Production,Master,2.8,18.1,3842.0,6.7,Satisfait,0,4,2022-03-16,10202,France,0
+EMP01468,Jules Moreau,31,M,Ventes,Master,2.1,21.9,3417.0,6.6,Neutre,1,0,2022-11-26,44384,France,0
+EMP01469,Théo Durand,33,M,Marketing,Master,1.7,10.2,3593.0,5.1,Neutre,4,3,2023-04-21,83158,France,0
+EMP01470,Théo Fournier,36,M,Ventes,Master,3.1,3.4,3201.0,1.5,SATISFAIT,4,0,2021-11-26,38488,France,1
+EMP01471,Karim Bernard,44,M,Ventes,Bac,0.3,9.6,1788.0,3.1,Neutre,2,4,2024-09-13,28572,France,0
+EMP01472,David Petit,28,M,Production,Bac,8.6,,2469.0,4.6,Satisfait,3,1,2016-05-28,92300,France,0
+EMP01473,marc fournier,36,M,R&D,Bac,0.3,32.5,1815.0,1.3,Satisfait,3,3,2024-09-13,28331,France,0
+EMP01474,karim dubois,32,F,IT,Master,7.1,11.1,4064.0,8.2,Très insatisfait,6,1,2017-11-27,72527,France,0
+EMP01475,Sam Roux,28,M,Production,Licence,1.6,19.1,,3.7,Neutre,2,2,2023-05-27,87971,France,0
+EMP01476,Claire Moreau,54,F,IT,Bac,8.4,13.8,2388.0,0.2,Satisfait,4,2,2016-08-09,32174,France,0
+EMP01477,Léa Bernard,37,M,Ventes,Master,4.8,11.4,3428.0,1.3,Satisfait,1,4,2020-03-15,32842,France,0
+EMP01478,Jules Laurent,39,F,Production,Master,8.5,8.0,3947.0,6.1,Satisfait,1,2,2016-07-04,73808,France,0
+EMP01479,Quentin Martin,37,F,IT,Licence,3.2,24.2,2507.0,2.6,Insatisfait,2,3,2021-10-20,23451,France,1
+EMP01480,Léa Michel,57,F,IT,Doctorat,11.7,9.0,6066.0,1.2,Satisfait,2,4,2013-04-23,75394,France,0
+EMP01481,  Quentin  Petit  ,38,M,Production,Licence,4.0,26.5,3062.0,1.8,Très satisfait,2,1,2021-01-01,35816,France,0
+EMP01482,Hugo Vincent,23,F,Production,Licence,2.4,13.3,2518.0,0.7,Très satisfait,1,0,2022-08-08,68290,France,0
+EMP01483,karim petit,42,F,RH,Doctorat,4.2,11.3,5336.0,9.2,Neutre,0,1,2020-10-20,11688,France,0
+EMP01484,Nora Vincent,53,M,Ventes,Bac,2.5,15.5,2170.0,1.8,Satisfait,2,3,2022-07-03,38796,France,0
+EMP01485,Sam Dubois,37,F,IT,Licence,0.8,9.7,2569.0,3.3,Très satisfait,2,1,2024-03-14,32200,France,0
+EMP01486,léa petit,44,F,Ventes,Licence,4.8,12.4,2745.0,5.3,Satisfait,4,2,2020-03-15,91301,France,0
+EMP01487,Jules Durand,47,F,Production,Master,2.1,9.8,3038.0,3.9,Neutre,1,0,2022-11-26,58107,France,0
+EMP01488,  Nora  Garcia  ,22,F,R&D,Master,0.5,14.4,3680.0,6.7,Neutre,0,1,2024-07-02,81351,France,0
+EMP01489,François Bernard,40,F,Ventes,Master,1.4,11.3,3192.0,1.4,Satisfait,0,3,2023-08-09,86364,France,0
+EMP01490,Théo Garcia,37,M,R&D,Licence,13.5,19.0,3616.0,8.1,Neutre,1,2,2011-07-06,61216,France,0
+EMP01491,Sam Garcia,56,F,Ventes,Licence,1.7,11.0,2539.0,2.0,Neutre,3,2,2023-04-21,56113,France,0
+EMP01492,Marc Michel,18,M,Ventes,Bac,9.2,27.3,2031.0,2.8,Satisfait,4,2,2015-10-23,54201,France,0
+EMP01493,Jules Leroy,60,F,R&D,Bac,1.9,14.5,1977.0,3.4,Satisfait,2,1,2023-02-07,55304,France,0
+EMP01494,Léa Martin,39,M,Production,Master,5.9,37.8,4224.0,3.1,Satisfait,4,1,2019-02-08,40223,France,0
+EMP01495,Karim Bernard,38,F,Ventes,Licence,0.8,5.8,2096.0,1.8,Satisfait,0,2,2024-03-14,98680,France,1
+EMP01496,Hugo Fournier,18,M,Ventes,Doctorat,3.9,14.9,4816.0,7.3,Insatisfait,2,1,2021-02-07,29906,France,1
+EMP01497,Olivier Vincent,18,M,Ventes,Master,6.8,19.5,3484.0,1.7,Neutre,3,3,2018-03-16,89581,France,0
+EMP01498,emma vincent,25,F,Ventes,Licence,1.1,19.4,,2.5,Neutre,6,2,2023-11-26,87300,France,1
+EMP01499,Karim Bernard,27,M,R&D,Licence,0.2,23.8,2395.0,3.4,Neutre,2,4,2024-10-19,22451,France,0
+EMP01500,David Petit,52,M,IT,Bac,1.6,12.3,1705.0,1.9,Neutre,2,2,2023-05-27,54621,France,0
+EMP00092,Nora Roux,61,M,Production,Licence,24.8,17.6,3820.0,5.0,Très satisfait,1,2,2000-03-20,37393,France,0
+EMP00076,Bob Moreau,48,F,R&D,Master,6.5,13.0,4026.0,5.0,Insatisfait,2,1,2018-07-04,88024,France,1
+EMP01265,François Bernard,57,M,Marketing,Master,0.9,4.4,3387.0,1.7,Très satisfait,1,2,2024-02-07,62994,France,0
+EMP00331,Gabrielle Roux,40,F,IT,Licence,10.8,13.4,3562.0,3.7,Insatisfait,2,4,2014-03-17,83406,France,0
+EMP01350,Inès Bernard,40,M,Ventes,Master,1.8,21.6,3598.0,1.0,Très satisfait,5,4,2023-03-15,37207,France,0

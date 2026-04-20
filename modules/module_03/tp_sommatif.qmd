@@ -1,0 +1,1132 @@
+---
+title: "TP sommatif Module 3 — Prédire l'attrition RH"
+subtitle: "Audit complet d'un dataset + construction d'un pipeline de préparation ML"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_03/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_03/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_03_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 6 à 8 heures  
+**Prérequis** : Toutes les notions du Module 3 (3.1, 3.2, 3.3, 3.4)  
+**Objectif** : réaliser un audit complet d'un dataset RH puis construire un pipeline de préparation ML prêt pour la production
+:::
+
+# 🎯 Contexte
+
+Tu es **data scientist junior** chez **TalentCorp**, une entreprise de services de 1500 salariés. La directrice des Ressources Humaines te convoque :
+
+> « On perd trop d'employés. **Je veux comprendre qui part, pourquoi, et pouvoir prédire les départs à l'avance** pour agir avant qu'ils ne démissionnent. 
+> J'ai une extraction de notre SIRH, mais elle est… disons… pas parfaite. 
+> Fais-moi d'abord un **audit complet** de ces données, puis prépare-les pour qu'on puisse y brancher un modèle de ML. »
+
+Tu disposes du fichier `employes_rh.csv` avec les données de ~1500 employés, dont une colonne `attrition` qui vaut 1 si l'employé est parti de l'entreprise.
+
+## 📋 Ce que tu dois livrer
+
+Deux "livrables" à la fin du TP :
+
+1. **Un notebook d'audit** : typologie, stats descriptives, diagnostic des problèmes, observations clés
+2. **Un pipeline de préparation** : code sklearn propre, prêt à être utilisé pour le ML
+
+**Mission accomplie** = la directrice peut te donner n'importe quel nouveau fichier d'employés avec les mêmes colonnes, et tu peux produire un `X_train, X_test, y_train, y_test` avec **une seule fonction**.
+
+# 📊 Le dataset
+
+| Colonne | Description |
+|---|---|
+| `id_employe` | Identifiant unique (code alphanumérique) |
+| `nom_complet` | Nom et prénom |
+| `age` | Âge en années |
+| `genre` | M, F, Autre |
+| `departement` | Service (Ventes, R&D, RH, Marketing, Production, IT) |
+| `niveau_etudes` | Bac, Licence, Master, Doctorat |
+| `anciennete_annees` | Années dans l'entreprise |
+| `distance_km` | Distance domicile-travail |
+| `salaire_mensuel` | Salaire brut mensuel (€) |
+| `heures_supp_semaine` | Heures sup par semaine |
+| `satisfaction` | Très insatisfait, Insatisfait, Neutre, Satisfait, Très satisfait |
+| `nb_formations` | Formations suivies (0-10) |
+| `teletravail_jours` | Jours de télétravail / semaine |
+| `date_embauche` | Date d'embauche |
+| `matricule_interne` | Code numérique interne |
+| `pays` | Pays de travail |
+| `attrition` | 0 = présent, 1 = parti (**cible**) |
+
+::: {.callout-warning}
+## ⚠️ Ce dataset contient (volontairement) tous les problèmes du monde réel
+- Valeurs manquantes avec patterns différents
+- Doublons parfaits
+- Noms mal formatés (espaces, casse)
+- Outliers (erreurs de saisie)
+- Typos dans les modalités catégorielles
+- Valeurs incohérentes (anciennetés négatives !)
+- Colonnes quasi-constantes et inutiles
+
+**Ton rôle** : tout détecter, tout traiter, et documenter ce que tu fais.
+:::
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from pandas.api.types import CategoricalDtype
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler, OneHotEncoder, OrdinalEncoder
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+
+print("✅ Environnement prêt")
+```
+
+```{python}
+#| echo: false
+# Chargement silencieux pour le rendu
+df = pd.read_csv("ressources_tp/employes_rh.csv")
+print(f"Dataset chargé : {df.shape}")
+```
+
+```{python}
+#| eval: false
+# Charger le dataset
+df = pd.read_csv("ressources_tp/employes_rh.csv")
+print(f"Dataset chargé : {df.shape}")
+```
+
+---
+
+# Partie 1 — Audit initial (Notion 3.1)
+
+## 🎯 Objectif
+
+Comprendre ce qu'on a reçu. **Rien ne commence sans cet audit**.
+
+## ✏️ Étape 1.1 — Inspection rapide
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche les **dimensions** du DataFrame.
+2. Affiche les **5 premières lignes**.
+3. Affiche `df.info()`.
+4. Affiche `df.dtypes`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+print(f"Dimensions : {df.shape}")
+df.head()
+```
+
+```{python}
+df.info()
+```
+
+```{python}
+df.dtypes
+```
+
+**Premières observations** :
+
+- 17 colonnes, dont la cible `attrition`
+- `date_embauche` est en `object` (devra être converti en `datetime`)
+- `satisfaction`, `niveau_etudes` sont en `object` (qualitatives)
+- `matricule_interne` est en `int64` → **attention, c'est un code, pas une quantité**
+- `pays` a l'air constant
+:::
+
+## ✏️ Étape 1.2 — Audit typologique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un **tableau d'audit** en markdown (ou un DataFrame) qui, pour chaque colonne du dataset, indique :
+
+- Le **type statistique** (quanti continue/discrète, quali nominale/ordinale, textuelle, temporelle, identifiant)
+- Le **dtype actuel** dans Pandas
+- L'**action recommandée** (convertir en category, en datetime, en ordinale, supprimer, etc.)
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2 — audit typologique
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+| Colonne | Type statistique | Dtype actuel | Action |
+|---|---|---|---|
+| `id_employe` | Identifiant (quali nominale) | object | Rien (identifiant) |
+| `nom_complet` | Textuelle | object | Normaliser, mais inutile pour le ML |
+| `age` | Quanti discrète | int64 | ✅ OK |
+| `genre` | Quali nominale | object | → category |
+| `departement` | Quali nominale | object | → category |
+| `niveau_etudes` | **Quali ordinale** | object | → category ordonnée |
+| `anciennete_annees` | Quanti continue | float64 | ✅ OK (après nettoyage) |
+| `distance_km` | Quanti continue | float64 | ✅ OK (après nettoyage) |
+| `salaire_mensuel` | Quanti continue | float64 | ✅ OK (après nettoyage) |
+| `heures_supp_semaine` | Quanti continue | float64 | ✅ OK |
+| `satisfaction` | **Quali ordinale** | object | → category ordonnée |
+| `nb_formations` | Quanti discrète | int64 | ✅ OK |
+| `teletravail_jours` | Quanti discrète | int64 | ✅ OK |
+| `date_embauche` | **Temporelle** | object | → datetime |
+| `matricule_interne` | Identifiant (quali) | int64 | **À supprimer** (inutile pour ML) |
+| `pays` | Qualitative **constante** | object | **À supprimer** |
+| `attrition` | Qualitative nominale (cible) | int64 | ✅ OK (déjà 0/1) |
+:::
+
+## ✏️ Étape 1.3 — Diagnostic complet
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Reprends ta fonction `diagnostiquer()` de la Notion 3.3 (ou recrée-la) et applique-la au dataset. Commente ensuite :
+
+- Combien de **doublons** ?
+- Quelles colonnes ont des **NaN** et combien ?
+- Y a-t-il des **colonnes constantes** ?
+- La **répartition de la cible** `attrition` (classes équilibrées ou non ?)
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.3 — diagnostic
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+def diagnostiquer(df):
+    """Diagnostic complet d'un DataFrame."""
+    print(f"📊 {df.shape[0]:,} lignes × {df.shape[1]} colonnes")
+    print(f"\n🔁 Doublons parfaits : {df.duplicated().sum()}")
+    
+    # NaN
+    nan = df.isna().sum()
+    nan = nan[nan > 0].sort_values(ascending=False)
+    if len(nan) > 0:
+        print(f"\n🕳️  Valeurs manquantes :")
+        for col, n in nan.items():
+            pct = n / len(df) * 100
+            print(f"  {col:25s} : {n:4d} ({pct:.2f}%)")
+    
+    # Colonnes constantes
+    const = [c for c in df.columns if df[c].nunique(dropna=False) <= 1]
+    if const:
+        print(f"\n📌 Colonnes constantes : {const}")
+
+diagnostiquer(df)
+```
+
+```{python}
+# Répartition cible
+print("=== Répartition de l'attrition ===")
+print(df["attrition"].value_counts())
+print(f"\nTaux d'attrition : {df['attrition'].mean() * 100:.1f}%")
+```
+
+**Observations** :
+
+- 5 doublons parfaits à supprimer
+- 3 colonnes avec NaN : distance (30), salaire (49), satisfaction (45)
+- `pays` est constant → à supprimer
+- **10-11% d'attrition** = dataset **déséquilibré** → il faudra penser à la stratification au split
+:::
+
+---
+
+# Partie 2 — Statistiques descriptives (Notion 3.2)
+
+## ✏️ Étape 2.1 — Analyse univariée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour 3 variables quantitatives de ton choix (par exemple `salaire_mensuel`, `age`, `anciennete_annees`), produis :
+
+1. Les **statistiques** : moyenne, médiane, écart-type, skewness.
+2. Un **histogramme** pour chacune.
+
+Que remarques-tu ? Y a-t-il des distributions asymétriques, des outliers visibles ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Stats
+for col in ["salaire_mensuel", "age", "anciennete_annees"]:
+    x = df[col].dropna()
+    print(f"=== {col} ===")
+    print(f"  Moyenne    : {x.mean():.2f}")
+    print(f"  Médiane    : {x.median():.2f}")
+    print(f"  Écart-type : {x.std():.2f}")
+    print(f"  Skewness   : {x.skew():.3f}")
+    print(f"  Min / Max  : {x.min():.1f} / {x.max():.1f}")
+    print()
+```
+
+```{python}
+fig, axes = plt.subplots(1, 3, figsize=(16, 4))
+
+for ax, col in zip(axes, ["salaire_mensuel", "age", "anciennete_annees"]):
+    ax.hist(df[col].dropna(), bins=40, color="steelblue", edgecolor="black", alpha=0.7)
+    ax.set_title(col)
+    ax.axvline(df[col].median(), color="red", linestyle="--", label="Médiane")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations attendues** :
+
+- `salaire_mensuel` : skewness **fortement positive** → quelques salaires extrêmes (outliers à 10x le salaire moyen !)
+- `age` : distribution quasi-normale
+- `anciennete_annees` : asymétrie à droite (normal : beaucoup de jeunes ancienntés, peu de "vétérans"). Attention aux valeurs **négatives** (-1) qui sont des erreurs.
+:::
+
+## ✏️ Étape 2.2 — Analyse bivariée cible
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+C'est la partie **la plus intéressante** pour la RH : quelles variables semblent liées à l'attrition ?
+
+1. **Quanti vs cible** : pour chaque variable numérique intéressante (`heures_supp_semaine`, `distance_km`, `anciennete_annees`, `salaire_mensuel`), compare les moyennes entre `attrition=0` et `attrition=1`. Les partants ont-ils des profils différents ?
+   
+   *Indice : `df.groupby("attrition")[col].mean()`*
+
+2. **Quali vs cible** : pour `departement` et `niveau_etudes`, calcule le taux d'attrition par groupe.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Quanti vs cible
+cols_quanti = ["heures_supp_semaine", "distance_km", "anciennete_annees", "salaire_mensuel"]
+compar = df.groupby("attrition")[cols_quanti].mean().round(2)
+print("=== Moyennes par groupe ===")
+print(compar.T)
+```
+
+```{python}
+# Visualisation avec boxplots
+fig, axes = plt.subplots(1, 4, figsize=(18, 4))
+
+for ax, col in zip(axes, cols_quanti):
+    sns.boxplot(data=df, x="attrition", y=col, ax=ax, 
+                hue="attrition", legend=False, palette=["steelblue", "coral"])
+    ax.set_title(col)
+
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. Quali vs cible : taux d'attrition
+for col in ["departement", "niveau_etudes"]:
+    taux = df.groupby(col)["attrition"].mean().sort_values(ascending=False) * 100
+    print(f"\n=== Taux d'attrition par {col} ===")
+    print(taux.round(1).to_string())
+```
+
+**Observations attendues** :
+
+- Les partants font en moyenne **plus d'heures supplémentaires** (indicateur de burn-out)
+- Les partants habitent **plus loin** (distance > moyenne)
+- Les partants ont **moins d'ancienneté** (les nouveaux partent plus)
+- Pas (ou peu) de différence de salaire moyen
+- Certains départements ont des taux plus élevés
+:::
+
+## ✏️ Étape 2.3 — Matrice de corrélation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Calcule et visualise la matrice de corrélation des variables quantitatives **y compris la cible `attrition`**. Quelles variables sont les plus corrélées avec `attrition` ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+cols_num = ["age", "anciennete_annees", "distance_km", "salaire_mensuel",
+            "heures_supp_semaine", "nb_formations", "teletravail_jours", "attrition"]
+
+corr = df[cols_num].corr()
+
+fig, ax = plt.subplots(figsize=(9, 7))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            vmin=-1, vmax=1, square=True, ax=ax)
+ax.set_title("Matrice de corrélation")
+plt.tight_layout()
+plt.show()
+
+# Focus : corrélations avec attrition
+print("\nCorrélations avec attrition (triées) :")
+print(corr["attrition"].drop("attrition").sort_values(key=abs, ascending=False).round(3))
+```
+
+**Ce qu'on cherche** : les variables les plus corrélées (en valeur absolue) à `attrition` sont les plus importantes. Ici, on s'attend à voir `heures_supp_semaine`, `anciennete_annees`, et `distance_km` en tête.
+:::
+
+---
+
+# Partie 3 — Nettoyage (Notion 3.3)
+
+## ✏️ Étape 3.1 — Supprimer les colonnes inutiles
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour préparer le ML, **supprime les colonnes inutiles** :
+
+- `id_employe` et `nom_complet` : identifiants/textes, non utiles pour prédire
+- `matricule_interne` : code numérique sans signification
+- `pays` : colonne constante
+
+**Attention** : tu peux **garder `id_employe` comme index** si tu veux tracer les prédictions ensuite.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Garder id_employe comme index (pratique pour retrouver les employés plus tard)
+df_clean = df.set_index("id_employe")
+
+# Supprimer les colonnes inutiles
+cols_a_supprimer = ["nom_complet", "matricule_interne", "pays"]
+df_clean = df_clean.drop(columns=cols_a_supprimer)
+
+print(f"Colonnes restantes : {df_clean.shape[1]}")
+print(df_clean.columns.tolist())
+```
+:::
+
+## ✏️ Étape 3.2 — Supprimer les doublons
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Supprime les doublons et affiche combien ont été retirés.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+n_avant = len(df_clean)
+df_clean = df_clean[~df_clean.index.duplicated(keep="first")]
+# OU : df_clean = df_clean.reset_index().drop_duplicates().set_index("id_employe")
+print(f"Avant : {n_avant}, Après : {len(df_clean)}")
+print(f"Doublons supprimés : {n_avant - len(df_clean)}")
+```
+:::
+
+## ✏️ Étape 3.3 — Normaliser les textes catégoriels
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+La colonne `satisfaction` contient des valeurs mal normalisées : `"Satisfait"`, `"satisfait"`, `"SATISFAIT"` sont la même valeur.
+
+1. Normalise `satisfaction` pour que tout soit sur la même forme (propose `.str.strip().str.title()` pour remettre en "Titre").
+2. Vérifie les valeurs uniques après normalisation.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+print("Avant normalisation :")
+print(df_clean["satisfaction"].value_counts(dropna=False))
+```
+
+```{python}
+# Normaliser : strip + title case
+df_clean["satisfaction"] = df_clean["satisfaction"].astype(str).str.strip().str.title()
+# Remettre les vrais NaN (qui ont été convertis en "Nan" par str)
+df_clean.loc[df_clean["satisfaction"] == "Nan", "satisfaction"] = np.nan
+
+print("Après normalisation :")
+print(df_clean["satisfaction"].value_counts(dropna=False))
+```
+:::
+
+## ✏️ Étape 3.4 — Traiter les incohérences
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Identifie les valeurs **négatives** dans `anciennete_annees` (c'est impossible).
+2. Remplace-les par **0** (valeur par défaut cohérente : nouvelle embauche).
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+n_neg = (df_clean["anciennete_annees"] < 0).sum()
+print(f"Valeurs négatives d'ancienneté : {n_neg}")
+
+df_clean.loc[df_clean["anciennete_annees"] < 0, "anciennete_annees"] = 0
+print(f"Min ancienneté : {df_clean['anciennete_annees'].min()}")
+```
+:::
+
+## ✏️ Étape 3.5 — Traiter les outliers
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Sur `salaire_mensuel` : détecte les outliers avec la méthode **IQR**. Combien ? Passe-les à `NaN` (on va les imputer juste après).
+2. Sur `distance_km` : applique un **capping** à 100 km (valeur maximale plausible).
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Outliers salaire (IQR)
+q1 = df_clean["salaire_mensuel"].quantile(0.25)
+q3 = df_clean["salaire_mensuel"].quantile(0.75)
+iqr = q3 - q1
+mask_out = (df_clean["salaire_mensuel"] < q1 - 1.5*iqr) | (df_clean["salaire_mensuel"] > q3 + 1.5*iqr)
+print(f"Outliers salaire : {mask_out.sum()}")
+
+df_clean.loc[mask_out, "salaire_mensuel"] = np.nan
+print(f"Max salaire après : {df_clean['salaire_mensuel'].max():.0f} €")
+```
+
+::: {.callout-note}
+## Subtilité : IQR sur une distribution asymétrique
+Tu vas probablement détecter **beaucoup plus d'outliers** que les 3 erreurs volontaires. C'est normal : le salaire dépend du niveau d'études (un Doctorat gagne naturellement plus qu'un Bac), donc la distribution est asymétrique à droite. L'IQR **global** flaggue alors tous les salaires élevés comme "outliers" même si ce sont des vrais Doctorats.
+
+Pour une vraie analyse en production, on utiliserait plutôt une **détection par groupe** : IQR par niveau d'études. Mais pour ce TP, on accepte cette approximation — les imputés resteront cohérents grâce à l'imputation conditionnelle par niveau qu'on fait juste après.
+:::
+
+```{python}
+# 2. Capping distance
+n_out_dist = (df_clean["distance_km"] > 100).sum()
+print(f"Distances > 100 km : {n_out_dist}")
+df_clean["distance_km"] = df_clean["distance_km"].clip(upper=100)
+print(f"Max distance après : {df_clean['distance_km'].max():.1f} km")
+```
+:::
+
+## ✏️ Étape 3.6 — Imputer les valeurs manquantes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Applique la **bonne stratégie** pour chaque colonne avec NaN :
+
+1. `salaire_mensuel` : imputation par la **médiane par `niveau_etudes`** (le salaire dépend du niveau → MAR).
+2. `distance_km` : imputation par la **médiane globale** (MCAR).
+3. `satisfaction` : imputation par le **mode**.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.6
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. salaire par niveau (MAR)
+df_clean["salaire_mensuel"] = df_clean.groupby("niveau_etudes", observed=True)["salaire_mensuel"].transform(
+    lambda x: x.fillna(x.median())
+)
+
+# 2. distance : médiane globale
+df_clean["distance_km"] = df_clean["distance_km"].fillna(df_clean["distance_km"].median())
+
+# 3. satisfaction : mode
+df_clean["satisfaction"] = df_clean["satisfaction"].fillna(df_clean["satisfaction"].mode()[0])
+
+# Vérification
+print("NaN restants :")
+print(df_clean.isna().sum()[df_clean.isna().sum() > 0])
+print(f"\nTotal NaN : {df_clean.isna().sum().sum()}")
+```
+:::
+
+---
+
+# Partie 4 — Pipeline de préparation ML (Notion 3.4)
+
+## ✏️ Étape 4.1 — Conversion des types
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Avant le pipeline :
+
+1. Convertis `date_embauche` en **datetime**.
+2. Convertis les catégorielles nominales (`genre`, `departement`) en `category`.
+3. Convertis les **ordinales** en `CategoricalDtype` ordonné :
+   - `niveau_etudes` : Bac < Licence < Master < Doctorat
+   - `satisfaction` : Très Insatisfait < Insatisfait < Neutre < Satisfait < Très Satisfait
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Date
+df_clean["date_embauche"] = pd.to_datetime(df_clean["date_embauche"])
+
+# Nominales
+df_clean["genre"] = df_clean["genre"].astype("category")
+df_clean["departement"] = df_clean["departement"].astype("category")
+
+# Ordinales
+ordre_etudes = CategoricalDtype(
+    categories=["Bac", "Licence", "Master", "Doctorat"],
+    ordered=True
+)
+df_clean["niveau_etudes"] = df_clean["niveau_etudes"].astype(ordre_etudes)
+
+ordre_satisfaction = CategoricalDtype(
+    categories=["Très Insatisfait", "Insatisfait", "Neutre", "Satisfait", "Très Satisfait"],
+    ordered=True
+)
+df_clean["satisfaction"] = df_clean["satisfaction"].astype(ordre_satisfaction)
+
+print(df_clean.dtypes)
+```
+:::
+
+## ✏️ Étape 4.2 — Extraction de features à partir de la date
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+À partir de `date_embauche`, crée :
+
+1. `mois_embauche` (1-12)
+2. `trimestre_embauche` (1-4)
+3. Encode `mois_embauche` de manière **cyclique** en `mois_sin` et `mois_cos`.
+
+Ensuite, **supprime** la colonne `date_embauche` (on a déjà `anciennete_annees` qui capture la même info en plus utile).
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df_clean["mois_embauche"] = df_clean["date_embauche"].dt.month
+df_clean["trimestre_embauche"] = df_clean["date_embauche"].dt.quarter
+
+# Encodage cyclique du mois
+df_clean["mois_sin"] = np.sin(2 * np.pi * df_clean["mois_embauche"] / 12)
+df_clean["mois_cos"] = np.cos(2 * np.pi * df_clean["mois_embauche"] / 12)
+
+# Supprimer la date brute
+df_clean = df_clean.drop(columns=["date_embauche"])
+
+print(df_clean.columns.tolist())
+```
+:::
+
+## ✏️ Étape 4.3 — Construire le `ColumnTransformer`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Construis un `ColumnTransformer` qui applique :
+
+- `StandardScaler` aux colonnes numériques continues (`age`, `anciennete_annees`, `distance_km`, `salaire_mensuel`, `heures_supp_semaine`)
+- `OneHotEncoder` aux nominales (`genre`, `departement`)
+- `OrdinalEncoder` aux ordinales (`niveau_etudes`, `satisfaction`) avec l'ordre explicite
+- `passthrough` pour les features déjà numériques (`nb_formations`, `teletravail_jours`, `mois_sin`, `mois_cos`)
+
+Tu dois gérer le cas où une nouvelle modalité apparaîtrait en test avec `handle_unknown="ignore"`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Définition des groupes de colonnes
+cols_num_continues = ["age", "anciennete_annees", "distance_km", 
+                      "salaire_mensuel", "heures_supp_semaine"]
+cols_nominales = ["genre", "departement"]
+cols_ordinales = ["niveau_etudes", "satisfaction"]
+cols_passthrough = ["nb_formations", "teletravail_jours", "mois_sin", "mois_cos"]
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ("num", StandardScaler(), cols_num_continues),
+        ("cat_nom", OneHotEncoder(sparse_output=False, handle_unknown="ignore"), cols_nominales),
+        ("cat_ord", OrdinalEncoder(
+            categories=[
+                ["Bac", "Licence", "Master", "Doctorat"],
+                ["Très Insatisfait", "Insatisfait", "Neutre", "Satisfait", "Très Satisfait"]
+            ],
+            handle_unknown="use_encoded_value",
+            unknown_value=-1
+        ), cols_ordinales),
+        ("pass", "passthrough", cols_passthrough),
+    ],
+    remainder="drop",
+    # On supprime les colonnes non listées (mois_embauche, trimestre_embauche qu'on garde pas)
+)
+
+print("✅ ColumnTransformer prêt")
+```
+:::
+
+## ✏️ Étape 4.4 — Split + Application
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Sépare `X` (toutes les features) et `y` (`attrition`).
+2. Fais un `train_test_split` **stratifié** (80/20, random_state=42, stratify=y) — la stratification est cruciale parce que la cible est déséquilibrée.
+3. Vérifie que les proportions de `attrition=1` sont identiques dans train et test.
+4. Applique `fit_transform` au preprocessor sur `X_train`, puis `transform` sur `X_test`.
+5. Affiche la shape finale et les noms des features générées.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. X et y
+# On supprime les colonnes redondantes (mois_embauche déjà encodé en cyclique)
+X = df_clean.drop(columns=["attrition", "mois_embauche", "trimestre_embauche"])
+y = df_clean["attrition"]
+
+print(f"X : {X.shape}")
+print(f"y : {y.shape}")
+```
+
+```{python}
+# 2. Split stratifié
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Vérifier les proportions
+print(f"y_train : {y_train.mean()*100:.2f}% d'attrition")
+print(f"y_test  : {y_test.mean()*100:.2f}% d'attrition")
+```
+
+```{python}
+# 4. Application du preprocessor
+X_train_processed = preprocessor.fit_transform(X_train)
+X_test_processed = preprocessor.transform(X_test)
+
+# 5. Shapes et noms des features
+print(f"X_train original  : {X_train.shape}")
+print(f"X_train processed : {X_train_processed.shape}")
+
+noms_features = preprocessor.get_feature_names_out()
+print(f"\nFeatures créées ({len(noms_features)}) :")
+for f in noms_features:
+    print(f"  - {f}")
+```
+:::
+
+## ✏️ Étape 4.5 — Encapsuler dans une fonction
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour finir proprement, encapsule **tout le pipeline de nettoyage + préparation** dans une fonction `preparer_donnees_rh(df)` qui :
+
+1. Prend un DataFrame brut en entrée (comme le CSV original)
+2. Fait tout le traitement : nettoyage, conversion, feature engineering
+3. Retourne un DataFrame prêt à être passé au `ColumnTransformer`
+
+Cette fonction doit être **réutilisable** sur n'importe quel nouveau batch de données du même format.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.5 — fonction réutilisable
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+def preparer_donnees_rh(df):
+    """
+    Pipeline de nettoyage et préparation des données RH.
+    
+    Retourne un DataFrame prêt à être consommé par le preprocessor sklearn.
+    
+    Paramètres
+    ----------
+    df : pd.DataFrame
+        DataFrame brut issu de la source (mêmes colonnes que le CSV original).
+    
+    Retour
+    ------
+    df_clean : pd.DataFrame
+        DataFrame nettoyé et prêt pour le ML.
+    """
+    df = df.copy()
+    
+    # 1. Set index + supprimer colonnes inutiles
+    if "id_employe" in df.columns:
+        df = df.set_index("id_employe")
+    for col in ["nom_complet", "matricule_interne", "pays"]:
+        if col in df.columns:
+            df = df.drop(columns=col)
+    
+    # 2. Doublons
+    df = df[~df.index.duplicated(keep="first")]
+    
+    # 3. Normaliser satisfaction
+    df["satisfaction"] = df["satisfaction"].astype(str).str.strip().str.title()
+    df.loc[df["satisfaction"] == "Nan", "satisfaction"] = np.nan
+    
+    # 4. Incohérences
+    df.loc[df["anciennete_annees"] < 0, "anciennete_annees"] = 0
+    
+    # 5. Outliers
+    q1, q3 = df["salaire_mensuel"].quantile([0.25, 0.75])
+    iqr = q3 - q1
+    mask_out = (df["salaire_mensuel"] < q1 - 1.5*iqr) | (df["salaire_mensuel"] > q3 + 1.5*iqr)
+    df.loc[mask_out, "salaire_mensuel"] = np.nan
+    df["distance_km"] = df["distance_km"].clip(upper=100)
+    
+    # 6. Imputation
+    df["salaire_mensuel"] = df.groupby("niveau_etudes", observed=True)["salaire_mensuel"].transform(
+        lambda x: x.fillna(x.median())
+    )
+    df["distance_km"] = df["distance_km"].fillna(df["distance_km"].median())
+    df["satisfaction"] = df["satisfaction"].fillna(df["satisfaction"].mode()[0])
+    
+    # 7. Types
+    df["date_embauche"] = pd.to_datetime(df["date_embauche"])
+    df["genre"] = df["genre"].astype("category")
+    df["departement"] = df["departement"].astype("category")
+    df["niveau_etudes"] = df["niveau_etudes"].astype(
+        CategoricalDtype(categories=["Bac", "Licence", "Master", "Doctorat"], ordered=True)
+    )
+    df["satisfaction"] = df["satisfaction"].astype(
+        CategoricalDtype(
+            categories=["Très Insatisfait", "Insatisfait", "Neutre", "Satisfait", "Très Satisfait"],
+            ordered=True
+        )
+    )
+    
+    # 8. Features de date
+    df["mois_sin"] = np.sin(2 * np.pi * df["date_embauche"].dt.month / 12)
+    df["mois_cos"] = np.cos(2 * np.pi * df["date_embauche"].dt.month / 12)
+    df = df.drop(columns=["date_embauche"])
+    
+    return df
+
+# Test de la fonction
+df_raw = pd.read_csv("ressources_tp/employes_rh.csv")
+df_ready = preparer_donnees_rh(df_raw)
+
+print(f"✅ Fonction testée : {df_raw.shape} → {df_ready.shape}")
+print(f"NaN restants : {df_ready.isna().sum().sum()}")
+```
+
+**🎉 Tu as maintenant une fonction réutilisable !**
+
+Elle prend n'importe quel fichier RH au même format et produit un DataFrame propre. En production, il suffit de :
+
+```python
+df_ready = preparer_donnees_rh(nouvelles_donnees)
+X = df_ready.drop(columns=["attrition"])
+X_processed = preprocessor.transform(X)
+predictions = modele.predict(X_processed)
+```
+:::
+
+---
+
+# Partie 5 — Livrable final : note méthodologique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Rédige une **note méthodologique** d'une page (400-600 mots) pour la directrice RH, avec :
+
+1. **Contexte** : la mission, les données
+2. **Diagnostic** : les problèmes que tu as identifiés
+3. **Traitements appliqués** : ce que tu as fait, dans quel ordre, et pourquoi
+4. **Features finales** : la liste des variables retenues pour le modèle
+5. **Observations clés** : les patterns identifiés en analyse descriptive
+6. **Limites** et recommandations
+
+C'est exactement le livrable attendu en entreprise.
+:::
+
+```markdown
+# Note méthodologique — Préparation des données RH
+
+## 1. Contexte
+[À rédiger]
+
+## 2. Diagnostic initial
+[À rédiger]
+
+## 3. Traitements appliqués
+[À rédiger]
+
+## 4. Features finales
+[À rédiger]
+
+## 5. Observations clés
+[À rédiger]
+
+## 6. Limites et recommandations
+[À rédiger]
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Exemple de note méthodologique
+
+```markdown
+# Note méthodologique — Préparation des données RH pour prédiction d'attrition
+
+## 1. Contexte
+
+Dans le cadre de la mission de réduction de l'attrition, j'ai procédé à l'audit 
+et la préparation du fichier SIRH (~1500 employés, 17 colonnes). L'objectif est 
+de préparer les données pour un modèle prédictif, avec un pipeline reproductible 
+pouvant tourner chaque mois sur les nouvelles extractions.
+
+## 2. Diagnostic initial
+
+L'audit a révélé plusieurs problèmes :
+- **5 doublons parfaits** (même employé plusieurs fois dans l'export)
+- **124 valeurs manquantes** au total, réparties sur 3 colonnes :
+  - `salaire_mensuel` : 49 NaN, corrélés à l'âge (plus de données manquantes 
+    chez les < 30 ans — pattern MAR)
+  - `distance_km` : 30 NaN aléatoires
+  - `satisfaction` : 45 NaN
+- **5 outliers de salaire** (erreurs de saisie type 10x le salaire réel)
+- **2 outliers de distance** (> 200 km, aberrant)
+- **3 valeurs négatives d'ancienneté** (impossibles, probablement erreurs)
+- **Typographie hétérogène** dans satisfaction ("Satisfait", "satisfait", "SATISFAIT")
+- **3 colonnes inutiles** : `matricule_interne` (code sans sens), `pays` (constant), 
+  `nom_complet` (texte non exploitable)
+
+## 3. Traitements appliqués
+
+Dans l'ordre :
+1. Suppression des colonnes inutiles
+2. Suppression des doublons
+3. Normalisation de `satisfaction` (casse uniformisée)
+4. Correction des ancienntés négatives (mises à 0)
+5. Outliers salaire : détectés par IQR, mis à NaN
+6. Outliers distance : cappés à 100 km
+7. Imputation conditionnelle : salaire par médiane de `niveau_etudes` (MAR), 
+   distance par médiane globale (MCAR), satisfaction par mode
+8. Conversion des types : dates, catégories ordonnées (niveau_etudes, satisfaction)
+9. Feature engineering : mois d'embauche encodé cycliquement (sin/cos)
+
+## 4. Features finales
+
+Le dataset final contient ~18 features après encoding :
+- 5 numériques standardisées (age, ancienneté, distance, salaire, heures sup)
+- ~8 colonnes one-hot (genre × 3, département × 6)
+- 2 ordinales encodées (niveau d'études, satisfaction)
+- 4 passthrough (nb_formations, télétravail, mois_sin, mois_cos)
+
+## 5. Observations clés
+
+- **Taux d'attrition : ~11%** (dataset déséquilibré, stratification au split 
+  indispensable)
+- Les partants font **significativement plus d'heures supplémentaires** 
+  (indicateur de burn-out potentiel)
+- Les partants ont **moins d'ancienneté** (effet "nouveau qui part")
+- Les partants habitent **plus loin** du bureau
+- Pas de lien simple entre niveau d'études et attrition
+
+## 6. Limites et recommandations
+
+**Limites** :
+- Pas d'information sur les **évaluations de performance**
+- Pas de données sur les **primes** ou augmentations récentes
+- Taille modeste (1500 lignes) — augmentera la variance du modèle
+
+**Recommandations** :
+- Enrichir le dataset avec les évaluations annuelles
+- Segmenter l'analyse par département (patterns probablement différents)
+- Mettre en place un **monitoring** des features (dérive possible au fil du temps)
+
+Le pipeline `preparer_donnees_rh()` est prêt à être utilisé en production. 
+Il peut consommer n'importe quel export du même format et produire des données 
+propres directement consommables par le modèle ML.
+```
+:::
+
+---
+
+# 🎓 Bilan du TP
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as réalisé ton **premier audit de données complet** :
+
+- ✅ **Diagnostic typologique** de 17 colonnes hétérogènes
+- ✅ **Analyse descriptive** univariée, bivariée, multivariée
+- ✅ **Nettoyage méthodique** : colonnes inutiles, doublons, normalisation, outliers, NaN
+- ✅ **Pipeline scikit-learn** fonctionnel et réutilisable
+- ✅ **Fonction d'ingestion** `preparer_donnees_rh()` pour la production
+- ✅ **Note méthodologique** professionnelle
+
+## 🔍 Les notions mobilisées
+
+| Notion | Utilisée dans |
+|---|---|
+| **3.1 Typologie** | Audit, choix des encodings, suppression colonnes inutiles |
+| **3.2 Stats descriptives** | Univariée, bivariée cible, matrice de corrélation |
+| **3.3 Nettoyage** | Doublons, NaN (MCAR/MAR), outliers, normalisation textes |
+| **3.4 Préparation ML** | Scaling, encoding, features de date, split stratifié, pipeline |
+
+## 🚀 La suite — Module 4 : Machine Learning supervisé
+
+Tu as maintenant **tout ce qu'il faut** pour passer à la modélisation. Au Module 4, on va :
+
+- Transformer cette préparation en **modèle prédictif** réel
+- Apprendre **classification vs régression**
+- Comparer plusieurs algorithmes (régression logistique, arbres, Random Forest, XGBoost)
+- Maîtriser les **métriques d'évaluation** (accuracy, precision/recall, ROC-AUC)
+- Optimiser les **hyperparamètres** (grid search, cross-validation)
+
+Et tout ça s'**empilera directement** sur le pipeline que tu viens de créer !
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Tes acquis sur ce TP te permettent déjà de **faire un modèle réel** :
+
+```python
+from sklearn.linear_model import LogisticRegression
+
+modele = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=1000))
+])
+
+modele.fit(X_train, y_train)
+print(f"Accuracy sur test : {modele.score(X_test, y_test):.3f}")
+```
+
+Essaie ! Tu devrais obtenir autour de 85-90% d'accuracy. On verra au Module 4 
+comment c'est une métrique trompeuse sur un dataset déséquilibré, et comment 
+faire mieux.
+:::
+
+**🎉 Bravo d'être arrivé·e au bout — tu as vraiment le niveau data scientist junior maintenant.**

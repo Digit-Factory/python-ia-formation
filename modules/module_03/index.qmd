@@ -66,7 +66,7 @@ Depuis chaque page de notion, le bouton « Ouvrir dans Colab » permet de lancer
 | **3.2** | [Statistiques descriptives approfondies](notion_3_2_stats_descriptives.qmd) | 4-5 h |
 | **3.3** | [Nettoyage avancé](notion_3_3_nettoyage_avance.qmd) | 4-5 h |
 | **3.4** | [Préparation pour le ML](notion_3_4_preparation_ml.qmd) | 3-4 h |
-| **🎓 TP** | Audit de données _(à venir)_ | 6-8 h |
+| **🎓 TP** | [Prédire l'attrition RH](tp_sommatif.qmd) | 6-8 h |
 
 ## 💡 Approche pédagogique
 
