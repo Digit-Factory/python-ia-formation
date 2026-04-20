@@ -17,7 +17,7 @@ Tu dois maîtriser les bases Python : variables, boucles, fonctions, listes, dic
 
 ::: {.grid}
 
-::: {.g-col-4}
+::: {.g-col-6}
 ### 🔵 Axe 1 — Fondations
 **Modules 1 à 3**
 
@@ -28,7 +28,7 @@ Remise à niveau mathématique, manipulation de données, statistiques descripti
 - Module 3 : Analyse exploratoire
 :::
 
-::: {.g-col-4}
+::: {.g-col-6}
 ### 🟡 Axe 2 — Modélisation
 **Modules 4 à 6**
 
@@ -39,7 +39,7 @@ Machine Learning classique puis Deep Learning avec PyTorch.
 - Module 6 : Deep Learning
 :::
 
-::: {.g-col-4}
+::: {.g-col-6}
 ### 🟢 Axe 3 — Industrialisation
 **Modules 7 à 8**
 

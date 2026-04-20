@@ -67,9 +67,9 @@ Depuis chaque page de notion, le bouton « Ouvrir dans Colab » en haut te perme
 | Notion | Thème | Durée |
 |:---:|---|:---:|
 | **2.1** | [NumPy avancé](notion_2_1_numpy_avance.qmd) | 4-5 h |
-| **2.2** | Pandas en profondeur _(à venir)_ | 5-6 h |
-| **2.3** | Matplotlib et Seaborn _(à venir)_ | 4-5 h |
-| **🎓 TP** | Tableau de bord d'analyse _(à venir)_ | 6-8 h |
+| **2.2** | [Pandas en profondeur](notion_2_2_pandas.qmd) | 5-6 h |
+| **2.3** | [Matplotlib et Seaborn](notion_2_3_matplotlib.qmd) | 4-5 h |
+| **🎓 TP** | [Analyse exploratoire Netflix](tp_sommatif.qmd) | 6-8 h |
 
 ## 💡 Approche pédagogique
 

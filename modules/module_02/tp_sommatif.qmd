@@ -1,0 +1,1110 @@
+---
+title: "TP sommatif Module 2 — Analyse exploratoire Netflix"
+subtitle: "De la donnée brute au dashboard : ton premier vrai projet d'analyse"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_02/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_02/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_02_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 6 à 8 heures  
+**Prérequis** : Notions 2.1, 2.2 et 2.3  
+**Objectif** : réaliser un projet d'analyse exploratoire complet en mobilisant NumPy, Pandas, Matplotlib et Seaborn sur un vrai dataset
+:::
+
+# 🎯 Contexte
+
+Tu viens d'être embauché·e comme **data analyst** chez Netflix France. Ton manager t'envoie un mail :
+
+> « On aimerait mieux comprendre notre catalogue. Fais-moi une analyse exploratoire complète : 
+> quels genres dominent ? Comment notre catalogue a-t-il évolué dans le temps ? 
+> Quels pays produisent quoi ? J'attends un notebook propre **et** un dashboard visuel que je peux présenter 
+> à la direction. Tu as une semaine. »
+
+Tu disposes d'un dataset de **8000 titres** présents sur Netflix, avec leurs caractéristiques (type, pays, date d'ajout, durée, genres, classification...).
+
+**Bonne nouvelle** : tu as toutes les compétences pour faire ça avec brio. Ce TP va mobiliser **tout ce que tu as appris dans le Module 2**.
+
+# 📊 Le dataset
+
+Le fichier `netflix_titles.csv` contient :
+
+| Colonne | Description |
+|---|---|
+| `show_id` | Identifiant unique |
+| `type` | "Movie" ou "TV Show" |
+| `title` | Titre |
+| `director` | Réalisateur(s) — souvent manquant pour les séries |
+| `cast` | Casting principal |
+| `country` | Pays producteur(s) — peut contenir plusieurs pays séparés par virgules |
+| `date_added` | Date d'ajout sur Netflix (format texte `"September 15, 2021"`) |
+| `release_year` | Année de sortie |
+| `rating` | Classification d'âge (TV-MA, PG-13...) |
+| `duration` | Durée (`"90 min"` pour films, `"3 Seasons"` pour séries) |
+| `listed_in` | Genres (peut en contenir plusieurs séparés par virgules) |
+| `description` | Résumé |
+
+::: {.callout-warning}
+## ⚠️ Le dataset contient des pièges réalistes
+- Valeurs manquantes (director, cast, country, date_added)
+- Doublons parfaits
+- Outliers de durée (erreurs de saisie)
+- Dates mal formatées (espaces parasites)
+- Colonnes avec **valeurs multiples** séparées par virgules (country, listed_in)
+
+**C'est exactement la réalité du métier.** Ton job est de nettoyer tout ça.
+:::
+
+# 🗺️ Plan de travail
+
+Le TP est organisé en **6 parties** :
+
+1. **Chargement et exploration initiale** — comprendre ce qu'on a
+2. **Nettoyage** — corriger les défauts détectés
+3. **Feature engineering** — créer des variables utiles
+4. **Analyses descriptives** — répondre aux questions business
+5. **Dashboard final** — synthèse visuelle pour la direction
+6. **Note méthodologique** — le livrable final
+
+Pour chaque partie, suis les instructions et **essaie avant de regarder la correction**.
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid", context="notebook")
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+
+print("✅ Environnement prêt")
+```
+
+```{python}
+#| echo: false
+df = pd.read_csv("ressources_tp/netflix_titles.csv")
+print(f"✅ Dataset chargé : {len(df)} lignes, {df.shape[1]} colonnes")
+```
+
+```{python}
+#| eval: false
+# Charger le dataset
+df = pd.read_csv("ressources_tp/netflix_titles.csv")
+print(f"✅ Dataset chargé : {len(df)} lignes, {df.shape[1]} colonnes")
+```
+
+---
+
+# Partie 1 — Exploration initiale
+
+## 🎯 Objectif
+
+Comprendre ce qu'on a sous les yeux **avant de toucher à quoi que ce soit**.
+
+## ✏️ Étape 1.1 — Inspection rapide
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche les **5 premières lignes** du DataFrame.
+2. Affiche les **informations générales** (`.info()`).
+3. Affiche les **statistiques descriptives** des colonnes numériques (`.describe()`).
+4. Compte les **valeurs manquantes** par colonne.
+5. Combien de **doublons** parfaits ?
+6. Quelle est la **répartition Movies vs TV Shows** ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Aperçu
+df.head()
+```
+
+```{python}
+# 2. Info
+df.info()
+```
+
+```{python}
+# 3. Describe
+df.describe()
+```
+
+```{python}
+# 4. Valeurs manquantes (triées)
+na_counts = df.isna().sum().sort_values(ascending=False)
+print("Valeurs manquantes par colonne :")
+print(na_counts[na_counts > 0])
+print(f"\nProportion : {(na_counts / len(df) * 100).round(2).to_dict()}")
+```
+
+```{python}
+# 5. Doublons
+n_doublons = df.duplicated().sum()
+print(f"Doublons parfaits : {n_doublons}")
+```
+
+```{python}
+# 6. Movies vs TV Shows
+print(df["type"].value_counts())
+print(f"\nRatio : {df['type'].value_counts(normalize=True).round(3).to_dict()}")
+```
+
+**Premières observations** :
+
+- ~13% de `director` manquants (normal, les séries n'ont souvent pas 1 réalisateur)
+- ~4% de `cast` manquants
+- Quelques `country` et `date_added` manquants
+- Des doublons parfaits à supprimer
+- 75% films / 25% séries — c'est cohérent avec la réalité de Netflix
+:::
+
+## ✏️ Étape 1.2 — Inspection ciblée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche la **plage des années de sortie** (release_year min et max).
+2. Affiche la **répartition des classifications** (rating) triée du plus au moins fréquent.
+3. Regarde quelques valeurs de `country` : que remarques-tu sur leur format ?
+4. Regarde quelques valeurs de `listed_in` : même remarque ?
+5. Regarde quelques valeurs de `duration` : y a-t-il des choses bizarres ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Années
+print(f"Années : {df['release_year'].min()} à {df['release_year'].max()}")
+```
+
+```{python}
+# 2. Ratings
+print(df["rating"].value_counts())
+```
+
+```{python}
+# 3. Countries (souvent multi-valeurs)
+print(df["country"].dropna().head(10).tolist())
+```
+
+```{python}
+# 4. Listed_in (multi-valeurs aussi)
+print(df["listed_in"].head(5).tolist())
+```
+
+```{python}
+# 5. Duration (formats différents Movies vs TV Shows)
+print("Quelques durations :")
+print(df["duration"].sample(10, random_state=0).tolist())
+
+# Détecter les valeurs absurdes
+duration_minutes = df[df["type"] == "Movie"]["duration"].str.extract(r"(\d+)").astype(float)[0]
+print(f"\nDurations min/max pour les films : {duration_minutes.min():.0f} / {duration_minutes.max():.0f} min")
+```
+
+**Observations importantes** :
+
+- `country` et `listed_in` contiennent **plusieurs valeurs séparées par virgules** → on devra les traiter spécifiquement
+- Certains films ont des durées **absurdes** (> 500 min) → outliers à traiter
+- Les `duration` sont formatées différemment selon type : `"90 min"` (films) vs `"3 Seasons"` (séries)
+:::
+
+---
+
+# Partie 2 — Nettoyage des données
+
+## ✏️ Étape 2.1 — Supprimer les doublons
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Supprime les doublons parfaits avec `drop_duplicates()`.
+2. Vérifie la nouvelle taille.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+taille_avant = len(df)
+df = df.drop_duplicates().reset_index(drop=True)
+print(f"Avant : {taille_avant}, Après : {len(df)} ({taille_avant - len(df)} doublons supprimés)")
+```
+:::
+
+## ✏️ Étape 2.2 — Nettoyer et convertir `date_added`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+La colonne `date_added` contient des chaînes de caractères comme `"September 15, 2021"`. Certaines ont des **espaces parasites** en début/fin. On va :
+
+1. Nettoyer les espaces avec `.str.strip()`.
+2. Convertir en vraies dates avec `pd.to_datetime()`.
+3. Vérifier qu'il n'y a pas d'erreurs de conversion (nouvelles NaN).
+
+**Indice** : `pd.to_datetime(..., errors='coerce')` transforme les dates invalides en NaT (Not a Time) au lieu d'échouer.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Compter les NaN avant conversion
+nan_avant = df["date_added"].isna().sum()
+
+# 1 & 2. Nettoyer et convertir
+df["date_added"] = df["date_added"].str.strip()
+df["date_added"] = pd.to_datetime(df["date_added"], errors='coerce')
+
+# 3. Vérifier
+nan_apres = df["date_added"].isna().sum()
+print(f"NaN avant conversion : {nan_avant}")
+print(f"NaN après conversion : {nan_apres}")
+print(f"Dates invalides créées : {nan_apres - nan_avant}")
+```
+
+**Commentaire** : si on n'avait pas fait `str.strip()`, les 20 lignes avec des espaces parasites auraient été transformées en NaT. En général sur des vraies données, **toujours nettoyer avant de convertir**.
+:::
+
+## ✏️ Étape 2.3 — Gérer les valeurs manquantes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Stratégie différenciée selon la colonne :
+
+1. **director** : remplace par `"Unknown"` (beaucoup de séries n'ont pas 1 réalisateur unique)
+2. **cast** : remplace par `"Unknown"`
+3. **country** : remplace par `"Unknown"`
+4. **date_added** : **supprime** les lignes où elle est manquante (car on va beaucoup s'en servir)
+
+Vérifie à la fin qu'il ne reste plus de NaN.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Imputation
+df["director"] = df["director"].fillna("Unknown")
+df["cast"] = df["cast"].fillna("Unknown")
+df["country"] = df["country"].fillna("Unknown")
+
+# Suppression des lignes sans date
+taille_avant = len(df)
+df = df.dropna(subset=["date_added"]).reset_index(drop=True)
+print(f"Lignes supprimées (date manquante) : {taille_avant - len(df)}")
+
+# Vérification
+print(f"\nNaN restants :\n{df.isna().sum()}")
+```
+:::
+
+## ✏️ Étape 2.4 — Traiter les outliers de durée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Dans `duration`, certains films ont des valeurs absurdes (ex: 5000 min).
+
+1. Crée une **nouvelle colonne numérique** `duration_min` (en minutes) pour les films uniquement (NaN pour les séries).
+   *Indice* : `df["duration"].str.extract(r"(\d+)").astype(float)[0]` puis filtrer sur `type == "Movie"`.
+2. Identifie les outliers : durées > 300 minutes (5 heures) sont suspectes.
+3. Remplace ces durées par NaN (on les considère comme erronées).
+4. Affiche combien d'outliers ont été traités.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Extraire la durée en minutes pour les films
+df["duration_min"] = np.where(
+    df["type"] == "Movie",
+    df["duration"].str.extract(r"(\d+)").astype(float)[0],
+    np.nan
+)
+
+# 2. Identifier et compter les outliers
+outliers = df["duration_min"] > 300
+print(f"Films avec durée > 300 min : {outliers.sum()}")
+
+# Afficher les cas
+print("\nOutliers détectés :")
+print(df.loc[outliers, ["title", "duration"]].head())
+
+# 3. Remplacer par NaN
+df.loc[outliers, "duration_min"] = np.nan
+
+print(f"\n✅ {outliers.sum()} outliers traités")
+print(f"Durée max des films : {df['duration_min'].max()} min")
+```
+:::
+
+## ✏️ Étape 2.5 — Créer `n_seasons` pour les séries
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour les **séries TV**, la durée est en saisons (`"3 Seasons"`).
+
+1. Crée une colonne `n_seasons` (entier, NaN pour les films).
+2. Affiche la répartition du nombre de saisons.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df["n_seasons"] = np.where(
+    df["type"] == "TV Show",
+    df["duration"].str.extract(r"(\d+)").astype(float)[0],
+    np.nan
+)
+
+print("Nombre de saisons — statistiques :")
+print(df["n_seasons"].describe())
+
+print(f"\nRépartition des saisons :")
+print(df["n_seasons"].value_counts().head(10).sort_index())
+```
+:::
+
+---
+
+# Partie 3 — Feature engineering
+
+## ✏️ Étape 3.1 — Extraire des composantes de dates
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+À partir de `date_added`, crée :
+
+1. `year_added` : l'année
+2. `month_added` : le mois
+3. `year_gap` : écart entre l'année d'ajout sur Netflix et l'année de sortie (c'est un proxy du "temps de délai avant mise en ligne")
+
+Affiche les statistiques de `year_gap`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df["year_added"] = df["date_added"].dt.year
+df["month_added"] = df["date_added"].dt.month
+df["year_gap"] = df["year_added"] - df["release_year"]
+
+print(df["year_gap"].describe().round(2))
+print(f"\nMoyenne year_gap : {df['year_gap'].mean():.1f} ans")
+print(f"Médiane year_gap : {df['year_gap'].median():.1f} ans")
+```
+
+**Interprétation** : en moyenne, Netflix ajoute un titre **quelques années après sa sortie**. La médiane est souvent plus fiable à cause des quelques très vieux films ajoutés récemment.
+:::
+
+## ✏️ Étape 3.2 — Exploser les colonnes multi-valeurs
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+`country` et `listed_in` contiennent plusieurs valeurs séparées par virgules. Pour faire de vraies analyses, il faut les **exploser**.
+
+Crée deux nouveaux DataFrames :
+
+1. `df_genres` : chaque ligne = **un titre + un genre**. Un titre avec 3 genres apparaîtra 3 fois.
+2. `df_countries` : idem pour les pays.
+
+**Indice** : utilise `.str.split(", ")` puis `.explode()`.
+
+Affiche le nombre de lignes de chacun.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Genres explosés
+df_genres = df.assign(genre=df["listed_in"].str.split(", ")).explode("genre")
+print(f"df_genres : {len(df_genres)} lignes (soit {len(df_genres) / len(df):.1f} genres/titre en moyenne)")
+print(df_genres[["title", "genre"]].head())
+```
+
+```{python}
+# 2. Pays explosés
+df_countries = df.assign(pays=df["country"].str.split(", ")).explode("pays")
+# On enlève les "Unknown"
+df_countries = df_countries[df_countries["pays"] != "Unknown"]
+print(f"\ndf_countries : {len(df_countries)} lignes")
+print(df_countries[["title", "pays"]].head())
+```
+
+**Explication** : un même titre peut apparaître plusieurs fois dans `df_genres` ou `df_countries`. C'est normal — c'est **le bon format pour faire des comptages** par genre ou par pays (plutôt que d'avoir à faire des `str.contains` partout).
+:::
+
+---
+
+# Partie 4 — Analyses descriptives
+
+C'est le cœur du TP. Tu dois répondre aux questions du manager.
+
+## ✏️ Étape 4.1 — Les KPI globaux
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Affiche proprement :
+
+1. Nombre total de titres
+2. % de films vs séries
+3. Durée moyenne des films (en minutes)
+4. Nombre moyen de saisons par série
+5. Année la plus récente et la plus ancienne dans le catalogue
+6. Date de la dernière addition
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+print("=" * 50)
+print("📊 KPI GLOBAUX — CATALOGUE NETFLIX")
+print("=" * 50)
+print(f"Total de titres     : {len(df):,}")
+print(f"  - Films           : {(df['type'] == 'Movie').sum():,} ({(df['type'] == 'Movie').mean()*100:.1f}%)")
+print(f"  - Séries          : {(df['type'] == 'TV Show').sum():,} ({(df['type'] == 'TV Show').mean()*100:.1f}%)")
+print()
+print(f"Durée moyenne films : {df['duration_min'].mean():.0f} min")
+print(f"Saisons moyennes    : {df['n_seasons'].mean():.1f}")
+print()
+print(f"Période sorties     : {df['release_year'].min()} à {df['release_year'].max()}")
+print(f"Dernière addition   : {df['date_added'].max().date()}")
+```
+:::
+
+## ✏️ Étape 4.2 — Évolution du catalogue dans le temps
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Compte le **nombre de titres ajoutés par année** (`year_added`).
+2. Fais de même mais en séparant films et séries.
+3. Trace un **line plot** avec deux courbes (films et séries) superposées.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1 & 2. Agrégation
+additions_par_an = df.groupby(["year_added", "type"]).size().unstack(fill_value=0)
+print(additions_par_an.tail(10))
+```
+
+```{python}
+# 3. Line plot
+fig, ax = plt.subplots(figsize=(12, 5))
+
+ax.plot(additions_par_an.index, additions_par_an["Movie"], 
+        marker="o", label="Films", linewidth=2)
+ax.plot(additions_par_an.index, additions_par_an["TV Show"], 
+        marker="s", label="Séries", linewidth=2)
+
+ax.set_xlabel("Année")
+ax.set_ylabel("Nombre de titres ajoutés")
+ax.set_title("Évolution du nombre de titres ajoutés par an sur Netflix", 
+             fontsize=13, fontweight="bold")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** : on voit clairement la montée en puissance de Netflix dans les années 2015-2020, puis un possible ralentissement récent. Le ratio films/séries évolue aussi : à étudier plus finement.
+:::
+
+## ✏️ Étape 4.3 — Les genres les plus populaires
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Utilise `df_genres` pour :
+
+1. Trouver le **top 10 des genres** (en nombre d'occurrences).
+2. Afficher le résultat sous forme de **bar chart horizontal** bien habillé.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+top_genres = df_genres["genre"].value_counts().head(10)
+print(top_genres)
+```
+
+```{python}
+fig, ax = plt.subplots(figsize=(12, 6))
+
+# Inverser pour que le plus gros soit en haut
+top_genres_sorted = top_genres.sort_values(ascending=True)
+
+ax.barh(top_genres_sorted.index, top_genres_sorted.values, 
+        color=sns.color_palette("viridis", 10), edgecolor="black", alpha=0.85)
+
+ax.set_xlabel("Nombre de titres")
+ax.set_title("Top 10 des genres sur Netflix", fontsize=13, fontweight="bold")
+ax.grid(True, alpha=0.3, axis="x")
+
+# Annoter chaque barre
+for i, v in enumerate(top_genres_sorted.values):
+    ax.text(v + 20, i, f"{v:,}", va="center", fontsize=10)
+
+plt.tight_layout()
+plt.show()
+```
+:::
+
+## ✏️ Étape 4.4 — Les pays producteurs
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Trouve le **top 10 des pays** producteurs (avec `df_countries`).
+2. Pour chacun de ces 10 pays, combien de films et combien de séries ?
+3. Présente le résultat sous forme de **bar chart empilé** ou groupé.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Top 10 pays
+top10_pays = df_countries["pays"].value_counts().head(10).index.tolist()
+print(f"Top 10 pays : {top10_pays}")
+```
+
+```{python}
+# 2. Répartition films/séries pour ces pays
+pays_type = (
+    df_countries[df_countries["pays"].isin(top10_pays)]
+    .groupby(["pays", "type"]).size().unstack(fill_value=0)
+)
+pays_type = pays_type.loc[top10_pays]  # garder l'ordre
+print(pays_type)
+```
+
+```{python}
+# 3. Bar chart empilé
+fig, ax = plt.subplots(figsize=(12, 6))
+
+pays_type_sorted = pays_type.iloc[::-1]  # inverser pour l'affichage
+pays_type_sorted.plot(kind="barh", stacked=True, ax=ax, 
+                       color=["#4C72B0", "#DD8452"],
+                       edgecolor="white", linewidth=0.5)
+
+ax.set_xlabel("Nombre de titres")
+ax.set_ylabel("")
+ax.set_title("Top 10 des pays producteurs sur Netflix", 
+             fontsize=13, fontweight="bold")
+ax.legend(title="Type", loc="lower right")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** : on voit que certains pays produisent **majoritairement des séries** (ex : Japon avec les anime, Corée du Sud avec les K-dramas), tandis que d'autres produisent **majoritairement des films** (ex : Inde avec Bollywood).
+:::
+
+## ✏️ Étape 4.5 — Distribution de la durée des films
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Trace un **histogramme** de `duration_min`.
+2. Superpose la moyenne et la médiane.
+3. Quelle est la **durée typique** d'un film Netflix ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fig, ax = plt.subplots(figsize=(12, 5))
+
+ax.hist(df["duration_min"].dropna(), bins=40, color="steelblue", 
+        edgecolor="black", alpha=0.7)
+
+moy = df["duration_min"].mean()
+med = df["duration_min"].median()
+
+ax.axvline(moy, color="red", linestyle="--", linewidth=2, 
+           label=f"Moyenne : {moy:.0f} min")
+ax.axvline(med, color="green", linestyle="--", linewidth=2,
+           label=f"Médiane : {med:.0f} min")
+
+ax.set_xlabel("Durée (minutes)")
+ax.set_ylabel("Nombre de films")
+ax.set_title("Distribution de la durée des films", fontsize=13, fontweight="bold")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+print(f"Durée typique d'un film : autour de {med:.0f} minutes")
+print(f"80% des films durent entre {df['duration_min'].quantile(0.1):.0f} et {df['duration_min'].quantile(0.9):.0f} minutes")
+```
+:::
+
+## ✏️ Étape 4.6 — Heatmap genres × année
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour voir **comment les genres évoluent dans le temps** :
+
+1. Utilise `df_genres` pour créer un tableau croisé : **genres (lignes) × année d'ajout (colonnes)** avec le comptage.
+2. Garde seulement les **10 genres les plus fréquents** et les années **depuis 2015**.
+3. Trace une **heatmap**.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.6
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1-2. Préparer la matrice
+top10 = df_genres["genre"].value_counts().head(10).index.tolist()
+
+genre_year = (
+    df_genres[df_genres["genre"].isin(top10) & (df_genres["year_added"] >= 2015)]
+    .groupby(["genre", "year_added"]).size()
+    .unstack(fill_value=0)
+)
+# Réordonner les genres par popularité totale
+genre_year = genre_year.loc[top10]
+
+# 3. Heatmap
+fig, ax = plt.subplots(figsize=(14, 6))
+sns.heatmap(genre_year, annot=True, fmt="d", cmap="YlOrRd",
+            cbar_kws={"label": "Nombre de titres ajoutés"}, ax=ax,
+            linewidths=0.5, linecolor="white")
+ax.set_title("Évolution des genres les plus populaires sur Netflix",
+             fontsize=13, fontweight="bold", pad=15)
+ax.set_xlabel("Année d'ajout")
+ax.set_ylabel("Genre")
+plt.tight_layout()
+plt.show()
+```
+
+**Analyse** : les cases les plus foncées montrent les années/genres dominants. On voit par exemple le pic de dramas et documentaires les années récentes.
+:::
+
+---
+
+# Partie 5 — Dashboard final
+
+## 🎯 Le livrable
+
+Maintenant, on va **combiner toutes tes analyses en un seul dashboard** que tu pourrais présenter à la direction.
+
+## ✏️ Étape 5 — Le dashboard 2×3
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Produis une **seule figure** avec une grille **2 lignes × 3 colonnes**, contenant 6 graphiques clés :
+
+**Ligne 1 :**
+1. **Évolution annuelle des ajouts** (films + séries, line plot)
+2. **Répartition films vs séries** (camembert/pie chart)
+3. **Top 5 genres** (bar horizontal)
+
+**Ligne 2 :**
+4. **Top 5 pays producteurs** (bar horizontal)
+5. **Distribution des durées de films** (histogramme)
+6. **Répartition des classifications d'âge** (bar)
+
+**Exigences** :
+
+- Taille de figure : 16 × 10 minimum
+- Titre global avec `fig.suptitle()`
+- Chaque sous-graphique bien légendé
+- `plt.tight_layout()` à la fin
+
+**Bonus** : sauvegarde le dashboard en PNG haute résolution (150 dpi).
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5 — Dashboard
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Préparer toutes les données
+additions_par_an = df.groupby(["year_added", "type"]).size().unstack(fill_value=0)
+top5_genres = df_genres["genre"].value_counts().head(5).sort_values(ascending=True)
+top5_pays = df_countries["pays"].value_counts().head(5).sort_values(ascending=True)
+
+# Créer la figure
+fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+
+# ========== [0, 0] Évolution annuelle ==========
+ax1 = axes[0, 0]
+ax1.plot(additions_par_an.index, additions_par_an["Movie"], 
+         marker="o", label="Films", linewidth=2, color="#4C72B0")
+ax1.plot(additions_par_an.index, additions_par_an["TV Show"], 
+         marker="s", label="Séries", linewidth=2, color="#DD8452")
+ax1.set_title("Évolution des ajouts par année", fontweight="bold")
+ax1.set_xlabel("Année")
+ax1.set_ylabel("Nombre")
+ax1.legend()
+ax1.grid(True, alpha=0.3)
+
+# ========== [0, 1] Pie chart films vs séries ==========
+ax2 = axes[0, 1]
+counts = df["type"].value_counts()
+ax2.pie(counts.values, labels=counts.index, autopct="%1.1f%%",
+        colors=["#4C72B0", "#DD8452"], startangle=90,
+        wedgeprops=dict(edgecolor="white", linewidth=2))
+ax2.set_title("Films vs Séries", fontweight="bold")
+
+# ========== [0, 2] Top 5 genres ==========
+ax3 = axes[0, 2]
+ax3.barh(top5_genres.index, top5_genres.values, 
+         color=sns.color_palette("viridis", 5), edgecolor="black", alpha=0.85)
+ax3.set_title("Top 5 genres", fontweight="bold")
+ax3.set_xlabel("Nombre de titres")
+ax3.grid(True, alpha=0.3, axis="x")
+
+# ========== [1, 0] Top 5 pays ==========
+ax4 = axes[1, 0]
+ax4.barh(top5_pays.index, top5_pays.values,
+         color=sns.color_palette("magma", 5), edgecolor="black", alpha=0.85)
+ax4.set_title("Top 5 pays producteurs", fontweight="bold")
+ax4.set_xlabel("Nombre de titres")
+ax4.grid(True, alpha=0.3, axis="x")
+
+# ========== [1, 1] Distribution durée films ==========
+ax5 = axes[1, 1]
+ax5.hist(df["duration_min"].dropna(), bins=35, color="steelblue", 
+         edgecolor="black", alpha=0.7)
+med = df["duration_min"].median()
+ax5.axvline(med, color="red", linestyle="--", linewidth=2,
+            label=f"Médiane : {med:.0f} min")
+ax5.set_title("Distribution des durées de films", fontweight="bold")
+ax5.set_xlabel("Durée (min)")
+ax5.set_ylabel("Nombre de films")
+ax5.legend()
+ax5.grid(True, alpha=0.3)
+
+# ========== [1, 2] Classifications d'âge ==========
+ax6 = axes[1, 2]
+rating_counts = df["rating"].value_counts().head(8)
+ax6.bar(rating_counts.index, rating_counts.values,
+        color=sns.color_palette("crest", len(rating_counts)), 
+        edgecolor="black", alpha=0.85)
+ax6.set_title("Top 8 classifications d'âge", fontweight="bold")
+ax6.set_xlabel("Classification")
+ax6.set_ylabel("Nombre de titres")
+ax6.tick_params(axis="x", rotation=45)
+ax6.grid(True, alpha=0.3, axis="y")
+
+# Titre global
+fig.suptitle("📊 Dashboard Netflix — Analyse du catalogue", 
+             fontsize=18, fontweight="bold", y=1.00)
+
+plt.tight_layout()
+
+# Bonus : sauvegarder
+# fig.savefig("dashboard_netflix.png", dpi=150, bbox_inches="tight")
+
+plt.show()
+```
+
+🎉 **Voilà un vrai livrable pro !** Tu viens de produire en quelques lignes ce qui demanderait **des heures dans Excel** et qui serait **bien moins flexible**.
+:::
+
+---
+
+# Partie 6 — Note méthodologique
+
+## ✏️ À rédiger
+
+::: {.callout-note icon=false}
+## 📝 Livrable final
+
+Dans la cellule markdown ci-dessous, rédige une **note méthodologique d'une page** (500-800 mots) qui synthétise ton travail, en suivant ce plan :
+
+1. **Contexte** — Quelle question business ? Quelles données ?
+2. **Méthodologie** — Étapes suivies, choix de nettoyage
+3. **Principaux résultats** — 3 à 5 insights clés
+4. **Limites** — Ce que tu n'as pas pu faire
+5. **Recommandations** — Pistes pour la direction
+
+C'est **exactement** ce qui finira dans un rapport d'entreprise. Apprends à écrire court et précis.
+:::
+
+```markdown
+# Note méthodologique — Analyse du catalogue Netflix
+
+## 1. Contexte
+
+[À rédiger]
+
+## 2. Méthodologie
+
+[À rédiger]
+
+## 3. Principaux résultats
+
+[À rédiger]
+
+## 4. Limites
+
+[À rédiger]
+
+## 5. Recommandations
+
+[À rédiger]
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Exemple de note méthodologique
+
+```markdown
+# Note méthodologique — Analyse du catalogue Netflix
+
+## 1. Contexte
+
+Cette analyse porte sur un dataset de ~8000 titres du catalogue Netflix 
+(films et séries TV), avec leurs caractéristiques : type, pays, date 
+d'ajout, durée, genres, classification d'âge. L'objectif : comprendre 
+la structure et l'évolution du catalogue pour aider la direction 
+éditoriale dans ses choix stratégiques.
+
+## 2. Méthodologie
+
+Le travail a suivi 4 étapes :
+
+**Nettoyage** : suppression des doublons (15), conversion de la date 
+d'ajout en type datetime (après nettoyage des espaces parasites), 
+imputation des valeurs manquantes par "Unknown" pour director/cast/country, 
+et suppression des rares lignes sans date_added. Les outliers de durée 
+(films > 300 min, manifestement erronés) ont été passés en NaN.
+
+**Feature engineering** : création des colonnes `duration_min` (films), 
+`n_seasons` (séries), `year_added`, `month_added`, `year_gap` (délai 
+entre sortie et ajout Netflix). Création de DataFrames "explosés" pour 
+les colonnes multi-valeurs (genres, pays) afin de permettre les 
+agrégations correctes.
+
+**Analyses** : KPI globaux, évolution temporelle, top genres et pays, 
+distribution des durées, classifications.
+
+**Visualisation** : dashboard synthétique 2×3 regroupant les 6 insights 
+principaux pour présentation à la direction.
+
+## 3. Principaux résultats
+
+- **Catalogue** : ~75% de films et 25% de séries
+- **Explosion 2015-2020** : le catalogue a été constitué principalement 
+  pendant cette période, avec un ralentissement récent
+- **Dominance USA/Inde/UK** : le trio de tête représente une majorité 
+  du catalogue ; certains pays se spécialisent (Japon → séries, 
+  Inde → films)
+- **Durée médiane des films** : ~100 minutes, avec 80% des films entre 
+  80 et 130 minutes
+- **Genres en croissance** : les dramas et documentaires dominent 
+  les ajouts récents
+
+## 4. Limites
+
+- Le dataset ne contient pas les **notes** des utilisateurs ni les 
+  **audiences**, ce qui limite l'analyse qualitative
+- Les **pays et genres multi-valeurs** compliquent certaines analyses 
+  (un titre "USA, UK" est-il plutôt américain ou britannique ?)
+- Les **classifications d'âge** sont hétérogènes entre pays 
+  (TV-MA vs R vs autres systèmes)
+- Pas d'information sur le **coût de production** ou le **succès** 
+  des titres
+
+## 5. Recommandations
+
+1. **Enrichir le dataset** avec des données de performance (vues, 
+   durée de visionnage, notes utilisateurs)
+2. **Explorer la spécialisation géographique** : certains pays 
+   semblent sur-performer sur certains types de contenus
+3. **Analyser le cycle de vie** : les titres ajoutés récemment 
+   performent-ils mieux que les anciens ? (nécessite données de vue)
+4. **Étudier le délai Netflix-sortie** : impact sur la performance ?
+5. **Segmentation par classification d'âge** : quelles tranches sont 
+   sous-représentées ?
+
+Bien que descriptive, cette analyse fournit une base solide pour 
+orienter les investissements éditoriaux futurs. Les étapes suivantes 
+devraient inclure des données de performance pour passer du descriptif 
+au prescriptif.
+```
+
+**Note pédagogique** : ce genre de note accompagne **toujours** un rapport data en entreprise. Elle doit tenir en une page, être lisible par un non-technique, et se lire en 3 minutes.
+:::
+
+---
+
+# 🎓 Bilan du TP
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as réalisé ton **premier projet complet de data analysis** :
+
+- ✅ **Chargement et exploration** d'un dataset réel avec ses défauts
+- ✅ **Nettoyage méthodique** : doublons, NaN, outliers, formats
+- ✅ **Feature engineering** : conversion de dates, extraction numérique, explosion de colonnes multi-valeurs
+- ✅ **Analyses multiples** : KPI, évolution temporelle, top catégories, distributions
+- ✅ **Dashboard professionnel** en 6 graphiques
+- ✅ **Note méthodologique** pour la présentation
+
+## 🔍 Les notions mobilisées
+
+| Module 2 - Notion | Utilisée dans ce TP |
+|---|---|
+| **2.1 NumPy avancé** | Opérations vectorisées, `np.where`, agrégations |
+| **2.2 Pandas** | Chargement, groupby, merge, explode, dates, string methods |
+| **2.3 Matplotlib/Seaborn** | Line, bar, hist, heatmap, pie chart, dashboard multi-plots |
+
+## 🚀 La suite — Module 3 : Analyse exploratoire et nettoyage
+
+Dans le Module 3, on va **formaliser et approfondir** tout ce que tu viens de faire :
+
+- Typologie des variables (quanti/quali, nominal/ordinal...)
+- Statistiques descriptives avancées (univariée, bivariée)
+- Techniques avancées de nettoyage (imputation KNN, détection multivariée...)
+- Préparation pour le ML (scaling, encoding, dates)
+
+Tu verras : **ce que tu as fait à la main ici**, on pourra le formaliser avec des **pipelines scikit-learn** propres et réutilisables.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Essaie d'**enrichir** ce TP avec une ou deux analyses supplémentaires de ton choix :
+
+- Les **réalisateurs les plus prolifiques** sur Netflix ?
+- Corrélation entre `year_gap` et `type` : les séries arrivent-elles plus vite que les films ?
+- **Carte mondiale** avec `folium` ou `plotly` des pays producteurs ?
+- Une **série temporelle** du top 3 genres avec tendance ?
+
+Ajoute-les à ton notebook et partage-le sur GitHub — ça devient un **vrai projet portfolio**.
+:::
+
+**🎉 Bravo d'être arrivé·e au bout !**
