@@ -22,6 +22,12 @@ en autonomie.
 pip install jupyter numpy pandas matplotlib seaborn scipy
 ```
 
+## 💡 Colab prêt à l'emploi
+
+Les notebooks ayant besoin d'un dataset contiennent une cellule qui **télécharge 
+automatiquement** les données nécessaires depuis GitHub. Tu peux donc les ouvrir 
+dans Google Colab directement depuis le site du cours, sans rien configurer.
+
 ## 💡 Conseils
 
 - **Ne saute pas les exercices** : la compréhension vient en faisant.

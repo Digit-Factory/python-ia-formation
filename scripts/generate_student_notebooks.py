@@ -8,7 +8,8 @@ Workflow :
 1. Parcourt les .qmd de chaque module
 2. Pour chaque fichier, crée une version "élève" où :
    - Les blocs de correction sont remplacés par un rappel vers le site web
-   - Les cellules ayant `#| eval: false` deviennent les cellules à remplir
+   - Les cellules `pd.read_csv('ressources_tp/...')` sont précédées 
+     automatiquement d'une cellule de téléchargement Colab-friendly
 3. Génère le .ipynb directement
 4. Range tout dans ressources_eleves/ par module, avec le dataset associé
 5. Crée un ZIP téléchargeable par module
@@ -32,23 +33,29 @@ PROJECT_ROOT = Path(__file__).parent.parent
 MODULES_DIR = PROJECT_ROOT / "modules"
 OUTPUT_DIR = PROJECT_ROOT / "ressources_eleves"
 
+# Pour construire les URLs de téléchargement des datasets (Colab-friendly)
+GITHUB_USER = "Digit-Factory"
+GITHUB_REPO = "python-ia-formation"
+GITHUB_BRANCH = "main"
+
 
 # === PARSING DU QMD ===
 
 def parse_qmd(content: str):
-    """
-    Parse un fichier .qmd et retourne une liste de cellules.
-    
-    On reconnaît :
-    - Le YAML front-matter (on l'ignore pour le notebook)
-    - Les blocs ```{python} ... ``` avec leurs options #| xxx
-    - Les blocs de correction (callout-tip collapse="true") à supprimer
-    """
+    """Parse un fichier .qmd et retourne une liste de cellules."""
     # Retirer le front-matter YAML
     if content.startswith('---'):
         end = content.find('\n---', 3)
         if end != -1:
             content = content[end + 4:].lstrip('\n')
+    
+    # Retirer le bandeau de ressources (inutile dans le notebook)
+    content = re.sub(
+        r'<!-- RESOURCES_BANNER_START -->.*?<!-- RESOURCES_BANNER_END -->\n*',
+        '',
+        content,
+        flags=re.DOTALL
+    )
     
     cells = []
     lines = content.split('\n')
@@ -79,7 +86,6 @@ def parse_qmd(content: str):
                     "type": "markdown",
                     "source": "> 💡 **Tu bloques ?** Consulte la correction sur le site web du cours en dépliant le bloc « Voir la correction »."
                 })
-                # Sauter tout le bloc
                 depth = 1
                 i += 1
                 while i < len(lines) and depth > 0:
@@ -137,6 +143,104 @@ def convert_callouts_for_notebook(line: str) -> str:
     return line
 
 
+# === INJECTION AUTOMATIQUE DE LA CELLULE DE TÉLÉCHARGEMENT ===
+
+# Regex pour détecter un read_csv / read_excel / read_json / etc.
+# sur un fichier local dans ressources_tp/ ou ressources/
+DATASET_READ_PATTERN = re.compile(
+    r"(?:pd\.read_\w+|np\.loadtxt|np\.genfromtxt|open)"
+    r"\s*\(\s*['\"](ressources[_\w]*/[\w\./-]+\.[\w]+)['\"]",
+    re.MULTILINE
+)
+
+
+def extract_dataset_references(code: str) -> set:
+    """Trouve tous les fichiers datasets référencés dans le code."""
+    matches = DATASET_READ_PATTERN.findall(code)
+    return set(matches)
+
+
+def build_download_cell(dataset_paths: set, module_name: str) -> str:
+    """Construit une cellule de téléchargement pour les datasets donnés."""
+    lines = ["# 📥 Téléchargement automatique des datasets (utile pour Colab)",
+             "import os, urllib.request",
+             ""]
+    
+    for dataset_path in sorted(dataset_paths):
+        # Séparer le dossier et le nom de fichier
+        dataset_dir = os.path.dirname(dataset_path)
+        filename = os.path.basename(dataset_path)
+        
+        # URL raw GitHub pour ce dataset
+        raw_url = (
+            f"https://raw.githubusercontent.com/{GITHUB_USER}/{GITHUB_REPO}"
+            f"/{GITHUB_BRANCH}/ressources_eleves/{module_name}/{dataset_path}"
+        )
+        
+        lines.append(f"if not os.path.exists('{dataset_path}'):")
+        lines.append(f"    os.makedirs('{dataset_dir}', exist_ok=True)")
+        lines.append(f"    urllib.request.urlretrieve(")
+        lines.append(f"        '{raw_url}',")
+        lines.append(f"        '{dataset_path}'")
+        lines.append(f"    )")
+        lines.append(f"    print(f\"✅ Dataset téléchargé : {filename}\")")
+        lines.append(f"else:")
+        lines.append(f"    print(f\"✅ Dataset déjà présent : {filename}\")")
+        lines.append("")
+    
+    return '\n'.join(lines).strip()
+
+
+# Pour l'os.path on a besoin de l'import
+import os
+
+
+def inject_download_cells(cells: list, module_name: str) -> list:
+    """
+    Parcourt les cellules, détecte les lectures de datasets, et injecte 
+    une cellule de téléchargement JUSTE AVANT la première utilisation.
+    
+    On ne l'injecte qu'une seule fois par notebook, pour tous les datasets détectés.
+    """
+    # Premier passage : trouver tous les datasets référencés
+    all_datasets = set()
+    first_read_idx = None
+    
+    for idx, cell in enumerate(cells):
+        if cell["type"] == "code":
+            datasets_in_cell = extract_dataset_references(cell["source"])
+            if datasets_in_cell and first_read_idx is None:
+                first_read_idx = idx
+            all_datasets.update(datasets_in_cell)
+    
+    if not all_datasets:
+        return cells  # pas de datasets, rien à faire
+    
+    # Construire la cellule de téléchargement
+    download_cell_code = build_download_cell(all_datasets, module_name)
+    download_cell = {"type": "code", "source": download_cell_code}
+    
+    # Ajouter un commentaire markdown au-dessus pour expliquer
+    explanation_cell = {
+        "type": "markdown",
+        "source": (
+            "## 📥 Préparation : téléchargement des données\n\n"
+            "La cellule ci-dessous télécharge automatiquement les datasets nécessaires "
+            "si ils ne sont pas déjà présents localement. Cela permet de faire marcher "
+            "le notebook **aussi bien en local qu'en Google Colab**."
+        )
+    }
+    
+    # Insérer AVANT la première lecture
+    new_cells = (
+        cells[:first_read_idx] 
+        + [explanation_cell, download_cell] 
+        + cells[first_read_idx:]
+    )
+    
+    return new_cells
+
+
 # === GÉNÉRATION DU NOTEBOOK ===
 
 def build_notebook(cells):
@@ -181,13 +285,23 @@ def process_module(module_dir: Path):
     for qmd_file in qmd_files:
         content = qmd_file.read_text(encoding='utf-8')
         cells = parse_qmd(content)
+        
+        # ⭐ NOUVEAU : injection auto de la cellule de téléchargement si besoin
+        cells = inject_download_cells(cells, module_name)
+        
         notebook = build_notebook(cells)
         
         output_ipynb = output_module_dir / (qmd_file.stem + "_ELEVE.ipynb")
         with open(output_ipynb, 'w', encoding='utf-8') as f:
             nbf.write(notebook, f)
         
-        print(f"  ✅ {output_ipynb.name} ({len(cells)} cellules)")
+        # Indiquer si on a ajouté une cellule de téléchargement
+        has_download = any(
+            c["type"] == "code" and "urlretrieve" in c["source"] 
+            for c in cells
+        )
+        suffix = " + cellule auto-download" if has_download else ""
+        print(f"  ✅ {output_ipynb.name} ({len(cells)} cellules{suffix})")
     
     # Copier les ressources (datasets)
     for ressources_dir in module_dir.glob("ressources*"):
@@ -229,6 +343,12 @@ en autonomie.
 pip install jupyter numpy pandas matplotlib seaborn scipy
 ```
 
+## 💡 Colab prêt à l'emploi
+
+Les notebooks ayant besoin d'un dataset contiennent une cellule qui **télécharge 
+automatiquement** les données nécessaires depuis GitHub. Tu peux donc les ouvrir 
+dans Google Colab directement depuis le site du cours, sans rien configurer.
+
 ## 💡 Conseils
 
 - **Ne saute pas les exercices** : la compréhension vient en faisant.
@@ -257,7 +377,8 @@ def create_module_zip(module_name: str):
 
 
 def main():
-    print("🚀 Génération des notebooks élèves\n")
+    print("🚀 Génération des notebooks élèves")
+    print(f"   GitHub : {GITHUB_USER}/{GITHUB_REPO} (branche {GITHUB_BRANCH})\n")
     
     OUTPUT_DIR.mkdir(exist_ok=True)
     
