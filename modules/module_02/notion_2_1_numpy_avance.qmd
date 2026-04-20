@@ -1,0 +1,1087 @@
+---
+title: "Notion 2.1 — NumPy avancé"
+subtitle: "Broadcasting, vectorisation, indexation : maîtrise la fondation de la data science"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_02/notion_2_1_numpy_avance_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_02/notion_2_1_numpy_avance_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_02_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 1.1 (vecteurs, matrices) — tu dois savoir ce qu'est `np.array()`  
+**Objectif** : passer de l'utilisation basique de NumPy à sa maîtrise réelle, pour écrire du code efficace et pythonique
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Créer des arrays NumPy de toutes les manières possibles (pas juste `np.array([1, 2, 3])`)
+- Maîtriser l'**indexation avancée** : slicing, masques booléens, fancy indexing
+- Exploiter le **broadcasting** pour écrire du code 10x plus rapide
+- Utiliser les **fonctions universelles (ufunc)** pour vectoriser tes calculs
+- Éviter les boucles Python dans 90% des cas
+- Manipuler des arrays multidimensionnels (plus seulement 1D et 2D)
+
+## 🎯 Pourquoi on fait ça ?
+
+Tu as déjà utilisé NumPy au Module 1 pour les vecteurs et matrices. Mais tu n'as touché qu'à la surface. NumPy, bien utilisé, c'est **100 à 1000 fois plus rapide** qu'une boucle Python, et le code est **beaucoup plus lisible**.
+
+En data science, **tout** passe par NumPy (directement ou indirectement via pandas, scikit-learn, PyTorch, TensorFlow). Si tu maîtrises NumPy, tu maîtrises l'essentiel.
+
+Cette notion est dense parce que **tout ce qu'elle contient te servira tous les jours pendant des années**. On y va.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (9, 5)
+np.random.seed(42)
+
+print(f"✅ NumPy {np.__version__}")
+```
+
+# Créer des arrays : bien plus que `np.array`
+
+## 🎨 Les 8 méthodes essentielles de création
+
+Tu connais `np.array([1, 2, 3])`. Mais il existe plein de **raccourcis** pour créer des arrays rapidement.
+
+```{python}
+# 1. Depuis une liste (tu connais)
+a = np.array([1, 2, 3, 4, 5])
+print(f"array     : {a}")
+
+# 2. Zéros et uns (pour initialiser)
+z = np.zeros(5)
+u = np.ones((2, 3))  # matrice 2x3 de 1
+print(f"zeros     : {z}")
+print(f"ones (2x3) :\n{u}")
+
+# 3. arange : comme range() mais en NumPy
+r = np.arange(0, 10, 2)  # de 0 à 10 (exclu), pas de 2
+print(f"arange    : {r}")
+
+# 4. linspace : nombre fixe de points équidistants
+l = np.linspace(0, 1, 5)  # 5 valeurs entre 0 et 1
+print(f"linspace  : {l}")
+
+# 5. full : remplir avec une valeur spécifique
+f = np.full((2, 3), 7.0)
+print(f"full (7)  :\n{f}")
+
+# 6. eye : matrice identité
+i = np.eye(3)
+print(f"eye (3x3) :\n{i}")
+
+# 7. Aléatoire uniforme entre 0 et 1
+rand = np.random.random(4)
+print(f"random    : {rand}")
+
+# 8. Aléatoire normal (gaussien)
+gauss = np.random.randn(4)
+print(f"randn     : {gauss}")
+```
+
+## 💡 Quand utiliser quoi ?
+
+| Fonction | Usage typique |
+|---|---|
+| `np.array()` | Convertir une liste existante |
+| `np.zeros()`, `np.ones()` | Initialiser un array avant de le remplir |
+| `np.arange()` | Séquence avec un pas défini (comme `range`) |
+| `np.linspace()` | Générer N points équidistants (pour tracer des courbes) |
+| `np.full()` | Remplir avec une valeur constante |
+| `np.eye()` | Matrice identité (utile en algèbre linéaire) |
+| `np.random.random()` | Uniform [0, 1] |
+| `np.random.randn()` | Normale centrée réduite |
+
+::: {.callout-tip}
+## 🧠 Astuce : toujours spécifier le dtype
+Par défaut, NumPy choisit le dtype. Pour être explicite :
+
+```python
+np.zeros(5, dtype=int)       # entiers
+np.array([1, 2, 3], dtype=np.float32)  # moitié de mémoire que float64
+```
+
+En deep learning, `float32` est le standard (moitié de mémoire GPU).
+:::
+
+## 📐 Les attributs essentiels d'un array
+
+```{python}
+a = np.array([[1, 2, 3], [4, 5, 6]])
+
+print(f"shape : {a.shape}")   # (2, 3) — 2 lignes, 3 colonnes
+print(f"ndim  : {a.ndim}")    # 2 — nombre de dimensions
+print(f"size  : {a.size}")    # 6 — nombre total d'éléments
+print(f"dtype : {a.dtype}")   # int64 — type des éléments
+print(f"nbytes: {a.nbytes}")  # 48 — taille en mémoire
+```
+
+## ✏️ Exercice 1 — Création d'arrays
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un vecteur des 20 premiers nombres impairs (**sans boucle**).
+2. Crée une matrice 4×4 remplie de -1.
+3. Crée un vecteur de 100 points équidistants entre -π et π (utile pour tracer sin/cos).
+4. Crée une matrice 3×3 identité, puis affiche son `shape`, `ndim`, `size`, `dtype`.
+5. Crée un array aléatoire de forme (5, 5) avec des valeurs entre 0 et 100 (entiers).  
+   *Indice : `np.random.randint(low, high, size)`*
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+
+# 1. 20 premiers nombres impairs
+
+
+# 2. Matrice 4x4 de -1
+
+
+# 3. 100 points entre -π et π
+
+
+# 4. Identité 3x3 + attributs
+
+
+# 5. Array aléatoire 5x5 d'entiers 0-100
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. arange(1, 40, 2) donne 1, 3, 5, ..., 39 — 20 valeurs
+impairs = np.arange(1, 40, 2)
+print(f"Impairs : {impairs}")
+
+# 2. full
+mat = np.full((4, 4), -1)
+print(f"\nMatrice -1 :\n{mat}")
+
+# 3. linspace avec numpy.pi
+points = np.linspace(-np.pi, np.pi, 100)
+print(f"\nPoints : premier = {points[0]:.3f}, dernier = {points[-1]:.3f}")
+
+# 4. Identité + attributs
+I = np.eye(3)
+print(f"\nIdentité :\n{I}")
+print(f"shape = {I.shape}, ndim = {I.ndim}, size = {I.size}, dtype = {I.dtype}")
+
+# 5. Random int
+rand_mat = np.random.randint(0, 100, size=(5, 5))
+print(f"\nAléatoire :\n{rand_mat}")
+```
+:::
+
+# Indexation et slicing : accéder aux données efficacement
+
+## 🎯 Trois niveaux d'indexation
+
+NumPy offre **trois manières puissantes** d'accéder aux éléments d'un array :
+
+1. **Indexation basique** (comme les listes Python)
+2. **Slicing** (tranches)
+3. **Indexation avancée** (masques booléens, fancy indexing)
+
+Les deux premières, tu les connais. La troisième est LA clé pour faire de la data science efficacement.
+
+## 📌 Indexation basique (rappel)
+
+```{python}
+# Pour un array 1D
+a = np.array([10, 20, 30, 40, 50])
+print(f"a[0]  : {a[0]}")      # 10 (premier)
+print(f"a[-1] : {a[-1]}")     # 50 (dernier)
+
+# Pour un array 2D : [ligne, colonne]
+m = np.array([[1, 2, 3],
+              [4, 5, 6],
+              [7, 8, 9]])
+print(f"\nm[1, 2] : {m[1, 2]}")  # 6 (ligne 1, colonne 2)
+print(f"m[0]    : {m[0]}")       # [1 2 3] (toute la ligne 0)
+```
+
+## ✂️ Slicing : `[start:stop:step]`
+
+```{python}
+a = np.arange(10)
+print(f"a              : {a}")
+print(f"a[2:5]         : {a[2:5]}")       # indices 2 à 4
+print(f"a[::2]         : {a[::2]}")       # un sur deux
+print(f"a[::-1]        : {a[::-1]}")      # inversé
+print(f"a[-3:]         : {a[-3:]}")       # les 3 derniers
+```
+
+Pour les arrays 2D, on slice par dimension (séparées par des virgules) :
+
+```{python}
+m = np.arange(16).reshape(4, 4)
+print(f"Matrice :\n{m}\n")
+
+print(f"m[1:3, 1:3] (sous-matrice 2x2 au centre) :\n{m[1:3, 1:3]}")
+print(f"\nm[:, 0] (première colonne)        : {m[:, 0]}")
+print(f"m[0, :] (première ligne)          : {m[0, :]}")
+print(f"m[::2, ::2] (un sur deux)         :\n{m[::2, ::2]}")
+```
+
+::: {.callout-warning}
+## ⚠️ Piège majeur : le slicing ne copie PAS
+
+```python
+a = np.arange(10)
+b = a[2:5]
+b[0] = 999
+print(a)  # → [  0   1 999   3   4   5   6   7   8   9]
+```
+
+Le slice `b` pointe vers la même mémoire que `a` !  
+Pour obtenir une copie, utilise `a[2:5].copy()`.
+:::
+
+## 🎭 Masques booléens : LA superpuissance NumPy
+
+Un masque booléen est un array de `True`/`False` utilisé pour sélectionner des éléments.
+
+```{python}
+ages = np.array([25, 17, 42, 8, 31, 65, 12, 55, 22, 88])
+
+# Créer un masque
+majeurs = ages >= 18
+print(f"Masque : {majeurs}")
+
+# Appliquer le masque
+print(f"Âges majeurs : {ages[majeurs]}")
+
+# En une seule ligne (le plus fréquent)
+print(f"Âges ≥ 18    : {ages[ages >= 18]}")
+```
+
+On peut combiner plusieurs conditions avec `&` (et) et `|` (ou) :
+
+::: {.callout-warning}
+**Attention** : on utilise `&` et `|`, **pas** `and` et `or` ! Et les conditions doivent être entre parenthèses.
+:::
+
+```{python}
+# Âges entre 20 et 60
+print(f"Entre 20 et 60 : {ages[(ages >= 20) & (ages <= 60)]}")
+
+# Âges < 18 OU > 65
+print(f"Mineurs ou 65+ : {ages[(ages < 18) | (ages > 65)]}")
+```
+
+## 🎯 Application concrète : filtrer un dataset
+
+```{python}
+# Simuler un petit dataset : [âge, salaire]
+data = np.array([
+    [25, 35000],
+    [42, 65000],
+    [33, 45000],
+    [55, 85000],
+    [28, 42000],
+    [61, 95000],
+    [38, 55000]
+])
+
+# Question : quelles sont les personnes gagnant plus de 50 000 € ?
+hauts_salaires = data[data[:, 1] > 50000]
+print("Personnes à haut salaire :")
+print(hauts_salaires)
+
+# Question : âges des personnes gagnant plus de 50 000 € ?
+ages_hauts = data[data[:, 1] > 50000, 0]
+print(f"\nLeurs âges : {ages_hauts}")
+```
+
+## 🎲 Fancy indexing : sélectionner par indices
+
+Au lieu d'un masque booléen, on peut passer une liste d'indices.
+
+```{python}
+a = np.array([10, 20, 30, 40, 50, 60, 70])
+
+# Sélectionner plusieurs éléments non contigus
+indices = [0, 2, 5]
+print(f"Éléments 0, 2, 5 : {a[indices]}")
+
+# Réordonner
+ordre = [6, 5, 4, 3, 2, 1, 0]
+print(f"Inversé (fancy)  : {a[ordre]}")
+
+# Pour les matrices : on donne les indices ligne ET colonne
+m = np.arange(12).reshape(3, 4)
+print(f"\nMatrice :\n{m}")
+print(f"\nm[[0,2], [1,3]] : {m[[0, 2], [1, 3]]}")  # (0,1) et (2,3) → 1 et 11
+```
+
+## ✏️ Exercice 2 — Indexation avancée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+On te donne un array de 1000 valeurs aléatoires.
+
+```python
+np.random.seed(0)
+data = np.random.randn(1000) * 10 + 50  # normal centré sur 50, std=10
+```
+
+1. Compte combien de valeurs sont supérieures à 60.
+2. Extrais toutes les valeurs entre 40 et 60 (bornes incluses).
+3. Remplace **directement dans l'array** toutes les valeurs négatives par 0.
+4. Trouve la valeur **maximale** de l'array et son **indice**. (indice : `np.argmax`)
+5. Trouve les 10 plus grandes valeurs. (indice : trier ou `np.sort` + slicing)
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+
+np.random.seed(0)
+data = np.random.randn(1000) * 10 + 50
+
+# 1. Compter les valeurs > 60
+
+
+# 2. Extraire entre 40 et 60
+
+
+# 3. Remplacer négatifs par 0
+
+
+# 4. Max et son indice
+
+
+# 5. Top 10 valeurs
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(0)
+data = np.random.randn(1000) * 10 + 50
+
+# 1. Compter
+n_sup_60 = np.sum(data > 60)  # True=1, False=0 → sum = nombre de True
+print(f"Valeurs > 60 : {n_sup_60}")
+
+# 2. Extraire
+entre_40_60 = data[(data >= 40) & (data <= 60)]
+print(f"Valeurs entre 40 et 60 : {len(entre_40_60)}")
+
+# 3. Remplacer négatifs (il n'y en a probablement pas ici, mais le principe est là)
+data[data < 0] = 0
+print(f"Après remplacement, min = {data.min():.2f}")
+
+# 4. Max et indice
+max_val = data.max()
+idx_max = np.argmax(data)
+print(f"Max = {max_val:.2f} à l'indice {idx_max}")
+
+# 5. Top 10 valeurs
+# Deux méthodes
+top10_sort = np.sort(data)[-10:]      # trier + prendre les 10 derniers
+print(f"Top 10 (sort)      : {top10_sort}")
+
+# Alternative plus efficace pour de gros arrays
+top10_partition = np.partition(data, -10)[-10:]
+top10_partition.sort()
+print(f"Top 10 (partition) : {top10_partition}")
+```
+:::
+
+# Broadcasting : la magie NumPy
+
+## 🎨 L'intuition
+
+Le **broadcasting** est la règle qui permet à NumPy de faire des opérations sur des arrays de **formes différentes**.
+
+**Exemple simple** : multiplier un vecteur par un scalaire.
+
+```{python}
+v = np.array([1, 2, 3, 4, 5])
+print(v * 10)  # [10 20 30 40 50]
+```
+
+Ici, NumPy a "étiré" `10` pour qu'il corresponde à chaque élément. **C'est du broadcasting.**
+
+## 🧩 Cas avancé : addition d'un vecteur à chaque ligne d'une matrice
+
+```{python}
+# Notre dataset : 3 individus, 4 caractéristiques
+donnees = np.array([
+    [10, 20, 30, 40],
+    [50, 60, 70, 80],
+    [90, 100, 110, 120]
+])
+
+# On veut soustraire à chaque individu la moyenne de chaque colonne
+moyennes = donnees.mean(axis=0)  # moyenne par colonne → shape (4,)
+print(f"Moyennes : {moyennes}")
+
+# Broadcasting : NumPy étire automatiquement le vecteur pour qu'il matche
+donnees_centrees = donnees - moyennes
+print(f"\nDonnées centrées :\n{donnees_centrees}")
+```
+
+**Ce qui s'est passé** : `donnees` a shape `(3, 4)` et `moyennes` a shape `(4,)`. NumPy a *broadcasté* `moyennes` pour qu'il agisse comme une matrice `(3, 4)` où chaque ligne est `moyennes`.
+
+## 📏 Les règles du broadcasting
+
+Pour que deux arrays soient compatibles, NumPy compare leurs shapes **à partir de la droite** :
+
+1. **Même taille** ✓
+2. **L'un vaut 1** : il est étiré pour correspondre
+3. **L'un manque** : il est ajouté avec la taille 1, puis étiré
+
+::: {.callout-note}
+**Exemples visuels** :
+
+```
+(3, 4)  et  (4,)     → compatible ✓ (4==4, puis 3 ajouté)
+(3, 4)  et  (3, 1)   → compatible ✓ (1 étiré à 4)
+(3, 4)  et  (3, 4)   → compatible ✓ (même shape)
+(3, 4)  et  (2, 4)   → ERREUR ✗ (3 ≠ 2)
+(3, 4)  et  (3,)     → ERREUR ✗ (3 sur la dim de droite ≠ 4)
+```
+:::
+
+## 🚀 Application : la puissance du broadcasting
+
+**Cas 1** : centrer une matrice colonne par colonne
+
+```{python}
+# Générer des données bruitées
+X = np.random.randn(5, 3) * 10 + 100
+print(f"X :\n{X}\n")
+
+# En une seule ligne : centrage + mise à l'écart-type (normalisation)
+X_norm = (X - X.mean(axis=0)) / X.std(axis=0)
+print(f"X normalisé :\n{X_norm}")
+print(f"\nMoyenne par colonne : {X_norm.mean(axis=0).round(3)}")
+print(f"Std par colonne     : {X_norm.std(axis=0).round(3)}")
+```
+
+Tu l'as fait ligne par ligne au Module 1 — maintenant tu sais le faire en une ligne. **C'est exactement ce que fait `StandardScaler` de scikit-learn.**
+
+**Cas 2** : calculer toutes les distances entre points
+
+```{python}
+# 4 points dans le plan
+points = np.array([
+    [0, 0],
+    [3, 0],
+    [0, 4],
+    [3, 4]
+])
+
+# Matrice de distances : points[:, None] a shape (4, 1, 2)
+# points[None, :] a shape (1, 4, 2)
+# La différence a shape (4, 4, 2) : toutes les paires de différences
+differences = points[:, None, :] - points[None, :, :]
+distances = np.linalg.norm(differences, axis=-1)
+
+print(f"Matrice de distances :\n{distances.round(2)}")
+```
+
+**Sans broadcasting**, tu aurais fait une double boucle — 10x plus lent et 5x plus de code.
+
+## ✏️ Exercice 3 — Maîtriser le broadcasting
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. **Normalisation** : soit la matrice
+```python
+notes = np.array([
+    [10, 12, 8],    # étudiant 1 : notes à 3 DS
+    [14, 16, 15],   # étudiant 2
+    [6, 7, 9],      # étudiant 3
+    [13, 11, 12]    # étudiant 4
+])
+```
+Pour chaque DS (chaque colonne), centre les notes sur la moyenne de ce DS.
+
+2. **Table de multiplication** : crée une matrice 10×10 qui contient la table de multiplication (avec broadcasting, SANS boucle).  
+*Indice : utilise `np.arange(1, 11)` et `[:, None]` pour obtenir les deux axes.*
+
+3. **Calcul de distance à un point fixe** : pour chacun des points suivants, calcule sa distance euclidienne à l'origine (0, 0).
+```python
+np.random.seed(42)
+points = np.random.randn(100, 2)
+```
+Retourne un vecteur de 100 distances, sans boucle.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+
+# 1. Centrage des notes
+
+
+# 2. Table de multiplication (sans boucle)
+
+
+# 3. Distances à l'origine
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Centrage des notes
+notes = np.array([
+    [10, 12, 8],
+    [14, 16, 15],
+    [6, 7, 9],
+    [13, 11, 12]
+])
+
+moyennes_DS = notes.mean(axis=0)  # shape (3,)
+notes_centrees = notes - moyennes_DS  # broadcasting (4,3) - (3,) → (4,3)
+print("Notes centrées :")
+print(notes_centrees)
+print(f"Vérif : moyennes après centrage = {notes_centrees.mean(axis=0)}")
+```
+
+```{python}
+# 2. Table de multiplication
+# arange crée [1..10], [:, None] transforme en colonne (10,1)
+# np.arange(1,11) reste en ligne (10,) → broadcasting (10,1) * (10,) = (10,10)
+table = np.arange(1, 11)[:, None] * np.arange(1, 11)
+print("Table de multiplication :")
+print(table)
+```
+
+```{python}
+# 3. Distances à l'origine
+np.random.seed(42)
+points = np.random.randn(100, 2)
+
+distances = np.linalg.norm(points, axis=1)
+print(f"100 distances calculées")
+print(f"Min : {distances.min():.3f}, Max : {distances.max():.3f}, Moy : {distances.mean():.3f}")
+```
+:::
+
+# Fonctions universelles (ufunc) : le remplaçant des boucles
+
+## 🎯 Qu'est-ce qu'une ufunc ?
+
+Une **ufunc** (universal function) est une fonction NumPy qui s'applique **élément par élément** à un array, **sans boucle explicite**.
+
+Tu en connais déjà plein : `np.sqrt`, `np.exp`, `np.sin`, `np.abs`, `+`, `*`, etc.
+
+```{python}
+a = np.array([1, 4, 9, 16, 25])
+
+print(f"sqrt : {np.sqrt(a)}")
+print(f"exp  : {np.exp(a)[:3]}...")
+print(f"log  : {np.log(a).round(2)}")
+print(f"sin  : {np.sin(a).round(3)}")
+```
+
+## ⚡ Pourquoi c'est crucial : la vitesse
+
+Comparons une boucle Python classique avec une ufunc NumPy :
+
+```{python}
+import time
+
+# Un gros array
+N = 1_000_000
+a = np.random.randn(N)
+
+# Méthode 1 : boucle Python
+start = time.time()
+result_boucle = [x**2 for x in a]
+temps_boucle = time.time() - start
+
+# Méthode 2 : ufunc NumPy
+start = time.time()
+result_numpy = a ** 2
+temps_numpy = time.time() - start
+
+print(f"Boucle Python : {temps_boucle*1000:.1f} ms")
+print(f"NumPy ufunc   : {temps_numpy*1000:.1f} ms")
+print(f"Ratio         : {temps_boucle / temps_numpy:.0f}x plus rapide")
+```
+
+::: {.callout-important}
+## 🧠 Règle d'or de NumPy
+**Si tu écris une boucle `for` qui fait des opérations mathématiques sur un array, il y a 95% de chances que ce soit mauvais.** Cherche la ufunc équivalente.
+:::
+
+## 📚 Les ufunc essentielles
+
+```{python}
+a = np.array([-3, -1, 0, 2, 4])
+
+# Arithmétique
+print(f"abs    : {np.abs(a)}")
+print(f"square : {np.square(a)}")
+print(f"sqrt   : {np.sqrt(np.abs(a))}")  # racines des valeurs absolues
+
+# Arrondis
+b = np.array([1.2, 2.7, -3.4, 5.5])
+print(f"round  : {np.round(b)}")
+print(f"floor  : {np.floor(b)}")
+print(f"ceil   : {np.ceil(b)}")
+
+# Comparaisons (retournent des booléens)
+c = np.array([1, 5, 3, 7, 2])
+print(f"max de c : {np.maximum(c, 4)}")   # élément par élément : max(c[i], 4)
+```
+
+## 🔢 Fonctions d'agrégation
+
+Ces fonctions **réduisent** un array à un seul nombre (ou une dimension).
+
+```{python}
+a = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]])
+
+print(f"sum total    : {a.sum()}")         # 45
+print(f"sum par col. : {a.sum(axis=0)}")   # [12 15 18]
+print(f"sum par lig. : {a.sum(axis=1)}")   # [6 15 24]
+
+print(f"\nmean : {a.mean()}")
+print(f"max  : {a.max()}")
+print(f"min  : {a.min()}")
+print(f"std  : {a.std():.3f}")
+print(f"argmax (indice du max) : {a.argmax()}")
+```
+
+## 💡 Le mystère de `axis`
+
+`axis=0` et `axis=1` te semblent probablement confus. Voici la règle simple :
+
+**`axis` indique la dimension qui disparaît** :
+- `axis=0` → on écrase les **lignes** → il reste une valeur **par colonne**
+- `axis=1` → on écrase les **colonnes** → il reste une valeur **par ligne**
+
+```{python}
+m = np.array([[1, 2, 3], [4, 5, 6]])
+print(f"Matrice shape : {m.shape}  (2 lignes, 3 colonnes)\n")
+
+print(f"sum(axis=0) → shape {m.sum(axis=0).shape}")
+print(f"  Valeur : {m.sum(axis=0)}  (une valeur par colonne)")
+
+print(f"\nsum(axis=1) → shape {m.sum(axis=1).shape}")
+print(f"  Valeur : {m.sum(axis=1)}  (une valeur par ligne)")
+```
+
+## ✏️ Exercice 4 — Ufunc et agrégations
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+On a les notes de 30 étudiants à 5 matières :
+
+```python
+np.random.seed(42)
+notes = np.random.uniform(5, 20, size=(30, 5))
+matieres = ['Maths', 'Français', 'Histoire', 'Anglais', 'Sport']
+```
+
+1. **Moyenne par étudiant** (vecteur de 30 valeurs).
+2. **Moyenne par matière** (vecteur de 5 valeurs). Affiche-la avec les noms des matières.
+3. **Quelle matière a la meilleure moyenne ?** Utilise `argmax`.
+4. **Combien d'étudiants ont la moyenne ≥ 12** (moyenne sur leurs 5 notes) ?
+5. **Étudiant ayant la meilleure moyenne** : quel indice, quelle moyenne ?
+6. **Écart-type par matière** : quelle matière a les notes les plus dispersées ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+
+np.random.seed(42)
+notes = np.random.uniform(5, 20, size=(30, 5))
+matieres = ['Maths', 'Français', 'Histoire', 'Anglais', 'Sport']
+
+# 1. Moyenne par étudiant
+
+
+# 2. Moyenne par matière
+
+
+# 3. Matière avec meilleure moyenne
+
+
+# 4. Étudiants avec moyenne ≥ 12
+
+
+# 5. Meilleur étudiant
+
+
+# 6. Matière la plus dispersée
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+notes = np.random.uniform(5, 20, size=(30, 5))
+matieres = ['Maths', 'Français', 'Histoire', 'Anglais', 'Sport']
+
+# 1. Moyenne par étudiant (on écrase les colonnes → axis=1)
+moy_etudiants = notes.mean(axis=1)
+print(f"Moyennes des 5 premiers étudiants : {moy_etudiants[:5].round(2)}")
+
+# 2. Moyenne par matière (on écrase les lignes → axis=0)
+moy_matieres = notes.mean(axis=0)
+for nom, moy in zip(matieres, moy_matieres):
+    print(f"  {nom:10s} : {moy:.2f}")
+
+# 3. Matière avec meilleure moyenne
+idx_best = np.argmax(moy_matieres)
+print(f"\nMeilleure matière : {matieres[idx_best]} ({moy_matieres[idx_best]:.2f})")
+
+# 4. Étudiants ≥ 12
+n_bons = np.sum(moy_etudiants >= 12)
+print(f"Étudiants à ≥12 : {n_bons}")
+
+# 5. Meilleur étudiant
+idx_meilleur = np.argmax(moy_etudiants)
+print(f"Meilleur étudiant : n°{idx_meilleur} avec {moy_etudiants[idx_meilleur]:.2f}")
+
+# 6. Matière la plus dispersée
+stds = notes.std(axis=0)
+idx_disperse = np.argmax(stds)
+print(f"Matière la plus dispersée : {matieres[idx_disperse]} (std={stds[idx_disperse]:.2f})")
+```
+:::
+
+# Reshape et manipulation de forme
+
+## 🔄 Changer de forme sans changer les données
+
+```{python}
+a = np.arange(12)
+print(f"a (shape {a.shape}) : {a}")
+
+# Transformer en matrice 3x4
+m = a.reshape(3, 4)
+print(f"\nreshape(3, 4) :\n{m}")
+
+# -1 signifie "calcule automatiquement"
+m2 = a.reshape(2, -1)  # 2 lignes, ? colonnes → 6
+print(f"\nreshape(2, -1) :\n{m2}")
+```
+
+## ↔️ Aplatir un array
+
+```{python}
+m = np.arange(12).reshape(3, 4)
+
+# flatten : copie
+flat = m.flatten()
+print(f"flatten : {flat}")
+
+# ravel : vue (plus rapide, mais partage la mémoire)
+raveled = m.ravel()
+print(f"ravel   : {raveled}")
+```
+
+## 🎯 Transposition
+
+```{python}
+m = np.array([[1, 2, 3], [4, 5, 6]])
+print(f"m (shape {m.shape}) :\n{m}\n")
+print(f"m.T (shape {m.T.shape}) :\n{m.T}")
+```
+
+## 🧱 Empilement et concaténation
+
+```{python}
+a = np.array([1, 2, 3])
+b = np.array([4, 5, 6])
+
+# Horizontalement (côte à côte)
+h = np.hstack([a, b])
+print(f"hstack : {h}")
+
+# Verticalement (empiler)
+v = np.vstack([a, b])
+print(f"\nvstack :\n{v}")
+
+# Plus général : concatenate avec axis
+c = np.concatenate([a, b])
+print(f"\nconcatenate : {c}")
+```
+
+# Masquage conditionnel : `np.where`
+
+**`np.where`** est LA fonction pour créer des arrays conditionnels — c'est l'équivalent du ternaire Python, mais vectorisé.
+
+```{python}
+ages = np.array([15, 22, 17, 45, 30, 12, 65])
+
+# Si âge ≥ 18, retourne "Adulte", sinon "Mineur"
+categories = np.where(ages >= 18, 'Adulte', 'Mineur')
+print(categories)
+
+# Avec des valeurs numériques : remplacer les valeurs hors plage
+notes = np.array([8, 15, 22, 10, -3, 25])  # certaines sont invalides
+notes_clean = np.where((notes < 0) | (notes > 20), np.nan, notes)
+print(f"\nNotes nettoyées : {notes_clean}")
+```
+
+## ✏️ Exercice 5 — Reshape et where
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un array de 24 valeurs (de 1 à 24), puis reshape-le en une matrice 2×3×4 (3 dimensions !). Affiche le résultat et sa shape.
+
+2. Soit le dataset de ventes sur 4 trimestres pour 5 produits :
+```python
+ventes = np.array([
+    [100, 150, 200, 180],  # produit 1
+    [80, 95, 105, 110],    # produit 2
+    [45, 40, 52, 48],      # produit 3
+    [200, 220, 195, 210],  # produit 4
+    [15, 12, 18, 14]       # produit 5
+])
+```
+   a. Transpose la matrice pour avoir les trimestres en lignes et les produits en colonnes.  
+   b. Utilise `np.where` pour classifier chaque vente en "faible" (<50), "moyenne" (50-150) ou "forte" (>150).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 5
+
+# 1. Array 3D
+
+
+# 2. Ventes : transposition + classification
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Array 3D
+a = np.arange(1, 25).reshape(2, 3, 4)
+print(f"Shape : {a.shape}")
+print(f"Array :\n{a}")
+```
+
+```{python}
+# 2. Ventes
+ventes = np.array([
+    [100, 150, 200, 180],
+    [80, 95, 105, 110],
+    [45, 40, 52, 48],
+    [200, 220, 195, 210],
+    [15, 12, 18, 14]
+])
+
+# a. Transposition
+ventes_T = ventes.T
+print(f"Shape transposée : {ventes_T.shape} (4 trimestres, 5 produits)")
+print(ventes_T)
+
+# b. Classification
+# On imbrique deux np.where
+categories = np.where(
+    ventes < 50, 
+    'faible',
+    np.where(ventes > 150, 'forte', 'moyenne')
+)
+print(f"\nCatégories :\n{categories}")
+```
+:::
+
+# 🏁 Exercice bilan — Standardisation vectorisée d'un dataset
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+**Ton défi** : reprendre le dataset immobilier du TP du Module 1, mais faire **toutes les étapes de préparation sans boucle** (100% vectorisé NumPy).
+
+```python
+# Générer un petit dataset
+np.random.seed(42)
+n = 50
+surfaces = np.random.uniform(20, 150, n)
+occupants = np.random.randint(1, 6, n)
+ages_batiment = np.random.randint(0, 80, n)
+prix = (2500 * surfaces + 5000 * occupants - 500 * ages_batiment 
+        + np.random.normal(0, 10000, n) + 50000)
+
+# Injecter quelques outliers et valeurs manquantes sous forme de NaN
+prix[3] = 9_999_999  # outlier
+prix[17] = np.nan    # valeur manquante
+surfaces[25] = 500   # outlier
+```
+
+**À faire en utilisant uniquement NumPy** (pas de Pandas, pas de boucles) :
+
+1. **Détecter les NaN** dans `prix` et construire un masque `has_nan`.
+2. **Imputer les NaN** de `prix` par la médiane des valeurs non-NaN.
+3. **Détecter les outliers** avec la règle IQR sur `prix` et sur `surfaces`.
+4. **Supprimer** toutes les lignes qui ont un outlier sur l'une ou l'autre variable. (Travaille sur l'union des masques.)
+5. **Construire la matrice X** (colonnes : surfaces, occupants, ages_batiment).
+6. **Normaliser X** (centrage-réduction) en une seule ligne grâce au broadcasting.
+7. **Calculer la corrélation** entre surfaces et prix (après nettoyage) — utilise `np.corrcoef`.
+8. Affiche le nombre de lignes finales et la shape de ta matrice X normalisée.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+
+np.random.seed(42)
+n = 50
+surfaces = np.random.uniform(20, 150, n)
+occupants = np.random.randint(1, 6, n)
+ages_batiment = np.random.randint(0, 80, n)
+prix = (2500 * surfaces + 5000 * occupants - 500 * ages_batiment 
+        + np.random.normal(0, 10000, n) + 50000)
+prix[3] = 9_999_999
+prix[17] = np.nan
+surfaces[25] = 500
+
+# 1-8. À toi !
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 50
+surfaces = np.random.uniform(20, 150, n)
+occupants = np.random.randint(1, 6, n)
+ages_batiment = np.random.randint(0, 80, n)
+prix = (2500 * surfaces + 5000 * occupants - 500 * ages_batiment 
+        + np.random.normal(0, 10000, n) + 50000)
+prix[3] = 9_999_999
+prix[17] = np.nan
+surfaces[25] = 500
+
+# 1. Masque NaN
+has_nan = np.isnan(prix)
+print(f"NaN dans prix : {has_nan.sum()}")
+
+# 2. Imputation par la médiane
+mediane_prix = np.nanmedian(prix)  # ignore les NaN
+prix = np.where(has_nan, mediane_prix, prix)
+print(f"Après imputation : {np.isnan(prix).sum()} NaN restants")
+
+# 3. Détection outliers par IQR
+def detecter_outliers_iqr(x):
+    q1 = np.percentile(x, 25)
+    q3 = np.percentile(x, 75)
+    iqr = q3 - q1
+    return (x < q1 - 1.5*iqr) | (x > q3 + 1.5*iqr)
+
+out_prix = detecter_outliers_iqr(prix)
+out_surf = detecter_outliers_iqr(surfaces)
+print(f"Outliers prix     : {out_prix.sum()}")
+print(f"Outliers surface  : {out_surf.sum()}")
+
+# 4. Masque global (à GARDER = non outlier)
+a_garder = ~(out_prix | out_surf)
+print(f"Lignes à garder   : {a_garder.sum()} sur {n}")
+
+# Appliquer le masque à toutes les variables
+surfaces_clean = surfaces[a_garder]
+occupants_clean = occupants[a_garder]
+ages_clean = ages_batiment[a_garder]
+prix_clean = prix[a_garder]
+
+# 5. Construire X (on empile les colonnes)
+X = np.column_stack([surfaces_clean, occupants_clean, ages_clean])
+print(f"\nShape de X : {X.shape}")
+
+# 6. Normalisation en UNE ligne grâce au broadcasting
+X_norm = (X - X.mean(axis=0)) / X.std(axis=0)
+print(f"Moyennes après normalisation : {X_norm.mean(axis=0).round(3)}")
+print(f"Std après normalisation      : {X_norm.std(axis=0).round(3)}")
+
+# 7. Corrélation surface/prix
+corr = np.corrcoef(surfaces_clean, prix_clean)[0, 1]
+print(f"\nCorrélation surface ↔ prix : {corr:.3f}")
+
+# 8. Résumé final
+print(f"\n=== Résumé ===")
+print(f"Lignes finales : {X.shape[0]}")
+print(f"Shape X_norm   : {X_norm.shape}")
+```
+
+**Comparaison avec le Module 1** :  
+Au Module 1, on avait fait exactement ce travail sur le dataset immobilier, mais en plusieurs dizaines de lignes (parfois avec des boucles ou avec pandas). Ici, en **une petite vingtaine de lignes NumPy pur**, on a tout fait : détection NaN, imputation, IQR, filtrage, construction, normalisation.
+
+C'est ça, la puissance de NumPy. Et au Module 4, scikit-learn va tout faire en 3 lignes (mais sous le capot, c'est exactement ce code). **Toi, tu comprends pourquoi ça marche.**
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois savoir faire
+
+| Besoin | Commande |
+|---|---|
+| Créer un array | `np.array`, `zeros`, `ones`, `arange`, `linspace`, `full`, `eye` |
+| Infos sur un array | `.shape`, `.ndim`, `.size`, `.dtype` |
+| Slicing 2D | `m[1:3, 2:4]` |
+| Masque booléen | `a[a > 5]`, `a[(a > 5) & (a < 10)]` |
+| Fancy indexing | `a[[0, 2, 5]]` |
+| Broadcasting | `X - X.mean(axis=0)` |
+| Agrégation avec axe | `a.sum(axis=0)`, `a.mean(axis=1)` |
+| Remplacement conditionnel | `np.where(cond, si_vrai, si_faux)` |
+| Reshape | `a.reshape(3, -1)`, `a.flatten()`, `a.T` |
+| Normalisation complète | `(X - X.mean(axis=0)) / X.std(axis=0)` |
+
+## 🧠 Les 5 principes à retenir
+
+1. **Pas de boucles Python** pour les opérations mathématiques → utiliser des ufunc
+2. **Broadcasting** pour opérer sur des shapes différentes sans effort
+3. **axis=0** : écrase les lignes (agrège par colonne). **axis=1** : inverse
+4. **Masques booléens** pour filtrer, **fancy indexing** pour sélectionner
+5. **Vue vs copie** : les slices partagent la mémoire, `np.copy()` si besoin
+
+## 🚀 La suite
+
+Dans la [**Notion 2.2 — Pandas en profondeur**](notion_2_2_pandas.qmd), on passera à la bibliothèque qui s'appuie sur NumPy pour manipuler des **tableaux nommés** (DataFrame). Tu vas voir : une fois NumPy maîtrisé, Pandas devient naturel.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+Reprends **tout le TP sommatif du Module 1** et essaie de le refaire en **NumPy pur**, sans Pandas. Tu te rendras compte que certaines étapes (comme les GroupBy) sont très pénibles sans Pandas — c'est ce qui justifiera l'existence de Pandas dans la prochaine notion.
+:::

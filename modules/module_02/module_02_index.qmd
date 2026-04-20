@@ -1,0 +1,85 @@
+---
+title: "Module 2 — NumPy, Pandas, Matplotlib"
+subtitle: "La boîte à outils indispensable du data scientist"
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_02/module_02_index_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_02/module_02_index_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_02_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+## 🎯 Pourquoi ce module ?
+
+Au Module 1, tu as appris **les maths** du machine learning et tu as construit ton premier modèle à la main. Maintenant, il est temps de **consolider les outils** que tu vas utiliser tous les jours pendant toute ta carrière.
+
+Ce module te transforme en **utilisateur·rice fluide** de l'écosystème data Python :
+
+- **NumPy** pour les calculs numériques vectorisés
+- **Pandas** pour manipuler des tableaux nommés (DataFrame)
+- **Matplotlib / Seaborn** pour des visualisations propres et percutantes
+
+Ce n'est pas un module "théorique" — c'est un module **outil**. À la fin, tu dois savoir manipuler n'importe quel dataset sans hésitation.
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local (recommandé)
+
+<a href="../../ressources_eleves/module_02_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 2 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Depuis chaque page de notion, le bouton « Ouvrir dans Colab » en haut te permet de lancer le notebook sans rien installer.
+:::
+
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Manipuler **n'importe quel tableau** de données avec fluidité
+- Éviter 95% des boucles Python grâce à NumPy vectorisé
+- Charger, nettoyer, transformer et agréger des données avec Pandas
+- Produire des **visualisations professionnelles** qui racontent une histoire
+- Passer d'un CSV brut à un rapport d'analyse en quelques minutes
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **2.1** | [NumPy avancé](notion_2_1_numpy_avance.qmd) | 4-5 h |
+| **2.2** | Pandas en profondeur _(à venir)_ | 5-6 h |
+| **2.3** | Matplotlib et Seaborn _(à venir)_ | 4-5 h |
+| **🎓 TP** | Tableau de bord d'analyse _(à venir)_ | 6-8 h |
+
+## 💡 Approche pédagogique
+
+Ce module est plus "outillé" que le Module 1. On y va par **petits exercices très ciblés** : un geste, un exercice. À la fin de chaque notion, le TP de fin de module (et celui du Module 2) te feront utiliser **tout à la fois** sur un dataset réaliste.
+
+::: {.callout-tip}
+## 🧠 Un conseil précieux
+Ne cherche pas à tout **retenir par cœur**. Cherche à **reconnaître** : quand tu verras un problème, tu dois te dire « ah, il me faut un `groupby` » ou « broadcasting ici ». La syntaxe exacte, tu la retrouveras vite.
+:::
+
+---
+
+[**→ Commencer par la Notion 2.1 : NumPy avancé**](notion_2_1_numpy_avance.qmd)
