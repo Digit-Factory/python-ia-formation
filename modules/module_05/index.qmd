@@ -1,0 +1,78 @@
+---
+title: "Module 5 — Machine Learning non supervisé"
+subtitle: "Découvrir la structure cachée des données sans labels"
+---
+
+## 🎯 Pourquoi ce module ?
+
+Jusqu'ici (Module 4), tu avais toujours des **labels** : « fraude ou pas », « prix de l'appart », « va quitter ou non ». Le modèle **apprenait** à prédire ce label.
+
+Mais **80% des données en entreprise n'ont PAS de labels** :
+- Les logs de navigation de tes utilisateurs
+- Les transactions de tes clients
+- Les tickets support
+- Les images de ton catalogue produit
+
+Comment apprendre quelque chose **sans réponse fournie** ?
+
+👉 C'est le rôle de l'**apprentissage non supervisé** : détecter la structure, les groupes, les anomalies, **sans qu'on te dise quoi chercher**.
+
+## 📋 Ce que tu sauras faire à la fin
+
+- **Segmenter** des clients ou objets en groupes naturels (clustering)
+- **Réduire la dimension** de tes données pour les visualiser ou compresser
+- **Détecter les anomalies** (transactions inhabituelles, pannes...)
+- Choisir le bon nombre de **clusters** avec des métriques objectives
+- Combiner non-supervisé et supervisé dans un pipeline industriel
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local
+
+<a href="../../ressources_eleves/module_05_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 5 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Depuis chaque notion, le bouton « Ouvrir dans Colab » lance le notebook directement.
+:::
+
+:::
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **5.1** | [Introduction au non supervisé](notion_5_1_intro_non_supervise.qmd) | 2-3 h |
+| **5.2** | Clustering : k-means _(à venir)_ | 3-4 h |
+| **5.3** | Clustering avancé : DBSCAN, hiérarchique _(à venir)_ | 3 h |
+| **5.4** | Réduction de dimension : PCA _(à venir)_ | 3-4 h |
+| **5.5** | Visualisation non-linéaire : t-SNE, UMAP _(à venir)_ | 2-3 h |
+| **5.6** | Détection d'anomalies _(à venir)_ | 3 h |
+| **🎓 TP** | Segmentation client _(à venir)_ | 8-10 h |
+
+## 💡 Approche pédagogique
+
+Le non-supervisé est **plus subjectif** que le supervisé. Il n'y a pas de "bonne réponse" universelle — il y a des **choix à justifier**.
+
+1. **Intuition visuelle d'abord** : chaque algorithme sera présenté graphiquement
+2. **From scratch pour comprendre** : k-means et PCA seront codés à la main avant sklearn
+3. **Métriques adaptées** : silhouette, inertie — des scores sans labels
+4. **Applications métier concrètes** : segmentation, compression, détection de fraude
+
+::: {.callout-tip}
+## 🎯 Un conseil précieux
+En non-supervisé, tu découvriras qu'il existe **plusieurs segmentations légitimes** d'un même dataset. Ton rôle n'est pas de trouver LA bonne, mais d'en trouver **une utile** pour ton cas d'usage. La justification métier est **plus importante** que les métriques !
+:::
+
+---
+
+[**→ Commencer par la Notion 5.1 : Introduction au non supervisé**](notion_5_1_intro_non_supervise.qmd)

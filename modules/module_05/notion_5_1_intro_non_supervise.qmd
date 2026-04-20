@@ -1,0 +1,563 @@
+---
+title: "Notion 5.1 — Introduction au ML non supervisé"
+subtitle: "Apprendre sans étiquettes : découvrir la structure cachée"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_1_intro_non_supervise_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_1_intro_non_supervise_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 2 à 3 heures  
+**Prérequis** : Module 4 (ML supervisé)  
+**Objectif** : comprendre le cadre général du ML non supervisé et les 3 grandes familles de problèmes
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Distinguer les **3 grandes tâches** du non supervisé
+- Comprendre les **différences fondamentales** avec le supervisé
+- Savoir **quand utiliser** chaque famille d'algorithmes
+- Évaluer un modèle non supervisé **sans vérité terrain**
+- Réaliser ton **premier clustering** en 5 lignes avec scikit-learn
+
+## 🎯 Pourquoi cette notion ?
+
+Avant de plonger dans les algorithmes, il faut que tu aies **le cadre mental** du non supervisé. Cette notion est **volontairement plus courte** que la 4.1 : le vocabulaire est léger, mais les **réflexes à adopter** sont très différents du supervisé.
+
+**Le piège classique** : continuer à penser en mode « vrai/faux », « bonne réponse ». En non supervisé, **tu es le juge**. C'est libérateur mais déroutant.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import make_blobs, make_moons
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.ensemble import IsolationForest
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Supervisé vs non supervisé : la différence fondamentale
+
+## 🔍 Rappel du supervisé
+
+```
+Tu as : (X, y)    →   tu cherches : f(X) ≈ y
+```
+
+Chaque observation est **étiquetée**. L'algorithme apprend à reproduire l'étiquette.
+
+**Exemple** :
+- X = {âge, revenu, ancienneté}
+- y = "a quitté la banque" (0 ou 1)
+- Objectif : apprendre à prédire y pour de nouveaux clients
+
+## 🕵️ Le non supervisé
+
+```
+Tu as : X seulement   →   tu cherches : la structure de X
+```
+
+**Pas de y. Tu dois "deviner" quelque chose d'utile** à partir des observations.
+
+**Exemple** :
+- X = {âge, revenu, ancienneté} de 10 000 clients
+- Objectif : trouver **des groupes** de clients similaires pour une campagne marketing ciblée
+
+Tu ne sais **pas à l'avance** combien de groupes, ni ce qu'ils représentent. C'est l'algorithme qui les découvre.
+
+## 📊 Visualiser la différence
+
+```{python}
+#| label: fig-sup-vs-unsup
+#| fig-cap: "Supervisé (gauche) vs non supervisé (droite)"
+
+# Générer des données
+np.random.seed(0)
+X, y = make_blobs(n_samples=200, centers=3, cluster_std=1.0, random_state=0)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Supervisé : on a les labels
+axes[0].scatter(X[:, 0], X[:, 1], c=y, cmap="viridis", s=50, edgecolor="black", alpha=0.7)
+axes[0].set_title("SUPERVISÉ\nChaque point a un label (couleur connue)", fontweight="bold")
+axes[0].set_xlabel("x1")
+axes[0].set_ylabel("x2")
+
+# Non supervisé : on ne connaît pas les labels
+axes[1].scatter(X[:, 0], X[:, 1], c="gray", s=50, edgecolor="black", alpha=0.7)
+axes[1].set_title("NON SUPERVISÉ\nAucun label — à nous de trouver les groupes", fontweight="bold")
+axes[1].set_xlabel("x1")
+axes[1].set_ylabel("x2")
+
+plt.tight_layout()
+plt.show()
+```
+
+**À gauche** : chaque point a une couleur → on sait à quel groupe il appartient, on peut entraîner un classificateur.
+
+**À droite** : tous les points sont gris → on doit **découvrir** les groupes seul(e).
+
+# 2. Les 3 grandes familles du non supervisé
+
+Il y a **3 types de problèmes** principaux en non supervisé, chacun avec ses algos.
+
+## 🎯 Famille 1 : Clustering (partitionnement)
+
+**Objectif** : regrouper des observations **similaires**.
+
+```{python}
+#| label: fig-clustering
+#| fig-cap: "Clustering : regrouper les observations similaires"
+
+np.random.seed(0)
+X, _ = make_blobs(n_samples=300, centers=4, cluster_std=1.2, random_state=0)
+
+from sklearn.cluster import KMeans
+kmeans = KMeans(n_clusters=4, n_init=10, random_state=0)
+labels = kmeans.fit_predict(X)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+axes[0].scatter(X[:, 0], X[:, 1], c="gray", s=50, alpha=0.6, edgecolor="black")
+axes[0].set_title("Avant clustering : on voit des groupes intuitivement")
+
+axes[1].scatter(X[:, 0], X[:, 1], c=labels, cmap="viridis", s=50, alpha=0.7, edgecolor="black")
+axes[1].scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1],
+                marker="X", s=300, c="red", edgecolor="black", linewidth=2, label="Centres")
+axes[1].set_title("Après clustering : les groupes sont identifiés")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Applications** :
+- **Segmentation client** (marketing : grouper les clients par profil)
+- **Classification de documents** (tri automatique d'articles de presse)
+- **Découverte de sous-populations** (médecine : sous-types de maladies)
+- **Pré-traitement** avant un modèle supervisé
+
+**Algorithmes principaux** (Notions 5.2, 5.3) :
+- **k-means** : rapide, simple, nécessite de connaître `k`
+- **DBSCAN** : détecte des clusters de forme quelconque + outliers
+- **Clustering hiérarchique** : produit une hiérarchie (dendrogramme)
+
+## 📉 Famille 2 : Réduction de dimension
+
+**Objectif** : projeter des données dans un espace **plus petit** en gardant l'essentiel.
+
+```{python}
+#| label: fig-dim-reduction
+#| fig-cap: "Réduction de dimension : projeter des données 3D en 2D"
+
+# Données 3D artificielles
+np.random.seed(0)
+n = 200
+t = np.random.uniform(0, 2*np.pi, n)
+x = np.sin(t) + np.random.normal(0, 0.1, n)
+y_coord = np.cos(t) + np.random.normal(0, 0.1, n)
+z = 0.5 * t + np.random.normal(0, 0.1, n)
+
+fig = plt.figure(figsize=(14, 5))
+
+# Avant : 3D
+ax1 = fig.add_subplot(121, projection='3d')
+ax1.scatter(x, y_coord, z, c=t, cmap="viridis", s=30)
+ax1.set_title("Données en 3D (dur à visualiser)")
+ax1.set_xlabel("x1"); ax1.set_ylabel("x2"); ax1.set_zlabel("x3")
+
+# Après : 2D via PCA
+X_3d = np.column_stack([x, y_coord, z])
+X_2d = PCA(n_components=2).fit_transform(X_3d)
+
+ax2 = fig.add_subplot(122)
+ax2.scatter(X_2d[:, 0], X_2d[:, 1], c=t, cmap="viridis", s=50, edgecolor="black")
+ax2.set_title("Projection en 2D via PCA (beaucoup plus lisible)")
+ax2.set_xlabel("Composante 1"); ax2.set_ylabel("Composante 2")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Applications** :
+- **Visualisation** de données haute dimension (>3D)
+- **Compression** : stocker/transmettre moins de données
+- **Accélération** : entraîner des modèles plus vite sur moins de features
+- **Débruitage** : en projetant, on perd le bruit
+
+**Algorithmes principaux** (Notions 5.4, 5.5) :
+- **PCA** : linéaire, rapide, interprétable
+- **t-SNE** : non-linéaire, excellent pour visualiser, lent
+- **UMAP** : alternative moderne à t-SNE, plus rapide
+
+## 🚨 Famille 3 : Détection d'anomalies
+
+**Objectif** : identifier les observations **atypiques** (outliers, fraudes, pannes...).
+
+```{python}
+#| label: fig-anomaly
+#| fig-cap: "Détection d'anomalies : trouver les points inhabituels"
+
+# Générer des données "normales" + quelques anomalies
+np.random.seed(0)
+X_normal = np.random.randn(200, 2) * 1.5
+X_anomalies = np.random.uniform(-6, 6, (10, 2))
+X_mix = np.vstack([X_normal, X_anomalies])
+
+# Détecter avec IsolationForest
+iso = IsolationForest(contamination=0.05, random_state=0)
+is_anomaly = iso.fit_predict(X_mix) == -1
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+axes[0].scatter(X_mix[:, 0], X_mix[:, 1], c="gray", s=50, alpha=0.6, edgecolor="black")
+axes[0].set_title("Avant : on voit des points 'perdus'")
+
+axes[1].scatter(X_mix[~is_anomaly, 0], X_mix[~is_anomaly, 1], 
+                c="steelblue", s=40, alpha=0.6, edgecolor="black", label="Normal")
+axes[1].scatter(X_mix[is_anomaly, 0], X_mix[is_anomaly, 1],
+                c="red", s=100, marker="X", edgecolor="black", linewidth=2, label="Anomalie")
+axes[1].set_title("Après : les anomalies sont identifiées")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Applications** :
+- **Détection de fraude bancaire** (complément aux modèles supervisés)
+- **Maintenance prédictive** (capteurs industriels)
+- **Surveillance réseau** (cybersécurité)
+- **Contrôle qualité** (défauts de fabrication)
+
+**Algorithmes principaux** (Notion 5.6) :
+- **Isolation Forest**
+- **Local Outlier Factor (LOF)**
+- **One-class SVM**
+
+# 3. Tableau comparatif : supervisé vs non supervisé
+
+| Aspect | Supervisé | Non supervisé |
+|---|---|---|
+| **Données** | (X, y) | X seulement |
+| **Objectif** | Prédire y | Découvrir la structure de X |
+| **Évaluation** | Accuracy, F1, RMSE... | **Métriques spécifiques** (silhouette, inertie) |
+| **Vérité terrain** | Existe | **N'existe pas** |
+| **Choix du modèle** | Celui qui minimise l'erreur | Celui qui **fait sens métier** |
+| **Hyperparamètres** | Optimisés sur validation | Guidés par visualisation et intuition |
+| **Reproductibilité** | Oui, via métriques | Dépend de l'interprétation |
+| **Usage typique** | Prédiction en production | Exploration, segmentation, prétraitement |
+
+# 4. Premier exemple en 5 lignes : un clustering
+
+Assez de théorie — **faisons tourner un premier algorithme non supervisé**.
+
+```{python}
+# Générer un dataset avec des groupes naturels
+from sklearn.datasets import make_blobs
+X, vrais_labels = make_blobs(n_samples=300, centers=4, cluster_std=1.0, random_state=0)
+
+print(f"Shape de X : {X.shape}")
+print("On 'oublie' les vrais labels — comme en vrai !")
+```
+
+## 🚀 Les 5 lignes magiques
+
+```{python}
+from sklearn.cluster import KMeans
+
+# 1. Créer le modèle
+kmeans = KMeans(n_clusters=4, n_init=10, random_state=0)
+
+# 2. Entraîner (sans labels !)
+kmeans.fit(X)
+
+# 3. Récupérer les clusters assignés
+clusters = kmeans.labels_
+
+# 4. Et les centres des clusters
+centres = kmeans.cluster_centers_
+
+# 5. Visualiser
+print(f"Clusters trouvés : {np.unique(clusters)}")
+print(f"Nb points par cluster : {np.bincount(clusters)}")
+```
+
+## 🎨 Visualisation
+
+```{python}
+#| label: fig-premier-clustering
+#| fig-cap: "Ton premier clustering"
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+ax.scatter(X[:, 0], X[:, 1], c=clusters, cmap="viridis", s=50, alpha=0.7, edgecolor="black")
+ax.scatter(centres[:, 0], centres[:, 1], 
+           marker="X", s=300, c="red", edgecolor="black", linewidth=2, label="Centres")
+
+ax.set_title("Clustering k-means (k=4)")
+ax.set_xlabel("x1")
+ax.set_ylabel("x2")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+🎉 **Tu viens de faire ton premier clustering !** Le modèle a trouvé les 4 groupes **sans qu'on lui dise** où ils étaient.
+
+::: {.callout-note}
+## 💡 L'astuce `n_init=10`
+`KMeans` est sensible à l'initialisation (point de départ aléatoire). `n_init=10` lance l'algorithme **10 fois** avec des départs différents et garde le meilleur résultat. **Toujours** mettre ça (ou `"auto"`) pour un résultat stable.
+:::
+
+## ✏️ Exercice 1 — Varier le nombre de clusters
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le même dataset `X` généré précédemment :
+
+1. Lance `KMeans` avec `n_clusters = 2, 3, 4, 5, 6` successivement
+2. Pour chaque `k`, affiche le résultat dans un **subplot** différent (5 sous-graphes au total)
+3. Note combien de clusters semblent **visuellement cohérents** avec les données
+4. Est-ce que le modèle "sait" que 4 est la bonne réponse ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fig, axes = plt.subplots(1, 5, figsize=(22, 4))
+
+for ax, k in zip(axes, [2, 3, 4, 5, 6]):
+    km = KMeans(n_clusters=k, n_init=10, random_state=0)
+    clusters = km.fit_predict(X)
+    
+    ax.scatter(X[:, 0], X[:, 1], c=clusters, cmap="viridis", s=30, alpha=0.7)
+    ax.scatter(km.cluster_centers_[:, 0], km.cluster_centers_[:, 1],
+               marker="X", s=150, c="red", edgecolor="black", linewidth=2)
+    ax.set_title(f"k = {k}")
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- `k=2` ou `k=3` : le modèle **fusionne** des groupes qui devraient être séparés → sous-segmentation
+- `k=4` : visuellement **parfait**
+- `k=5` ou `k=6` : le modèle **coupe** artificiellement un vrai groupe → sur-segmentation
+
+**Le modèle ne sait pas** que 4 est la bonne réponse. **C'est toi** qui dois le décider en regardant :
+- Visuellement (ici c'est évident, mais en 50 dimensions...)
+- Via des métriques comme la **silhouette** ou l'**inertie** (Notion 5.2)
+- En te demandant : **cette segmentation est-elle actionnable pour mon métier ?**
+:::
+
+# 5. Le défi de l'évaluation
+
+## 🤔 Comment savoir si un modèle non supervisé est "bon" ?
+
+En supervisé, c'était facile : `accuracy_score(y_test, y_pred)`. Et voilà.
+
+**En non supervisé, on n'a pas de `y_test`.** Alors comment mesurer la qualité ?
+
+Plusieurs approches :
+
+### Approche 1 : Métriques internes
+
+Mesurent la **cohérence** des clusters eux-mêmes, sans vérité terrain.
+
+- **Inertie** (pour k-means) : somme des distances au centre du cluster → à **minimiser**
+- **Silhouette** (0 à 1) : à quel point un point est proche de son cluster vs des autres → à **maximiser**
+
+Ces métriques sont **indicatives** mais elles ne remplacent pas le jugement métier.
+
+### Approche 2 : Métriques externes (si on a des labels de référence)
+
+Parfois tu as un "vrai" clustering de référence (ex: dataset labellisé pour test).
+
+- **Adjusted Rand Index** (ARI)
+- **Normalized Mutual Information** (NMI)
+
+**Attention** : si tu avais déjà des labels, pourquoi tu ferais du non supervisé ? Ces métriques servent surtout à **comparer des algorithmes** sur des benchmarks.
+
+### Approche 3 : Évaluation métier (la plus importante)
+
+**La vraie question** : ta segmentation **sert-elle à quelque chose** ?
+
+- Les clusters ont-ils **une logique métier** (ex: « jeunes urbains », « retraités à gros patrimoine ») ?
+- Sont-ils **de tailles raisonnables** (pas un cluster de 3 personnes et un autre de 10 000) ?
+- **Peux-tu agir différemment** selon le cluster (campagne marketing ciblée, etc.) ?
+
+C'est **souvent l'équipe métier** qui valide, pas le data scientist seul.
+
+## 💡 L'exemple concret
+
+Imagine une banque qui segmente ses clients. Deux data scientists proposent :
+
+**Data scientist A** : 12 clusters, silhouette = 0.68  
+**Data scientist B** : 4 clusters, silhouette = 0.42
+
+L'équipe marketing peut-elle gérer **12 campagnes** différentes ? Probablement pas.  
+**B gagne**, même avec une moins bonne métrique — parce que c'est **actionnable**.
+
+## ✏️ Exercice 2 — Cas non-trivial
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+On va tester k-means sur un dataset **non convexe** (deux croissants imbriqués) :
+
+```python
+from sklearn.datasets import make_moons
+X, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+```
+
+1. Visualise les données (sans labels, tous en gris)
+2. Applique `KMeans(n_clusters=2)` et affiche les 2 clusters trouvés
+3. Les clusters trouvés correspondent-ils aux "vrais" groupes (les 2 croissants) ?
+
+**Indice pour interpréter** : regarde la forme des clusters trouvés par k-means.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_moons
+
+X_moons, y_moons = make_moons(n_samples=300, noise=0.05, random_state=0)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+# 1. Sans labels
+axes[0].scatter(X_moons[:, 0], X_moons[:, 1], c="gray", s=50, alpha=0.6, edgecolor="black")
+axes[0].set_title("Données brutes (2 croissants imbriqués)")
+
+# 2. Vrais groupes
+axes[1].scatter(X_moons[:, 0], X_moons[:, 1], c=y_moons, cmap="coolwarm", s=50, alpha=0.7, edgecolor="black")
+axes[1].set_title("VRAIS groupes (que k-means ne connaît pas)")
+
+# 3. k-means
+km_moons = KMeans(n_clusters=2, n_init=10, random_state=0)
+clusters = km_moons.fit_predict(X_moons)
+axes[2].scatter(X_moons[:, 0], X_moons[:, 1], c=clusters, cmap="coolwarm", s=50, alpha=0.7, edgecolor="black")
+axes[2].scatter(km_moons.cluster_centers_[:, 0], km_moons.cluster_centers_[:, 1],
+                marker="X", s=300, c="black", edgecolor="white", linewidth=2)
+axes[2].set_title("Clusters k-means (mauvais !)")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation cruciale** : **k-means rate complètement** les croissants. Il les coupe en 2 par le milieu, perpendiculairement aux vrais groupes.
+
+**Pourquoi ?** Parce que k-means fait des **clusters convexes** (en "boules"). Les croissants ne sont pas convexes.
+
+**Leçon** : le choix de l'algorithme **dépend de la forme des données**. On verra **DBSCAN** (Notion 5.3) qui gère ce genre de cas.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Supervisé** | On a (X, y), on prédit y |
+| **Non supervisé** | On a X seul, on découvre la structure |
+| **Clustering** | Regrouper les observations similaires |
+| **Réduction de dimension** | Projeter dans un espace plus petit |
+| **Détection d'anomalies** | Identifier les points atypiques |
+| **Évaluation** | Pas de vérité terrain → métriques internes + jugement métier |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Pas de vérité terrain** → accepte la subjectivité, documente tes choix
+2. **Visualiser avant tout** : en 2D/3D via PCA si besoin, toujours regarder les données
+3. **Le "bon" nombre de clusters** : guidé par métriques **ET** par le métier
+4. **`random_state`** et `n_init` fixés pour la reproductibilité
+5. **Le choix de l'algo dépend de la forme des données** (convexe ou non)
+
+## 🚨 Les pièges à éviter
+
+1. **Chercher LA bonne réponse** → il n'y en a pas en non-supervisé
+2. **Optimiser une métrique sans regarder les clusters** → ils peuvent être absurdes
+3. **Appliquer k-means à tout** → ça ne marche pas sur les formes non-convexes
+4. **Oublier de standardiser** : la distance est très sensible aux échelles
+5. **Pas de validation métier** : un beau clustering inutile = un échec
+
+## 🚀 La suite
+
+Dans la [**Notion 5.2 — Clustering : k-means**](notion_5_2_kmeans.qmd), on va **plonger en profondeur** dans l'algorithme que tu viens de découvrir :
+
+- Comment **k-means** fonctionne vraiment (itérations, minimisation d'inertie)
+- L'implémenter **from scratch** en NumPy
+- Choisir le bon `k` : **méthode du coude** et **silhouette**
+- Limites et pièges de k-means
+- Préprocessing indispensable : **standardisation**
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Sur le dataset Iris (classique du ML) :
+
+```python
+from sklearn.datasets import load_iris
+iris = load_iris()
+X = iris.data
+vrais_labels = iris.target  # à ne pas utiliser pour l'entraînement !
+```
+
+1. Applique `KMeans(n_clusters=3)` sur X (les 3 espèces)
+2. Compare visuellement les clusters trouvés aux vrais labels (via PCA en 2D)
+3. Le modèle retrouve-t-il les 3 espèces sans jamais avoir vu les labels ?
+
+C'est un exemple classique qui **montre la puissance** du non supervisé — on redécouvre la structure biologique en regardant juste 4 mesures !
+:::
