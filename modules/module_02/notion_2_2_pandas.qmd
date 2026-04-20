@@ -1,0 +1,1037 @@
+---
+title: "Notion 2.2 — Pandas en profondeur"
+subtitle: "Le couteau suisse de l'analyse de données"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_02/notion_2_2_pandas_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_02/notion_2_2_pandas_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_02_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 5 à 6 heures  
+**Prérequis** : Notion 2.1 (NumPy avancé, broadcasting, masques booléens)  
+**Objectif** : maîtriser Pandas pour charger, nettoyer, transformer et agréger n'importe quel dataset tabulaire
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre la différence entre **Series** et **DataFrame**, et quand utiliser chacun
+- Charger **n'importe quel fichier** (CSV, Excel, JSON, Parquet)
+- **Inspecter** un dataset efficacement en quelques commandes
+- Sélectionner des lignes/colonnes avec **`.loc`** et **`.iloc`**
+- Gérer les **valeurs manquantes** avec la bonne stratégie
+- Utiliser **`GroupBy`** pour répondre à n'importe quelle question d'analyse
+- **Joindre** plusieurs DataFrames (merge, concat, pivot_table)
+- Manipuler les **dates** comme un pro
+
+## 🎯 Pourquoi on fait ça ?
+
+Au Module 1, tu as utilisé Pandas de manière superficielle pour le TP immobilier. Ici, on rentre vraiment dans ce qui fait sa puissance.
+
+**Pandas, c'est Excel mais en code** — avec toute la puissance de Python derrière. Tu peux :
+
+- Charger un fichier de **millions de lignes** en quelques secondes
+- Filtrer, trier, agréger, pivoter **sans écrire de boucle**
+- Joindre plusieurs tables comme dans une base SQL
+- Exporter dans n'importe quel format
+
+Si tu travailles un jour avec de la data en entreprise (analyse, ML, BI...), tu passeras **80% de ton temps sur Pandas**. Il faut donc bien le maîtriser.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+
+print(f"✅ Pandas {pd.__version__}")
+print(f"✅ NumPy  {np.__version__}")
+```
+
+# Series et DataFrame : les deux structures fondamentales
+
+## 🔢 La Series : un tableau 1D avec un index
+
+Une **Series** c'est comme un vecteur NumPy, **mais avec un index nommé**. C'est l'équivalent d'une colonne de tableur.
+
+```{python}
+# Créer une Series
+ventes_par_mois = pd.Series(
+    [120, 150, 180, 210, 190, 220, 300, 280, 240, 260, 350, 400],
+    index=["Jan", "Fév", "Mar", "Avr", "Mai", "Juin", 
+           "Juil", "Août", "Sep", "Oct", "Nov", "Déc"],
+    name="ventes_mensuelles"
+)
+print(ventes_par_mois)
+```
+
+**Avantages sur un array NumPy** :
+- Accès par nom : `ventes_par_mois['Juin']` au lieu de `[5]`
+- Opérations conservent l'index
+- Méthodes intégrées : `.mean()`, `.sort_values()`, `.plot()`...
+
+```{python}
+print(f"Moyenne : {ventes_par_mois.mean():.1f}")
+print(f"Ventes en juin : {ventes_par_mois['Juin']}")
+print(f"\nMois où on a dépassé 250 :")
+print(ventes_par_mois[ventes_par_mois > 250])
+```
+
+## 📊 Le DataFrame : un tableau 2D
+
+Un **DataFrame** c'est un tableur complet : **plusieurs colonnes**, chacune étant une Series. C'est la structure que tu utiliseras 95% du temps.
+
+```{python}
+# Créer un DataFrame depuis un dictionnaire
+df = pd.DataFrame({
+    "ville": ["Paris", "Lyon", "Marseille", "Bordeaux", "Lille"],
+    "population": [2_148_000, 513_000, 862_000, 254_000, 232_000],
+    "surface_km2": [105, 48, 240, 49, 35],
+    "region": ["IDF", "ARA", "PACA", "NAQ", "HDF"]
+})
+
+print(df)
+```
+
+```{python}
+# Calculer une nouvelle colonne (densité)
+df["densite"] = df["population"] / df["surface_km2"]
+df["densite"] = df["densite"].round(0).astype(int)
+print(df)
+```
+
+## 🎯 Quand Series vs DataFrame ?
+
+| Structure | Cas d'usage |
+|---|---|
+| **Series** | Une seule colonne, une série temporelle simple, résultat d'agrégation |
+| **DataFrame** | Jeu de données tabulaire (CSV, table SQL, Excel...) |
+
+::: {.callout-tip}
+## 🧠 Astuce
+`df["colonne"]` te renvoie une **Series**.  
+`df[["colonne"]]` (double crochets) te renvoie un **DataFrame à 1 colonne**.
+
+C'est subtil mais important : la plupart des fonctions attendent l'un ou l'autre.
+:::
+
+## ✏️ Exercice 1 — Créer et explorer
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée une **Series** contenant la température moyenne de 7 jours de la semaine (choisis des valeurs réalistes).
+2. Affiche la température **moyenne**, **min** et **max**.
+3. Crée un **DataFrame** avec 5 employés ayant les colonnes : `nom`, `age`, `salaire`, `departement`.
+4. Ajoute une colonne `salaire_annuel` (= `salaire * 12`).
+5. Affiche uniquement les employés du département "IT".
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+
+# 1. Series de températures
+
+
+# 2. Stats
+
+
+# 3. DataFrame employés
+
+
+# 4. Colonne salaire annuel
+
+
+# 5. Filtrer IT
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1-2. Series de températures
+temp = pd.Series(
+    [18, 20, 22, 19, 17, 23, 25],
+    index=["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+    name="temperature_C"
+)
+print(temp)
+print(f"\nMoyenne : {temp.mean():.1f}°C")
+print(f"Min     : {temp.min()}°C (le {temp.idxmin()})")
+print(f"Max     : {temp.max()}°C (le {temp.idxmax()})")
+```
+
+```{python}
+# 3-5. DataFrame employés
+df = pd.DataFrame({
+    "nom": ["Alice", "Bob", "Claire", "David", "Emma"],
+    "age": [28, 45, 33, 52, 29],
+    "salaire": [3200, 4800, 3500, 5200, 2900],
+    "departement": ["IT", "RH", "IT", "Finance", "IT"]
+})
+
+df["salaire_annuel"] = df["salaire"] * 12
+
+print("=== Tous les employés ===")
+print(df)
+
+print("\n=== Employés IT ===")
+print(df[df["departement"] == "IT"])
+```
+:::
+
+# Charger des fichiers : l'entrée de toute analyse
+
+## 📂 Les lecteurs `read_*`
+
+Pandas lit **quasiment tous les formats** avec la même interface :
+
+```python
+pd.read_csv("fichier.csv")       # CSV
+pd.read_excel("fichier.xlsx")    # Excel
+pd.read_json("fichier.json")     # JSON
+pd.read_parquet("fichier.pq")    # Parquet (format optimisé)
+pd.read_html("http://...")       # Tableaux HTML d'une page web (!)
+pd.read_sql(query, connection)   # Base de données
+```
+
+Tous retournent un **DataFrame**.
+
+## 🔧 Options essentielles de `read_csv`
+
+```python
+pd.read_csv(
+    "fichier.csv",
+    sep=",",              # séparateur (, ; tab...)
+    decimal=".",          # séparateur décimal (. en anglais, , en français)
+    encoding="utf-8",     # encodage (ou "latin-1", "cp1252" pour fichiers français)
+    parse_dates=["date"], # convertit automatiquement en dates
+    na_values=["N/A", "-"], # valeurs à traiter comme NaN
+    nrows=1000,           # lire seulement les 1000 premières lignes
+    skiprows=2,           # ignorer les 2 premières lignes (commentaires)
+)
+```
+
+::: {.callout-warning}
+## ⚠️ Encodage : le piège numéro 1
+Les fichiers CSV français sont souvent en `latin-1` ou `cp1252`, pas en UTF-8. Si tu vois des caractères bizarres (`é` → `é`), essaie `encoding="latin-1"`.
+:::
+
+## 📊 Chargeons notre dataset
+
+```{python}
+#| echo: false
+# Chemin absolu pour le rendu
+df = pd.read_csv(
+    "ressources_tp/ventes_ecommerce.csv",
+    parse_dates=["date"]
+)
+print(f"✅ Chargement : {df.shape[0]} lignes, {df.shape[1]} colonnes")
+```
+
+```{python}
+#| eval: false
+df = pd.read_csv(
+    "ressources_tp/ventes_ecommerce.csv",
+    parse_dates=["date"]
+)
+print(f"✅ Chargement : {df.shape[0]} lignes, {df.shape[1]} colonnes")
+```
+
+# Inspection : le premier réflexe avant toute analyse
+
+## 👀 Les méthodes à connaître par cœur
+
+```{python}
+# Aperçu des premières lignes
+df.head(3)
+```
+
+```{python}
+# Les dernières
+df.tail(3)
+```
+
+```{python}
+# Types et valeurs manquantes
+df.info()
+```
+
+```{python}
+# Statistiques descriptives (colonnes numériques)
+df.describe()
+```
+
+```{python}
+# Forme et colonnes
+print(f"Shape : {df.shape}")
+print(f"Colonnes : {df.columns.tolist()}")
+```
+
+```{python}
+# Valeurs uniques d'une colonne
+print(df["categorie"].unique())
+```
+
+```{python}
+# Comptage des modalités
+print(df["statut"].value_counts())
+```
+
+## 💡 Un workflow type d'inspection
+
+En 5 commandes tu as une vue d'ensemble :
+
+```python
+df.shape               # Combien de lignes/colonnes ?
+df.head()              # À quoi ressemblent les données ?
+df.info()              # Quels types ? Des NaN ?
+df.describe()          # Stats des numériques
+df.isna().sum()        # Combien de NaN par colonne ?
+```
+
+```{python}
+df.isna().sum()
+```
+
+## ✏️ Exercice 2 — Inspection rapide
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le DataFrame `df` chargé :
+
+1. Combien de **transactions uniques** y a-t-il ? (indice : doublons)
+2. Quelle est la **période couverte** (date min et max) ?
+3. Combien de **clients uniques** ?
+4. Quelle est la **répartition des modes de paiement** (en %) ?
+5. Quel est le **montant total** sur toutes les transactions ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Doublons
+print(f"Lignes    : {len(df)}")
+print(f"Uniques   : {len(df.drop_duplicates())}")
+print(f"Doublons  : {df.duplicated().sum()}")
+```
+
+```{python}
+# 2. Période
+print(f"Période : du {df['date'].min().date()} au {df['date'].max().date()}")
+```
+
+```{python}
+# 3. Clients uniques
+print(f"Clients uniques : {df['id_client'].nunique()}")
+```
+
+```{python}
+# 4. Modes de paiement en %
+repartition = df["mode_paiement"].value_counts(normalize=True) * 100
+print(repartition.round(1))
+```
+
+```{python}
+# 5. CA total
+ca = df["montant_total"].sum()
+print(f"Chiffre d'affaires total : {ca:,.2f} €")
+```
+:::
+
+# Sélection : `.loc` et `.iloc`
+
+**La confusion numéro 1** des débutants Pandas : `.loc` vs `.iloc`.
+
+## 🏷️ `.loc` : sélection par **label** (nom)
+
+```{python}
+# Créons un DataFrame avec un index nommé
+df_petit = df.head(5).set_index("id_transaction")
+df_petit
+```
+
+```{python}
+# Sélectionner par le nom de l'index
+df_petit.loc["T00001"]
+```
+
+```{python}
+# Sélectionner plusieurs lignes et colonnes par nom
+df_petit.loc[["T00001", "T00003"], ["nom_produit", "montant_total"]]
+```
+
+## 🔢 `.iloc` : sélection par **position** (numéro)
+
+```{python}
+# iloc utilise les positions (comme une liste Python)
+df_petit.iloc[0]        # première ligne
+```
+
+```{python}
+df_petit.iloc[0:3, 0:2] # 3 premières lignes, 2 premières colonnes
+```
+
+## 🎭 Filtrage booléen (le plus fréquent)
+
+```{python}
+# Toutes les ventes > 100€
+grosses_ventes = df[df["montant_total"] > 100]
+print(f"Ventes > 100€ : {len(grosses_ventes)} sur {len(df)}")
+```
+
+```{python}
+# Combiner plusieurs conditions (ET avec &, OU avec |)
+# Exemple : ventes en région IDF OU PACA, ET livrées
+mask = (df["region"].isin(["Île-de-France", "PACA"])) & (df["statut"] == "Livrée")
+ventes_cibles = df[mask]
+print(f"Ventes IDF/PACA livrées : {len(ventes_cibles)}")
+```
+
+## 🧰 Méthodes utiles pour le filtrage
+
+```{python}
+# isin : filtre sur plusieurs valeurs
+mask = df["categorie"].isin(["Sport", "Électronique"])
+print(f"Sport + Électronique : {mask.sum()} lignes")
+
+# between : entre deux valeurs
+mask = df["montant_total"].between(50, 200)
+print(f"Ventes 50-200€ : {mask.sum()} lignes")
+
+# str.contains : recherche textuelle
+mask = df["nom_produit"].str.contains("cuir|laine", case=False)
+print(f"Produits cuir ou laine : {mask.sum()} lignes")
+```
+
+## ✏️ Exercice 3 — Sélection ciblée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Sélectionne toutes les ventes de la **catégorie "Livres"** effectuées **après le 1er juillet 2024**.
+2. Combien y en a-t-il, et quel est leur **montant total** cumulé ?
+3. Trouve toutes les ventes dont le **nom de produit contient le mot "Bluetooth"**.
+4. Affiche uniquement les colonnes `date`, `nom_produit`, `montant_total` pour ces ventes.
+5. Trouve la **transaction la plus chère** (le top 1). Astuce : `.sort_values()` puis `.head(1)`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Livres après le 1er juillet
+mask = (df["categorie"] == "Livres") & (df["date"] > "2024-07-01")
+livres_s2 = df[mask]
+print(f"Livres S2 2024 : {len(livres_s2)} ventes, {livres_s2['montant_total'].sum():.2f} €")
+```
+
+```{python}
+# 3-4. Recherche textuelle
+bluetooth = df[df["nom_produit"].str.contains("Bluetooth", case=False)]
+print(bluetooth[["date", "nom_produit", "montant_total"]].head())
+```
+
+```{python}
+# 5. Transaction la plus chère
+top = df.sort_values("montant_total", ascending=False).head(1)
+print(top[["date", "nom_produit", "quantite", "prix_unitaire", "montant_total"]])
+```
+:::
+
+# Valeurs manquantes : la bête noire de la data
+
+## 🔍 Détection
+
+```{python}
+# Combien de NaN par colonne ?
+df.isna().sum()
+```
+
+```{python}
+# Proportion de NaN
+(df.isna().sum() / len(df) * 100).round(2)
+```
+
+## 🧹 Trois stratégies de traitement
+
+### Stratégie 1 : supprimer les lignes concernées
+
+```{python}
+df_sans_nan = df.dropna()
+print(f"Avant : {len(df)} lignes")
+print(f"Après dropna() : {len(df_sans_nan)} lignes")
+```
+
+::: {.callout-warning}
+`dropna()` par défaut supprime **toute ligne qui a au moins un NaN**. Radical, mais parfois tu perds trop de données.
+:::
+
+```{python}
+# Supprimer uniquement sur certaines colonnes
+df_clean = df.dropna(subset=["region"])
+print(f"Sans region manquante : {len(df_clean)} lignes")
+```
+
+### Stratégie 2 : remplacer par une valeur
+
+```{python}
+# Remplacer les NaN de region par "Inconnue"
+df_imputed = df.copy()
+df_imputed["region"] = df_imputed["region"].fillna("Inconnue")
+
+# Vérifier
+print(df_imputed["region"].value_counts())
+```
+
+### Stratégie 3 : imputer intelligemment
+
+```{python}
+# Imputer par la modalité la plus fréquente
+mode_region = df["region"].mode()[0]
+df["region"] = df["region"].fillna(mode_region)
+
+mode_paiement = df["mode_paiement"].mode()[0]
+df["mode_paiement"] = df["mode_paiement"].fillna(mode_paiement)
+
+print(f"NaN restants : {df.isna().sum().sum()}")
+```
+
+::: {.callout-tip}
+## 🧠 Quelle stratégie choisir ?
+
+| Situation | Stratégie |
+|---|---|
+| Peu de NaN et données abondantes | `dropna()` |
+| NaN sur colonne numérique | `fillna(moyenne)` ou `fillna(médiane)` |
+| NaN sur colonne catégorielle | `fillna(mode)` ou `"Inconnue"` |
+| Beaucoup de NaN sur plusieurs colonnes | Imputation avancée (KNN, modèle...) |
+:::
+
+## ✏️ Exercice 4 — Nettoyage de valeurs manquantes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Reprends le DataFrame **avant** d'avoir nettoyé les NaN (recharge-le si besoin) :
+
+```python
+df_brut = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+```
+
+1. Combien de **lignes perdrais-tu** si tu faisais un `dropna()` naïf ?
+2. Combien de **lignes perdrais-tu** si tu supprimais uniquement les lignes où `montant_total` est manquant ?  
+3. Remplis `region` avec `"Inconnue"` et `mode_paiement` avec le mode (valeur la plus fréquente).
+4. **Supprime les doublons** et affiche combien il y en avait.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+df_brut = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+
+# 1. dropna naïf
+print(f"Avec dropna() : {len(df_brut.dropna())} lignes sur {len(df_brut)}")
+print(f"Perdues       : {len(df_brut) - len(df_brut.dropna())}")
+
+# 2. dropna ciblé sur montant_total
+print(f"\nSans montant_total manquant : {len(df_brut.dropna(subset=['montant_total']))}")
+
+# 3. Imputation
+df_clean = df_brut.copy()
+df_clean["region"] = df_clean["region"].fillna("Inconnue")
+df_clean["mode_paiement"] = df_clean["mode_paiement"].fillna(
+    df_clean["mode_paiement"].mode()[0]
+)
+print(f"\nNaN restants : {df_clean.isna().sum().sum()}")
+
+# 4. Doublons
+n_avant = len(df_clean)
+df_clean = df_clean.drop_duplicates()
+print(f"Doublons supprimés : {n_avant - len(df_clean)}")
+```
+:::
+
+# GroupBy : le cœur de l'analyse
+
+**`GroupBy`**, c'est ce qui transforme un simple tableau en vraies analyses business.
+
+## 🎯 Le principe "Split-Apply-Combine"
+
+1. **Split** : on coupe les données par groupes
+2. **Apply** : on applique une fonction à chaque groupe (somme, moyenne...)
+3. **Combine** : on recombine les résultats
+
+## 📊 Exemple 1 : CA par catégorie
+
+```{python}
+# 1 ligne pour répondre : quel CA par catégorie de produit ?
+ca_par_cat = df.groupby("categorie")["montant_total"].sum().sort_values(ascending=False)
+print(ca_par_cat)
+```
+
+## 📊 Exemple 2 : plusieurs statistiques d'un coup
+
+```{python}
+# Pour chaque catégorie : somme, moyenne, count
+stats_cat = df.groupby("categorie")["montant_total"].agg(["sum", "mean", "count"])
+print(stats_cat.round(2))
+```
+
+## 📊 Exemple 3 : groupby sur plusieurs colonnes
+
+```{python}
+# CA par catégorie ET région
+ca_cat_region = df.groupby(["categorie", "region"])["montant_total"].sum()
+print(ca_cat_region.head(10))
+```
+
+## 📊 Exemple 4 : différentes fonctions par colonne
+
+```{python}
+# Agrégations différentes selon la colonne
+result = df.groupby("categorie").agg(
+    ca_total=("montant_total", "sum"),
+    ca_moyen=("montant_total", "mean"),
+    nb_ventes=("id_transaction", "count"),
+    quantite_totale=("quantite", "sum")
+).round(2)
+
+print(result)
+```
+
+## ✏️ Exercice 5 — GroupBy maîtrisé
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. **CA total par mois** de l'année (utilise `df["date"].dt.month`).
+2. **Nombre de ventes par région**, trié du plus grand au plus petit.
+3. **Top 3 des meilleurs produits** en CA (par `nom_produit`).
+4. **Panier moyen par catégorie** (montant moyen par transaction).
+5. Pour chaque client, combien a-t-il dépensé **au total** ? Affiche le **top 5 clients**.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. CA par mois
+ca_mois = df.groupby(df["date"].dt.month)["montant_total"].sum()
+print("CA par mois :")
+print(ca_mois.round(0))
+```
+
+```{python}
+# 2. Ventes par région
+ventes_region = df.groupby("region").size().sort_values(ascending=False)
+print(ventes_region)
+```
+
+```{python}
+# 3. Top 3 produits
+top3_produits = (
+    df.groupby("nom_produit")["montant_total"].sum()
+    .sort_values(ascending=False).head(3)
+)
+print(top3_produits)
+```
+
+```{python}
+# 4. Panier moyen par catégorie
+panier_moyen = df.groupby("categorie")["montant_total"].mean().round(2)
+print(panier_moyen)
+```
+
+```{python}
+# 5. Top 5 clients
+top5_clients = (
+    df.groupby("id_client")["montant_total"].sum()
+    .sort_values(ascending=False).head(5)
+)
+print(top5_clients.round(2))
+```
+:::
+
+# Jointures : combiner plusieurs tables
+
+## 🔗 `merge` : le JOIN de SQL
+
+Imagine qu'on a deux tables :
+- **Ventes** : les transactions (celle qu'on a)
+- **Catalogue** : les infos détaillées des produits (avec les fournisseurs)
+
+On veut savoir **quel fournisseur a généré le plus de CA**. Pour ça, il faut **joindre** les deux tables sur `id_produit`.
+
+```{python}
+# Charger le catalogue
+catalogue = pd.read_csv("ressources_tp/catalogue_produits.csv")
+print(catalogue.head())
+```
+
+```{python}
+# Joindre les deux tables sur id_produit
+df_enrichi = df.merge(
+    catalogue[["id_produit", "fournisseur"]],
+    on="id_produit",
+    how="left"  # garde toutes les lignes de df, même sans correspondance
+)
+
+print(f"Avant merge : {df.shape}")
+print(f"Après merge : {df_enrichi.shape}")
+print(df_enrichi[["id_produit", "nom_produit", "fournisseur"]].head())
+```
+
+## 🎯 Les 4 types de `how`
+
+```{python}
+#| echo: false
+# Exemple simple pour visualiser les 4 types de jointures
+t1 = pd.DataFrame({"id": [1, 2, 3], "val_a": ["A", "B", "C"]})
+t2 = pd.DataFrame({"id": [2, 3, 4], "val_b": ["X", "Y", "Z"]})
+print("Table 1 :")
+print(t1)
+print("\nTable 2 :")
+print(t2)
+```
+
+```{python}
+# inner : seulement les lignes présentes dans LES DEUX tables
+print("inner :")
+print(t1.merge(t2, on="id", how="inner"))
+```
+
+```{python}
+# left : toutes les lignes de la table de gauche
+print("\nleft :")
+print(t1.merge(t2, on="id", how="left"))
+```
+
+```{python}
+# right : toutes les lignes de la table de droite
+print("\nright :")
+print(t1.merge(t2, on="id", how="right"))
+```
+
+```{python}
+# outer : toutes les lignes des deux tables
+print("\nouter :")
+print(t1.merge(t2, on="id", how="outer"))
+```
+
+## 📚 Maintenant avec la jointure enrichie
+
+```{python}
+# CA par fournisseur
+ca_fournisseur = (
+    df_enrichi.groupby("fournisseur")["montant_total"]
+    .sum().sort_values(ascending=False)
+)
+print(ca_fournisseur.round(0))
+```
+
+En **2 commandes** (`merge` + `groupby`), on a répondu à une question business complexe.
+
+## 🧱 `concat` : empiler des DataFrames
+
+```{python}
+# Simuler deux "mois" de ventes
+jan = df[df["date"].dt.month == 1]
+fev = df[df["date"].dt.month == 2]
+
+# Empiler verticalement
+combine = pd.concat([jan, fev], axis=0)
+print(f"Janvier : {len(jan)}, Février : {len(fev)}, Combiné : {len(combine)}")
+```
+
+## 🔄 `pivot_table` : Excel-style
+
+```{python}
+# Tableau croisé : CA par catégorie × région
+pivot = df.pivot_table(
+    values="montant_total",
+    index="categorie",
+    columns="region",
+    aggfunc="sum",
+    fill_value=0
+).round(0)
+
+print(pivot)
+```
+
+C'est l'équivalent du **tableau croisé dynamique** d'Excel.
+
+# Les dates : une force de Pandas
+
+Pandas gère les dates avec une élégance que peu d'autres outils peuvent offrir.
+
+## 📅 `.dt` : les accessors de date
+
+```{python}
+# Extraire des composantes de la date
+df["annee"] = df["date"].dt.year
+df["mois"] = df["date"].dt.month
+df["jour_semaine"] = df["date"].dt.day_name()
+df["trimestre"] = df["date"].dt.quarter
+
+print(df[["date", "annee", "mois", "jour_semaine", "trimestre"]].head())
+```
+
+## 📈 Resample : agréger par période de temps
+
+```{python}
+# Définir la date comme index pour utiliser resample
+df_ts = df.set_index("date").sort_index()
+
+# CA par semaine
+ca_hebdo = df_ts["montant_total"].resample("W").sum()
+print(ca_hebdo.head(10).round(0))
+```
+
+**Fréquences utiles** : `D` (jour), `W` (semaine), `ME` (fin de mois), `QE` (trimestre), `YE` (année).
+
+## 📊 Visualisation rapide
+
+```{python}
+#| label: fig-ca-hebdo
+#| fig-cap: "Évolution hebdomadaire du CA"
+fig, ax = plt.subplots(figsize=(12, 4))
+ca_hebdo.plot(ax=ax, marker="o", linewidth=1.5)
+ax.set_title("Chiffre d'affaires hebdomadaire")
+ax.set_ylabel("CA (€)")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+On voit clairement le pic de fin d'année (Black Friday + Noël).
+
+# 🏁 Exercice bilan — Analyse e-commerce complète
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+**Ton défi** : tu es data analyst dans cette boutique e-commerce. Le directeur te demande un **mini-rapport d'analyse** en 6 questions. Tu dois utiliser **tout ce que tu as vu dans cette notion**.
+
+Recharge proprement les données :
+
+```python
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+catalogue = pd.read_csv("ressources_tp/catalogue_produits.csv")
+```
+
+**Nettoyage préalable** :
+
+1. Supprime les doublons.
+2. Nettoie `region` (remplir NaN par "Inconnue") et `mode_paiement` (remplir NaN par le mode).
+3. **Normalise** la colonne `categorie` : tout en minuscules (capitalize pour avoir une majuscule initiale).
+   *Indice : `df["categorie"] = df["categorie"].str.capitalize()`*
+4. Retire les lignes où `quantite > 20` (ce sont nos outliers).
+
+**Analyses** :
+
+5. **Quel est le CA total, le nombre de transactions et le panier moyen ?**
+6. **Top 3 catégories** en CA, avec le % du total.
+7. **Évolution mensuelle du CA** : quel est le meilleur et le pire mois ?
+8. **Taux d'annulation** : quelle est la proportion de commandes annulées (statut="Annulée") par région ?  
+   *Astuce : `groupby("region")["statut"].apply(lambda x: (x == "Annulée").mean())`*
+9. **Top 3 clients** en CA : combien ont-ils dépensé, et combien de commandes ont-ils passées ?
+10. **Joindre avec le catalogue** et calculer le **CA par fournisseur**, trié.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Chargement
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+catalogue = pd.read_csv("ressources_tp/catalogue_produits.csv")
+
+# === Nettoyage ===
+# 1. Doublons
+df = df.drop_duplicates().reset_index(drop=True)
+
+# 2. Imputation
+df["region"] = df["region"].fillna("Inconnue")
+df["mode_paiement"] = df["mode_paiement"].fillna(df["mode_paiement"].mode()[0])
+
+# 3. Normaliser catégorie
+df["categorie"] = df["categorie"].str.capitalize()
+
+# 4. Retirer les outliers de quantité
+df = df[df["quantite"] <= 20].reset_index(drop=True)
+
+print(f"Après nettoyage : {len(df)} transactions\n")
+```
+
+```{python}
+# === Analyses ===
+
+# 5. KPIs globaux
+print("=== KPIs globaux ===")
+print(f"CA total       : {df['montant_total'].sum():,.2f} €")
+print(f"Transactions   : {len(df):,}")
+print(f"Panier moyen   : {df['montant_total'].mean():.2f} €")
+print(f"Clients uniques: {df['id_client'].nunique()}")
+```
+
+```{python}
+# 6. Top 3 catégories avec %
+ca_total = df["montant_total"].sum()
+top_cat = (
+    df.groupby("categorie")["montant_total"].sum()
+    .sort_values(ascending=False).head(3)
+)
+top_cat_df = pd.DataFrame({
+    "CA (€)": top_cat.round(0),
+    "% du total": (top_cat / ca_total * 100).round(1)
+})
+print("=== Top 3 catégories ===")
+print(top_cat_df)
+```
+
+```{python}
+# 7. Évolution mensuelle
+ca_mois = df.groupby(df["date"].dt.month)["montant_total"].sum()
+print("\n=== CA par mois ===")
+print(ca_mois.round(0))
+print(f"\nMeilleur mois : {ca_mois.idxmax()} ({ca_mois.max():,.0f} €)")
+print(f"Pire mois     : {ca_mois.idxmin()} ({ca_mois.min():,.0f} €)")
+```
+
+```{python}
+# 8. Taux d'annulation par région
+taux_annulation = (
+    df.groupby("region")["statut"]
+    .apply(lambda x: (x == "Annulée").mean() * 100)
+    .sort_values(ascending=False)
+    .round(2)
+)
+print("=== Taux d'annulation par région (%) ===")
+print(taux_annulation)
+```
+
+```{python}
+# 9. Top 3 clients
+top_clients = (
+    df.groupby("id_client")
+    .agg(ca=("montant_total", "sum"), nb_commandes=("id_transaction", "count"))
+    .sort_values("ca", ascending=False)
+    .head(3)
+)
+print("=== Top 3 clients ===")
+print(top_clients.round(2))
+```
+
+```{python}
+# 10. CA par fournisseur
+df_enrichi = df.merge(
+    catalogue[["id_produit", "fournisseur"]],
+    on="id_produit",
+    how="left"
+)
+
+ca_fournisseur = (
+    df_enrichi.groupby("fournisseur")["montant_total"]
+    .sum().sort_values(ascending=False)
+)
+print("=== CA par fournisseur ===")
+print(ca_fournisseur.round(0))
+```
+
+**🎉 Tu viens de produire un vrai rapport business en une dizaine de commandes Pandas !**
+
+C'est exactement ce qu'un data analyst fait au quotidien. Imagine faire ça à la main dans Excel sur des dizaines de milliers de lignes : impossible. Avec Pandas, c'est **instantané**.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois savoir faire
+
+| Besoin | Commande |
+|---|---|
+| Charger un CSV | `pd.read_csv(...)` |
+| Aperçu rapide | `.head()`, `.info()`, `.describe()` |
+| Valeurs uniques/comptage | `.unique()`, `.value_counts()` |
+| Filtrer | `df[df['col'] > x]`, `.query(...)` |
+| Sélection par label | `.loc[rows, cols]` |
+| Sélection par position | `.iloc[rows, cols]` |
+| Gérer NaN | `.isna()`, `.fillna(x)`, `.dropna()` |
+| Supprimer doublons | `.drop_duplicates()` |
+| Grouper | `.groupby(col).agg(...)` |
+| Joindre | `df1.merge(df2, on='col', how='left')` |
+| Empiler | `pd.concat([...])` |
+| Tableau croisé | `.pivot_table(values=..., index=..., columns=...)` |
+| Dates | `.dt.year`, `.dt.month`, `.resample('W')` |
+
+## 🧠 Les réflexes à prendre
+
+1. **Toujours inspecter avant d'analyser** : `.head()`, `.info()`, `.isna().sum()`
+2. **Nettoyer avant d'agréger** : doublons, NaN, types incohérents
+3. **GroupBy** dès que tu veux faire une stat "par quelque chose"
+4. **Merge** dès qu'il y a plusieurs tables à croiser
+5. **Dates** : utilise `parse_dates` dès le chargement pour pouvoir utiliser `.dt`
+
+## 🚀 La suite
+
+Dans la [**Notion 2.3 — Matplotlib et Seaborn**](notion_2_3_matplotlib.qmd), on va donner vie à tes données avec des **visualisations professionnelles**. Parce qu'un bon data scientist, c'est aussi quelqu'un qui sait **raconter une histoire** avec des graphiques clairs.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+Prends un dataset de [data.gouv.fr](https://www.data.gouv.fr/) ou [Kaggle](https://www.kaggle.com/datasets) qui t'intéresse (sport, cinéma, covid, élections...) et applique toutes les techniques de cette notion dessus. C'est la meilleure façon de consolider — et ça te fait un projet à mettre dans un portfolio.
+:::

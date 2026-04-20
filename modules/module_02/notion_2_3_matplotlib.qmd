@@ -1,0 +1,1054 @@
+---
+title: "Notion 2.3 — Matplotlib et Seaborn"
+subtitle: "Raconter une histoire avec des visualisations qui convainquent"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_02/notion_2_3_matplotlib_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_02/notion_2_3_matplotlib_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_02_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notions 2.1 (NumPy) et 2.2 (Pandas)  
+**Objectif** : savoir produire les bons graphiques au bon moment, avec un rendu professionnel qui transmet une information claire
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Maîtriser la **grammaire Matplotlib** : figures, axes, artists
+- Produire les **6 types de graphiques essentiels** en data science
+- Utiliser **Seaborn** pour des visualisations statistiques élégantes
+- Choisir le **bon graphique** en fonction de la question que tu poses aux données
+- Personnaliser tes graphiques (titres, légendes, couleurs, annotations)
+- Sauvegarder tes graphiques en PNG/PDF pour un rapport
+
+## 🎯 Pourquoi on fait ça ?
+
+Imagine : tu as analysé 6 mois de ventes, trouvé 3 insights majeurs. Tu présentes ça à ton chef :
+
+- **Cas 1** : un tableau de chiffres. Ton chef dort.
+- **Cas 2** : 3 graphiques clairs avec annotations. Ton chef comprend en 30 secondes et prend des décisions.
+
+**La visualisation n'est pas un bonus — c'est le livrable.** Un bon data scientist, c'est autant de l'analyse que de la **communication visuelle**. Sans graphiques percutants, personne ne lira ton travail.
+
+Cette notion te donne les outils pour faire des graphiques **professionnels, lisibles, convaincants**.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Style global propre
+sns.set_theme(style="whitegrid", context="notebook")
+plt.rcParams['figure.figsize'] = (10, 5)
+plt.rcParams['font.size'] = 11
+
+print(f"✅ Matplotlib {plt.matplotlib.__version__}")
+print(f"✅ Seaborn    {sns.__version__}")
+```
+
+```{python}
+#| echo: false
+# Charger le dataset pour le rendu
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+# Nettoyage minimal pour les exemples
+df = df.drop_duplicates().reset_index(drop=True)
+df["region"] = df["region"].fillna("Inconnue")
+df["mode_paiement"] = df["mode_paiement"].fillna(df["mode_paiement"].mode()[0])
+df["categorie"] = df["categorie"].str.capitalize()
+df = df[df["quantite"] <= 20].reset_index(drop=True)
+```
+
+```{python}
+#| eval: false
+# Dans ton notebook : reprendre le dataset du Module 2
+df = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+# Nettoyage minimal
+df = df.drop_duplicates().reset_index(drop=True)
+df["region"] = df["region"].fillna("Inconnue")
+df["mode_paiement"] = df["mode_paiement"].fillna(df["mode_paiement"].mode()[0])
+df["categorie"] = df["categorie"].str.capitalize()
+df = df[df["quantite"] <= 20].reset_index(drop=True)
+```
+
+# Comprendre Matplotlib : Figure, Axes, Artist
+
+## 🏗️ L'architecture en 3 niveaux
+
+Matplotlib paraît compliqué parce qu'il mélange **deux interfaces** : `plt.xxx()` (rapide) et orientée objet (propre). On va utiliser la seconde, qui est **la norme professionnelle**.
+
+L'architecture :
+
+| Concept | Description | Analogie |
+|---|---|---|
+| **Figure** | La fenêtre globale | Une feuille de papier |
+| **Axes** | Une zone de dessin | Un graphique sur la feuille |
+| **Artist** | Les éléments (ligne, barre, texte, titre...) | Les traits de crayon |
+
+Une Figure peut contenir plusieurs Axes (subplots).
+
+## 🎨 Le template à retenir
+
+**95% de tes graphiques suivront ce squelette** :
+
+```{python}
+#| label: fig-squelette
+#| fig-cap: "Le squelette d'un graphique Matplotlib"
+
+# 1. Créer une Figure et un Axes
+fig, ax = plt.subplots(figsize=(8, 4))
+
+# 2. Tracer quelque chose
+x = np.linspace(0, 10, 100)
+ax.plot(x, np.sin(x), label="sin(x)", color="steelblue", linewidth=2)
+
+# 3. Habiller le graphique
+ax.set_title("Un graphique bien habillé")
+ax.set_xlabel("x")
+ax.set_ylabel("sin(x)")
+ax.legend()
+ax.grid(True, alpha=0.3)
+
+# 4. Afficher
+plt.show()
+```
+
+Les 4 étapes : **créer** → **tracer** → **habiller** → **afficher**.
+
+## 🔢 Plusieurs sous-graphiques : `subplots(n_rows, n_cols)`
+
+```{python}
+#| label: fig-subplots
+#| fig-cap: "Plusieurs graphiques dans une seule figure"
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+x = np.linspace(0, 10, 100)
+
+# Graphique de gauche
+axes[0].plot(x, np.sin(x), color="steelblue")
+axes[0].set_title("sin(x)")
+axes[0].grid(True, alpha=0.3)
+
+# Graphique de droite
+axes[1].plot(x, np.cos(x), color="coral")
+axes[1].set_title("cos(x)")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()  # évite les chevauchements
+plt.show()
+```
+
+::: {.callout-tip}
+## 🧠 À retenir
+- `fig, ax = plt.subplots()` pour **1 graphique**
+- `fig, axes = plt.subplots(2, 3)` pour **6 graphiques** (grille 2×3, `axes` est un array 2D)
+- Toujours finir par `plt.tight_layout()` et `plt.show()`
+:::
+
+## ✏️ Exercice 1 — Maîtriser le squelette
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un graphique simple : trace `y = x²` sur l'intervalle `[-5, 5]`. Ajoute un titre, des labels et une grille.
+2. Crée une figure avec **2 sous-graphiques côte à côte** :
+   - À gauche : `y = x²` (en bleu)
+   - À droite : `y = x³` (en rouge)  
+   Ajoute des titres individuels et un **titre global** à la figure avec `fig.suptitle()`.
+3. Crée une **grille 2×2** avec 4 fonctions différentes au choix (sin, cos, log, exp...).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Graphique simple
+fig, ax = plt.subplots(figsize=(8, 4))
+
+x = np.linspace(-5, 5, 100)
+ax.plot(x, x**2, color="steelblue", linewidth=2)
+ax.set_title("y = x²")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. Deux sous-graphiques
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+x = np.linspace(-3, 3, 100)
+
+axes[0].plot(x, x**2, color="steelblue")
+axes[0].set_title("y = x²")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(x, x**3, color="coral")
+axes[1].set_title("y = x³")
+axes[1].grid(True, alpha=0.3)
+
+fig.suptitle("Comparaison de fonctions", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Grille 2x2
+fig, axes = plt.subplots(2, 2, figsize=(12, 8))
+
+x = np.linspace(0.1, 10, 100)
+
+axes[0, 0].plot(x, np.sin(x))
+axes[0, 0].set_title("sin(x)")
+
+axes[0, 1].plot(x, np.cos(x), color="orange")
+axes[0, 1].set_title("cos(x)")
+
+axes[1, 0].plot(x, np.log(x), color="green")
+axes[1, 0].set_title("log(x)")
+
+axes[1, 1].plot(x, np.exp(x/3), color="red")
+axes[1, 1].set_title("exp(x/3)")
+
+for ax in axes.flat:
+    ax.grid(True, alpha=0.3)
+
+fig.suptitle("Les 4 fonctions mathématiques de base", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+:::
+
+# Les 6 graphiques essentiels en data science
+
+Pour chaque type, on va voir **quand l'utiliser** et comment le produire proprement.
+
+## 1️⃣ Scatter plot — relations entre deux variables
+
+**Quand l'utiliser ?** Pour explorer la relation entre deux variables numériques.
+
+```{python}
+#| label: fig-scatter
+#| fig-cap: "Relation entre quantité et montant total"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+ax.scatter(df["quantite"], df["montant_total"], 
+           alpha=0.4, s=30, color="steelblue", edgecolor="k", linewidth=0.3)
+
+ax.set_xlabel("Quantité")
+ax.set_ylabel("Montant total (€)")
+ax.set_title("Plus on achète, plus on paie... évident ?")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Éléments à noter** :
+- `alpha=0.4` : transparence pour voir la densité (sans ça, on ne voit qu'un blob noir)
+- `s=30` : taille des points
+- `edgecolor="k"` : bord noir, esthétique
+
+## 2️⃣ Line plot — évolution dans le temps
+
+**Quand l'utiliser ?** Pour montrer une évolution temporelle, des tendances, des séries.
+
+```{python}
+#| label: fig-line
+#| fig-cap: "Évolution du CA mensuel"
+
+# Préparer les données
+ca_mensuel = df.groupby(df["date"].dt.to_period("M"))["montant_total"].sum()
+
+fig, ax = plt.subplots(figsize=(12, 4))
+
+ax.plot(ca_mensuel.index.astype(str), ca_mensuel.values, 
+        marker="o", linewidth=2, color="steelblue", markersize=8)
+
+ax.set_xlabel("Mois")
+ax.set_ylabel("CA (€)")
+ax.set_title("Évolution du chiffre d'affaires mensuel en 2024")
+ax.grid(True, alpha=0.3)
+
+# Annoter le pic
+mois_pic = ca_mensuel.idxmax()
+ca_pic = ca_mensuel.max()
+ax.annotate(f"Pic : {ca_pic:,.0f} €",
+            xy=(str(mois_pic), ca_pic),
+            xytext=(0.3, 0.9), textcoords="axes fraction",
+            arrowprops=dict(arrowstyle="->", color="red"),
+            fontsize=11, color="red")
+
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+## 3️⃣ Bar chart — comparer des catégories
+
+**Quand l'utiliser ?** Pour comparer des valeurs entre des catégories discrètes.
+
+```{python}
+#| label: fig-bar
+#| fig-cap: "CA par catégorie de produit"
+
+# Préparer
+ca_cat = df.groupby("categorie")["montant_total"].sum().sort_values(ascending=True)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+bars = ax.barh(ca_cat.index, ca_cat.values, color="steelblue", edgecolor="black", alpha=0.8)
+
+ax.set_xlabel("CA (€)")
+ax.set_title("Chiffre d'affaires par catégorie")
+
+# Annoter chaque barre avec sa valeur
+for bar, value in zip(bars, ca_cat.values):
+    ax.text(bar.get_width() + 500, bar.get_y() + bar.get_height()/2,
+            f"{value:,.0f} €", va="center", fontsize=10)
+
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+## 🧠 Astuce
+Les barres **horizontales** (`barh`) sont souvent plus lisibles que les verticales (`bar`) quand les labels sont longs. Toujours trier les barres par taille pour faciliter la lecture.
+:::
+
+## 4️⃣ Histogramme — distribution d'une variable numérique
+
+**Quand l'utiliser ?** Pour voir la **forme** de la distribution d'une variable.
+
+```{python}
+#| label: fig-hist
+#| fig-cap: "Distribution des montants de transaction"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+ax.hist(df["montant_total"], bins=50, color="steelblue", 
+        edgecolor="black", alpha=0.7)
+
+ax.axvline(df["montant_total"].mean(), color="red", linestyle="--", 
+           linewidth=2, label=f"Moyenne : {df['montant_total'].mean():.1f} €")
+ax.axvline(df["montant_total"].median(), color="green", linestyle="--", 
+           linewidth=2, label=f"Médiane : {df['montant_total'].median():.1f} €")
+
+ax.set_xlabel("Montant total (€)")
+ax.set_ylabel("Nombre de transactions")
+ax.set_title("Distribution des montants de transaction")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## 5️⃣ Boxplot — comparer les distributions
+
+**Quand l'utiliser ?** Pour comparer la distribution d'une variable numérique selon une catégorie.
+
+```{python}
+#| label: fig-boxplot
+#| fig-cap: "Distribution des montants par catégorie"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+
+# Préparer les données par catégorie
+cats = df["categorie"].unique()
+donnees_par_cat = [df[df["categorie"] == c]["montant_total"].values for c in cats]
+
+bp = ax.boxplot(donnees_par_cat, tick_labels=cats, patch_artist=True)
+
+# Colorer les boîtes
+colors = ["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3"]
+for patch, color in zip(bp["boxes"], colors):
+    patch.set_facecolor(color)
+    patch.set_alpha(0.7)
+
+ax.set_ylabel("Montant (€)")
+ax.set_title("Distribution des montants par catégorie")
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
+```
+
+Dans un boxplot on lit :
+- La **boîte** : Q1 → Q3 (50% des données)
+- La **ligne** : médiane
+- Les **moustaches** : étendue "normale"
+- Les **points** : outliers
+
+## 6️⃣ Heatmap — visualiser une matrice
+
+**Quand l'utiliser ?** Pour visualiser une matrice 2D : corrélations, tableau croisé, similarités.
+
+```{python}
+#| label: fig-heatmap
+#| fig-cap: "CA par catégorie × région (tableau croisé)"
+
+# Préparer la matrice avec pivot_table
+pivot = df.pivot_table(
+    values="montant_total",
+    index="categorie",
+    columns="region",
+    aggfunc="sum",
+    fill_value=0
+)
+
+fig, ax = plt.subplots(figsize=(12, 5))
+
+sns.heatmap(pivot, annot=True, fmt=",.0f", cmap="YlOrRd", 
+            cbar_kws={"label": "CA (€)"}, ax=ax)
+
+ax.set_title("CA par catégorie et région")
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+## 🎯 Résumé : quel graphique pour quelle question ?
+
+| Question | Graphique |
+|---|---|
+| Y a-t-il un lien entre A et B ? | **Scatter plot** |
+| Comment ça évolue dans le temps ? | **Line plot** |
+| Comparer des valeurs entre catégories | **Bar chart** |
+| Quelle est la forme de cette variable ? | **Histogramme** |
+| Comparer la distribution entre groupes | **Boxplot** |
+| Visualiser une matrice | **Heatmap** |
+:::
+
+## ✏️ Exercice 2 — Choisir le bon graphique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour chacune des questions business suivantes, **choisis le type de graphique adapté** et produis-le :
+
+1. Quelles sont les **5 catégories** les plus vendues en quantité ?
+2. Quelle est la **distribution du prix unitaire** des produits ?
+3. Le CA varie-t-il selon le **mode de paiement** ?
+4. Comment évolue le **nombre de transactions par jour** sur l'année ?
+5. Quelle est la corrélation entre `quantite`, `prix_unitaire` et `montant_total` ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Bar chart : top 5 catégories en quantité
+quantites_par_cat = df.groupby("categorie")["quantite"].sum().sort_values(ascending=True).tail(5)
+
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.barh(quantites_par_cat.index, quantites_par_cat.values, color="steelblue", alpha=0.8)
+ax.set_xlabel("Quantité totale vendue")
+ax.set_title("Top 5 catégories en volume")
+ax.grid(True, alpha=0.3, axis="x")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. Histogramme : distribution du prix unitaire
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.hist(df["prix_unitaire"], bins=40, color="coral", edgecolor="black", alpha=0.7)
+ax.set_xlabel("Prix unitaire (€)")
+ax.set_ylabel("Effectif")
+ax.set_title("Distribution des prix unitaires")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Boxplot : montant par mode de paiement
+fig, ax = plt.subplots(figsize=(10, 4))
+modes = df["mode_paiement"].unique()
+donnees = [df[df["mode_paiement"] == m]["montant_total"].values for m in modes]
+ax.boxplot(donnees, tick_labels=modes, patch_artist=True)
+ax.set_ylabel("Montant (€)")
+ax.set_title("Montants par mode de paiement")
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 4. Line plot : transactions par jour
+trans_par_jour = df.groupby(df["date"].dt.date).size()
+fig, ax = plt.subplots(figsize=(12, 4))
+ax.plot(trans_par_jour.index, trans_par_jour.values, color="steelblue", linewidth=1, alpha=0.7)
+ax.set_xlabel("Date")
+ax.set_ylabel("Nb transactions")
+ax.set_title("Transactions journalières en 2024")
+ax.grid(True, alpha=0.3)
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 5. Heatmap : corrélations
+corr = df[["quantite", "prix_unitaire", "montant_total"]].corr()
+fig, ax = plt.subplots(figsize=(6, 5))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0, 
+            square=True, cbar_kws={"label": "Corrélation"}, ax=ax)
+ax.set_title("Matrice de corrélation")
+plt.tight_layout()
+plt.show()
+```
+:::
+
+# Seaborn : la data viz statistique élégante
+
+**Seaborn** est une surcouche de Matplotlib qui **simplifie énormément** les graphiques statistiques. Il comprend nativement Pandas.
+
+## 🎨 Philosophie : déclarer, pas dessiner
+
+Au lieu de préparer les données puis les tracer, tu **décris** ce que tu veux. Seaborn s'occupe du reste.
+
+```{python}
+#| label: fig-sns-scatter
+#| fig-cap: "Seaborn : scatter avec semantic mapping en une ligne"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.scatterplot(data=df, x="quantite", y="montant_total", 
+                hue="categorie", alpha=0.6, ax=ax)
+ax.set_title("Montant vs quantité, coloré par catégorie")
+plt.tight_layout()
+plt.show()
+```
+
+En **une ligne** : le scatter plot avec coloration par catégorie (hue) **et** la légende qui va bien.
+
+## 📊 Les 5 fonctions Seaborn à connaître
+
+### `sns.histplot` — histogramme avancé
+
+```{python}
+#| label: fig-sns-hist
+#| fig-cap: "Histogrammes par groupe"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.histplot(data=df, x="montant_total", hue="categorie", 
+             multiple="stack", bins=30, ax=ax)
+ax.set_title("Distribution des montants par catégorie (empilés)")
+plt.tight_layout()
+plt.show()
+```
+
+### `sns.boxplot` — boxplots par groupe
+
+```{python}
+#| label: fig-sns-box
+#| fig-cap: "Boxplot avec Seaborn"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.boxplot(data=df, x="categorie", y="montant_total", ax=ax)
+ax.set_title("Montants par catégorie")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+```
+
+### `sns.violinplot` — un boxplot avec la densité
+
+```{python}
+#| label: fig-sns-violin
+#| fig-cap: "Violinplot : boxplot + densité"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.violinplot(data=df, x="categorie", y="montant_total", ax=ax)
+ax.set_title("Distribution et densité des montants par catégorie")
+plt.xticks(rotation=30)
+plt.tight_layout()
+plt.show()
+```
+
+Le violinplot est un boxplot **où la largeur montre la densité** à chaque niveau. Très utile pour voir des distributions multimodales.
+
+### `sns.countplot` — compter les occurrences
+
+```{python}
+#| label: fig-sns-count
+#| fig-cap: "Compter les modalités d'une variable catégorielle"
+
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.countplot(data=df, y="region", 
+              order=df["region"].value_counts().index, ax=ax)
+ax.set_title("Nombre de transactions par région")
+ax.set_xlabel("Nombre de transactions")
+plt.tight_layout()
+plt.show()
+```
+
+### `sns.heatmap` — matrice colorée
+
+Déjà vu plus haut. Incontournable pour visualiser des corrélations et des tableaux croisés.
+
+## 🌟 `sns.pairplot` : l'exploration massive
+
+Pour **explorer toutes les relations** entre variables numériques d'un DataFrame d'un seul coup.
+
+```{python}
+#| label: fig-sns-pairplot
+#| fig-cap: "Pairplot : toutes les relations croisées"
+
+# Un sous-ensemble pour que ce soit rapide
+df_num = df[["quantite", "prix_unitaire", "montant_total", "categorie"]].sample(300, random_state=42)
+
+g = sns.pairplot(df_num, hue="categorie", height=2.5, 
+                  diag_kind="hist", plot_kws={"alpha": 0.5})
+g.fig.suptitle("Relations croisées entre variables", y=1.02, fontsize=13)
+plt.tight_layout()
+plt.show()
+```
+
+En **une commande**, tu obtiens :
+- Les scatter plots de toutes les paires
+- Les histogrammes sur la diagonale
+- Les couleurs par catégorie
+
+C'est l'outil d'**exploration initiale** par excellence.
+
+## ✏️ Exercice 3 — Seaborn en action
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un **scatter plot Seaborn** avec `quantite` en x et `montant_total` en y, coloré par `mode_paiement`. Utilise `alpha=0.5`.
+2. Crée un **violinplot** du `montant_total` par `statut` (livrée, en cours, annulée...).
+3. Crée un **countplot** horizontal du nombre de transactions par `mode_paiement`, trié du plus au moins fréquent.
+4. Crée un **pairplot** des colonnes `quantite`, `prix_unitaire`, `montant_total`, coloré par `categorie`. Utilise un échantillon de 500 lignes pour que ce soit rapide.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Scatter par mode de paiement
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.scatterplot(data=df, x="quantite", y="montant_total", 
+                hue="mode_paiement", alpha=0.5, ax=ax)
+ax.set_title("Montant vs quantité par mode de paiement")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. Violinplot par statut
+fig, ax = plt.subplots(figsize=(10, 5))
+sns.violinplot(data=df, x="statut", y="montant_total", ax=ax)
+ax.set_title("Distribution des montants par statut")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Countplot ordonné
+fig, ax = plt.subplots(figsize=(10, 4))
+sns.countplot(data=df, y="mode_paiement", 
+              order=df["mode_paiement"].value_counts().index, ax=ax)
+ax.set_title("Transactions par mode de paiement")
+ax.set_xlabel("Nombre de transactions")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 4. Pairplot
+df_sample = df[["quantite", "prix_unitaire", "montant_total", "categorie"]].sample(500, random_state=0)
+g = sns.pairplot(df_sample, hue="categorie", height=2.5, plot_kws={"alpha": 0.5})
+plt.tight_layout()
+plt.show()
+```
+:::
+
+# Personnalisation : de "bof" à "pro"
+
+Les bases des graphiques, c'est bien. La différence entre un graphique amateur et un graphique pro tient à quelques détails.
+
+## 🎨 Les 5 règles d'or
+
+1. **Titres et labels complets** : un graphique sans titre ne sert à rien
+2. **Unités** : mettre les unités dans les labels (`€`, `kg`, `°C`...)
+3. **Taille de texte lisible** : `fontsize=12` minimum
+4. **Pas trop de couleurs** : max 5-6 différentes pour lisibilité
+5. **Annotations** : pointer les valeurs clés directement sur le graphique
+
+## 🖼️ Styles Seaborn
+
+```{python}
+#| label: fig-styles
+#| fig-cap: "Les 5 styles Seaborn disponibles"
+
+styles = ["whitegrid", "white", "darkgrid", "dark", "ticks"]
+
+fig, axes = plt.subplots(1, 5, figsize=(15, 3))
+x = np.linspace(0, 10, 100)
+
+for ax, style in zip(axes, styles):
+    with sns.axes_style(style):
+        ax.clear()
+        ax.plot(x, np.sin(x))
+        ax.set_title(style)
+
+plt.tight_layout()
+plt.show()
+
+# Réappliquer le style par défaut
+sns.set_theme(style="whitegrid")
+```
+
+## 🎨 Palettes de couleurs
+
+Seaborn a des **palettes adaptées à chaque usage** :
+
+```{python}
+#| label: fig-palettes
+#| fig-cap: "Les 3 grandes familles de palettes"
+
+fig, axes = plt.subplots(3, 1, figsize=(10, 4))
+
+# Qualitative (pour des catégories sans ordre)
+sns.palplot(sns.color_palette("Set2", 8))
+axes[0].set_title("Qualitative (Set2) — pour catégories sans ordre")
+
+# Séquentielle (pour valeurs ordonnées)
+sns.palplot(sns.color_palette("Blues", 8))
+axes[1].set_title("Séquentielle (Blues) — pour valeurs ordonnées")
+
+# Divergente (pour valeurs centrées sur 0)
+sns.palplot(sns.color_palette("RdBu", 8))
+axes[2].set_title("Divergente (RdBu) — pour valeurs centrées sur 0")
+
+plt.tight_layout()
+plt.show()
+```
+
+::: {.callout-tip}
+## 🧠 Règle simple
+- Catégorielle (régions, types...) → palettes qualitatives : `Set1`, `Set2`, `tab10`
+- Ordonnée (classements, intensités) → palettes séquentielles : `Blues`, `YlOrRd`
+- Différences (hausse/baisse) → palettes divergentes : `RdBu`, `coolwarm`
+:::
+
+## 💾 Sauvegarder un graphique
+
+```{python}
+# Exemple : créer et sauvegarder
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.bar(["A", "B", "C"], [10, 20, 15], color="steelblue")
+ax.set_title("Mon graphique")
+
+# Sauvegarder en différents formats
+# fig.savefig("mon_graphique.png", dpi=300, bbox_inches="tight")
+# fig.savefig("mon_graphique.pdf", bbox_inches="tight")  # vectoriel, parfait pour rapports
+# fig.savefig("mon_graphique.svg", bbox_inches="tight")  # vectoriel, pour web
+
+plt.close(fig)  # ferme la figure sans l'afficher
+print("✅ Exemple de sauvegarde (commenté pour ne pas créer de fichier)")
+```
+
+**Options clés** :
+- `dpi=300` : haute résolution (print-ready)
+- `bbox_inches="tight"` : enlève les marges blanches inutiles
+- **PDF ou SVG** : formats vectoriels — s'agrandissent sans pixelliser
+
+## ✏️ Exercice 4 — Graphique professionnel
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+À partir du dataset, produis **un seul graphique professionnel** qui réponde à cette question :
+
+> « Comment se répartit le CA par catégorie et comment cela varie-t-il selon la région ? »
+
+**Exigences** :
+
+- Titre clair et explicite
+- Axes labellés avec unités
+- Couleurs cohérentes (utilise une palette Seaborn)
+- Légende bien placée
+- Grille subtile
+- Annotations ou valeurs directement lisibles si pertinent
+
+**Indice** : un stacked bar chart ou un heatmap serait adapté.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction (proposition : stacked bar)
+
+```{python}
+# Préparer les données
+pivot = df.pivot_table(
+    values="montant_total",
+    index="region",
+    columns="categorie",
+    aggfunc="sum",
+    fill_value=0
+)
+# Trier les régions par CA total décroissant
+pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=True).index]
+
+fig, ax = plt.subplots(figsize=(12, 6))
+
+pivot.plot(kind="barh", stacked=True, ax=ax, 
+           colormap="Set2", edgecolor="white", linewidth=0.5)
+
+ax.set_xlabel("CA total (€)", fontsize=12)
+ax.set_ylabel("")
+ax.set_title("Répartition du chiffre d'affaires par région et par catégorie",
+             fontsize=14, fontweight="bold", pad=15)
+
+ax.legend(title="Catégorie", loc="lower right", framealpha=0.95)
+ax.grid(True, alpha=0.3, axis="x")
+
+# Ajouter les totaux à droite
+totaux = pivot.sum(axis=1)
+for i, total in enumerate(totaux):
+    ax.text(total + 500, i, f"{total:,.0f} €", 
+            va="center", fontsize=10, fontweight="bold")
+
+# Retirer le cadre pour un look plus moderne
+for spine in ["top", "right"]:
+    ax.spines[spine].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Version alternative avec heatmap** :
+
+```{python}
+pivot = df.pivot_table(
+    values="montant_total",
+    index="categorie",
+    columns="region",
+    aggfunc="sum",
+    fill_value=0
+)
+
+fig, ax = plt.subplots(figsize=(12, 5))
+sns.heatmap(pivot, annot=True, fmt=",.0f", cmap="YlOrRd",
+            cbar_kws={"label": "CA (€)"}, ax=ax,
+            linewidths=0.5, linecolor="white")
+
+ax.set_title("CA par catégorie et région (€)", fontsize=14, fontweight="bold", pad=15)
+ax.set_xlabel("Région")
+ax.set_ylabel("Catégorie")
+plt.tight_layout()
+plt.show()
+```
+:::
+
+# 🏁 Exercice bilan — Mini dashboard d'analyse
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+**Ton défi** : produire un **mini dashboard** sur une seule figure avec 4 sous-graphiques bien placés, qui raconte l'histoire des ventes 2024.
+
+Mise en forme attendue :
+
+- Une figure de **grande taille** (15 × 10 environ)
+- Une grille **2×2** de sous-graphiques
+- **Titre global** explicite
+- 4 graphiques qui répondent chacun à une question :
+  1. **Haut gauche** : Évolution mensuelle du CA (line plot)
+  2. **Haut droit** : Top 5 catégories en CA (bar chart horizontal)
+  3. **Bas gauche** : Distribution des montants de transaction (histogramme avec moyenne et médiane)
+  4. **Bas droit** : Heatmap CA par catégorie × trimestre
+
+Chaque sous-graphique doit avoir :
+- Son propre titre
+- Des axes labellés
+- Une lisibilité correcte (pas de chevauchement)
+
+Bonus : **sauvegarde le dashboard** en PNG haute résolution (sans l'afficher dans l'output — utilise `plt.close()` pour éviter le double affichage).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Préparer les données nécessaires
+ca_mensuel = df.groupby(df["date"].dt.to_period("M"))["montant_total"].sum()
+top5_cat = df.groupby("categorie")["montant_total"].sum().sort_values(ascending=True).tail(5)
+
+pivot_trim = df.pivot_table(
+    values="montant_total",
+    index="categorie",
+    columns=df["date"].dt.quarter,
+    aggfunc="sum",
+    fill_value=0
+)
+pivot_trim.columns = [f"T{q}" for q in pivot_trim.columns]
+
+# Créer la figure
+fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+
+# ========== [0, 0] : Évolution mensuelle ==========
+ax1 = axes[0, 0]
+ax1.plot(ca_mensuel.index.astype(str), ca_mensuel.values, 
+         marker="o", linewidth=2, color="steelblue", markersize=8)
+ax1.set_title("Évolution mensuelle du CA", fontsize=12, fontweight="bold")
+ax1.set_xlabel("Mois")
+ax1.set_ylabel("CA (€)")
+ax1.grid(True, alpha=0.3)
+ax1.tick_params(axis="x", rotation=45)
+
+# ========== [0, 1] : Top 5 catégories ==========
+ax2 = axes[0, 1]
+ax2.barh(top5_cat.index, top5_cat.values, color="coral", 
+         edgecolor="black", alpha=0.8)
+ax2.set_title("Top 5 catégories en CA", fontsize=12, fontweight="bold")
+ax2.set_xlabel("CA (€)")
+ax2.grid(True, alpha=0.3, axis="x")
+
+# Annoter les valeurs
+for i, v in enumerate(top5_cat.values):
+    ax2.text(v + 300, i, f"{v:,.0f} €", va="center", fontsize=9)
+
+# ========== [1, 0] : Distribution des montants ==========
+ax3 = axes[1, 0]
+ax3.hist(df["montant_total"], bins=40, color="steelblue", 
+         edgecolor="black", alpha=0.7)
+ax3.axvline(df["montant_total"].mean(), color="red", linestyle="--", 
+            linewidth=2, label=f"Moyenne : {df['montant_total'].mean():.0f} €")
+ax3.axvline(df["montant_total"].median(), color="green", linestyle="--", 
+            linewidth=2, label=f"Médiane : {df['montant_total'].median():.0f} €")
+ax3.set_title("Distribution des montants de transaction", fontsize=12, fontweight="bold")
+ax3.set_xlabel("Montant (€)")
+ax3.set_ylabel("Effectif")
+ax3.legend()
+ax3.grid(True, alpha=0.3)
+
+# ========== [1, 1] : Heatmap CA par catégorie × trimestre ==========
+ax4 = axes[1, 1]
+sns.heatmap(pivot_trim, annot=True, fmt=",.0f", cmap="YlOrRd",
+            cbar_kws={"label": "CA (€)"}, ax=ax4,
+            linewidths=0.5, linecolor="white")
+ax4.set_title("CA par catégorie et trimestre", fontsize=12, fontweight="bold")
+ax4.set_xlabel("Trimestre")
+ax4.set_ylabel("Catégorie")
+
+# Titre global
+fig.suptitle("📊 Dashboard d'analyse des ventes 2024", 
+             fontsize=16, fontweight="bold", y=1.00)
+
+plt.tight_layout()
+
+# Bonus : sauvegarder
+# fig.savefig("dashboard_ventes_2024.png", dpi=150, bbox_inches="tight")
+# print("✅ Dashboard sauvegardé : dashboard_ventes_2024.png")
+
+plt.show()
+```
+
+**Ce que tu viens d'accomplir** :
+
+Tu as produit un **vrai livrable de data analyst**. Un seul fichier PNG qui résume une année de ventes en 4 coups d'œil. C'est exactement ce qui va dans un rapport mensuel ou une présentation à un comité de direction.
+
+Les choix pédagogiques à retenir :
+- **Grille 2×2** : standard pour 4 insights
+- **Types de graphiques variés** : line, bar, hist, heatmap → chaque type répond à une question différente
+- **Titres descriptifs** : la lecture doit être possible **sans contexte**
+- **Annotations** : les valeurs importantes sont sur le graphique, pas à chercher
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois savoir faire
+
+| Besoin | Commande |
+|---|---|
+| Squelette de base | `fig, ax = plt.subplots(figsize=(w, h))` |
+| Plusieurs subplots | `fig, axes = plt.subplots(n, m)` |
+| Scatter | `ax.scatter(x, y, alpha=0.5)` |
+| Line | `ax.plot(x, y, marker="o")` |
+| Bar (horizontal) | `ax.barh(categories, values)` |
+| Histogramme | `ax.hist(x, bins=30)` |
+| Boxplot | `sns.boxplot(data=df, x="cat", y="val")` |
+| Heatmap | `sns.heatmap(matrix, annot=True, cmap="YlOrRd")` |
+| Pairplot | `sns.pairplot(df, hue="cat")` |
+| Sauvegarder | `fig.savefig("nom.png", dpi=300, bbox_inches="tight")` |
+
+## 🧠 Les réflexes à prendre
+
+1. **Une question = un graphique adapté**. Ne choisis pas au hasard.
+2. **Toujours titre + labels + unités**. Un graphique nu n'a aucune valeur.
+3. **Seaborn pour les graphiques statistiques**, Matplotlib pour le contrôle fin.
+4. **Palettes pertinentes** : qualitative / séquentielle / divergente selon la donnée.
+5. **Annotations directes** mieux qu'une légende séparée quand c'est possible.
+
+## 🚀 La suite
+
+Tu as fini les **3 notions du Module 2** ! Bravo 🎉
+
+Prochaine étape : le [**TP sommatif Module 2**](#) — tu vas réaliser une **analyse exploratoire complète** sur un vrai dataset Kaggle, en mobilisant :
+- NumPy (Notion 2.1)
+- Pandas (Notion 2.2)
+- Matplotlib + Seaborn (cette notion)
+
+Ce sera l'occasion de produire ton **premier vrai livrable de data analyst** : un notebook d'exploration + un dashboard final.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+Reprends le dataset `ventes_ecommerce.csv` et produis **un nouveau dashboard** qui répond à une question de ton choix (ex : « les patterns de consommation varient-ils selon la région ? »). C'est par la répétition qu'on devient rapide en data viz.
+:::
