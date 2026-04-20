@@ -1,0 +1,52 @@
+/*-- scss:defaults --*/
+
+// Couleurs principales du parcours
+$primary: #2E5A88;        // bleu foncé élégant
+$secondary: #F4B400;      // jaune accent (pour les callout-tip)
+$success: #0F9D58;        // vert (corrigés validés)
+$info: #4285F4;           // bleu info
+$warning: #EA8600;        // orange attention
+$danger: #DB4437;         // rouge erreur
+
+// Typographie
+$font-family-sans-serif: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+$font-family-monospace: "JetBrains Mono", "Fira Code", Consolas, monospace;
+
+// Tailles
+$font-size-base: 1rem;
+$line-height-base: 1.7;
+
+/*-- scss:rules --*/
+
+// Améliorer la lisibilité du code
+pre code {
+  font-size: 0.92em;
+  line-height: 1.5;
+}
+
+// Callout un peu plus marqués
+.callout {
+  border-radius: 0.5rem;
+  border-left-width: 5px;
+}
+
+// Espacement des titres
+h1, h2, h3 {
+  margin-top: 1.8em;
+  margin-bottom: 0.8em;
+}
+
+// Plus d'air dans les tableaux
+table {
+  margin: 1.5em 0;
+}
+
+th, td {
+  padding: 0.6em 1em;
+}
+
+// Cellules de code un peu plus contrastées
+div.sourceCode {
+  border-radius: 0.4rem;
+  margin: 1em 0;
+}

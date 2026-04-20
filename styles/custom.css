@@ -1,0 +1,17 @@
+/* Ajouts mineurs CSS qui ne passent pas par SCSS */
+
+/* Petite icône sur les callout tip (corrigés) */
+.callout-tip > .callout-header::before {
+  content: "💡 ";
+}
+
+/* Style pour les boutons "Voir la correction" */
+details > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+/* Amélioration lisibilité blocs math */
+.math {
+  font-size: 1.05em;
+}

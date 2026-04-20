@@ -1,0 +1,84 @@
+---
+title: "Bienvenue"
+---
+
+# 🐍 Python pour l'Intelligence Artificielle {.unnumbered}
+
+## Un parcours de spécialisation IA complet, en complément de la certification TOSA
+
+Bienvenue dans ce parcours de formation construit sur-mesure pour celles et ceux qui maîtrisent déjà Python (typiquement via le TOSA) et veulent se spécialiser en intelligence artificielle.
+
+::: {.callout-tip}
+## Prérequis
+Tu dois maîtriser les bases Python : variables, boucles, fonctions, listes, dictionnaires, POO, gestion d'erreurs. Si c'est le cas, tu es prêt·e à démarrer !
+:::
+
+## 🗺️ Le parcours en 3 axes
+
+::: {.grid}
+
+::: {.g-col-4}
+### 🔵 Axe 1 — Fondations
+**Modules 1 à 3**
+
+Remise à niveau mathématique, manipulation de données, statistiques descriptives.
+
+- Module 1 : Maths pour l'IA
+- Module 2 : NumPy, Pandas, Matplotlib
+- Module 3 : Analyse exploratoire
+:::
+
+::: {.g-col-4}
+### 🟡 Axe 2 — Modélisation
+**Modules 4 à 6**
+
+Machine Learning classique puis Deep Learning avec PyTorch.
+
+- Module 4 : ML supervisé
+- Module 5 : ML non supervisé
+- Module 6 : Deep Learning
+:::
+
+::: {.g-col-4}
+### 🟢 Axe 3 — Industrialisation
+**Modules 7 à 8**
+
+IA générative moderne et déploiement en production.
+
+- Module 7 : LLM, RAG, agents
+- Module 8 : MLOps
+:::
+
+:::
+
+## 📊 En chiffres
+
+| | |
+|---|---|
+| **Durée totale** | ~190 heures |
+| **Nombre de modules** | 8 |
+| **Philosophie pédagogique** | 30% théorie / 70% pratique |
+| **Format** | Notebooks + site web + PDF |
+| **Niveau final visé** | AI Engineer junior |
+
+## 🎯 Comment utiliser ce cours
+
+Chaque module est découpé en **notions** indépendantes mais progressives. Chaque notion suit la même structure :
+
+1. **Objectifs pédagogiques** — ce que tu sauras faire à la fin
+2. **Intuition visuelle** — avant la théorie, on visualise
+3. **Théorie appliquée** — on comprend avant d'apprendre à faire
+4. **Code progressif** — Python pur d'abord, NumPy/bibliothèques ensuite
+5. **Exercices ciblés** — un par concept, avec cellules à compléter
+6. **TP sommatif** — en fin de module, un projet qui regroupe tout
+
+::: {.callout-note}
+## Pour les formateurs
+Deux versions de chaque notion sont disponibles : une **version élève** avec exercices à compléter, et une **version formateur** avec corrigés et notes pédagogiques.
+:::
+
+## 🚀 Par où commencer ?
+
+[**→ Aller au Module 1 : Mathématiques pour l'IA**](modules/module_01/index.qmd)
+
+Ou, si tu veux piocher directement : utilise la barre latérale ou la recherche (icône 🔍 en haut).

@@ -1,0 +1,1301 @@
+---
+title: "Notion 1.3 — Statistiques et probabilités"
+subtitle: "Comprendre les données avant de les modéliser"
+author: "Loïc PILET"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_01/notion_1_3_statistiques_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/ton-compte-github/python-ia-formation/blob/main/ressources_eleves/module_01/notion_1_3_statistiques_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_01_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 1.1 (vecteurs) et 1.2 (dérivées, descente de gradient)  
+**Objectif** : maîtriser les statistiques descriptives, les distributions et les probabilités — les outils pour **comprendre** des données avant de modéliser
+:::
+
+## 📋 Ce que tu sauras faire à la fin de cette notion
+
+- Décrire un jeu de données avec les bonnes statistiques (et savoir laquelle choisir)
+- Reconnaître visuellement une loi normale, uniforme, ou asymétrique
+- Simuler des distributions en Python pour vérifier ton intuition
+- Comprendre ce qu'est une corrélation et ses **pièges**
+- Appliquer le théorème de Bayes sur un cas concret
+- Comprendre pourquoi la « loi normale » est **partout** en ML
+
+## 🎯 Pourquoi on fait ça ?
+
+Le machine learning, c'est **trouver des motifs dans les données**. Mais avant de modéliser quoi que ce soit, il faut **comprendre** ce qu'on regarde. C'est le travail du **data scientist** avant toute modélisation.
+
+Imagine un médecin qui prescrit un médicament sans jamais avoir examiné son patient. C'est exactement ce que fait un data scientist qui lance un algorithme de ML sans avoir exploré ses données au préalable. Résultat garanti : des modèles qui marchent mal et personne ne comprend pourquoi.
+
+**Les stats, c'est l'examen médical des données.** Elles te permettent de répondre à :
+
+- Quelle est la **tendance centrale** de mes données ?
+- Quelle est leur **dispersion** ?
+- Mes variables sont-elles **liées** entre elles ?
+- Mes données **suivent-elles une loi classique** ?
+- Quelle est la **probabilité** qu'un événement se produise ?
+
+On y va.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (9, 5)
+plt.rcParams['font.size'] = 12
+
+# On fixe la graine pour que les exemples soient reproductibles
+np.random.seed(42)
+
+print("✅ Tout est prêt")
+```
+
+# Statistiques descriptives : la boîte à outils de base
+
+## 🎨 L'intuition : décrire en quelques nombres
+
+Imagine que tu veux décrire la taille de tous les Français à quelqu'un qui n'en a jamais vu un seul. Tu ne vas pas lui réciter 67 millions de tailles individuelles ! Tu vas dire quelque chose comme :
+
+> « En moyenne, ils mesurent environ 170 cm, mais ça varie entre 150 et 195 cm pour la plupart. »
+
+Tu viens de faire des **statistiques descriptives** sans le savoir. Les deux informations clés que tu as données :
+
+1. **Une mesure de tendance centrale** (la moyenne : 170 cm)
+2. **Une mesure de dispersion** (l'étendue : entre 150 et 195 cm)
+
+## 📊 Les 3 mesures de tendance centrale
+
+### La moyenne (`mean`)
+
+C'est la plus célèbre. **Somme des valeurs divisée par le nombre de valeurs.**
+
+$$\bar{x} = \frac{1}{n} \sum_{i=1}^{n} x_i$$
+
+```{python}
+# Tailles de 10 personnes (en cm)
+tailles = np.array([165, 172, 180, 158, 175, 168, 183, 170, 162, 177])
+
+moyenne = np.mean(tailles)
+print(f"Tailles : {tailles}")
+print(f"Moyenne : {moyenne:.1f} cm")
+```
+
+**⚠️ Le piège de la moyenne** : elle est très **sensible aux valeurs extrêmes** (outliers).
+
+```{python}
+# Avec 9 personnes normales et un géant de 250 cm
+tailles_avec_geant = np.array([165, 172, 180, 158, 175, 168, 183, 170, 162, 250])
+print(f"Sans le géant : moyenne = {np.mean(tailles[:9]):.1f} cm")
+print(f"Avec le géant : moyenne = {np.mean(tailles_avec_geant):.1f} cm")
+print("→ Un seul outlier a fait grimper la moyenne de 4 cm !")
+```
+
+### La médiane (`median`)
+
+C'est **la valeur du milieu** quand on trie les données. Moitié au-dessus, moitié en dessous.
+
+```{python}
+mediane = np.median(tailles)
+print(f"Tailles triées : {sorted(tailles)}")
+print(f"Médiane : {mediane:.1f} cm")
+```
+
+**Avantage** : insensible aux outliers.
+
+```{python}
+print(f"Médiane sans géant : {np.median(tailles[:9]):.1f}")
+print(f"Médiane avec géant : {np.median(tailles_avec_geant):.1f}")
+print("→ La médiane n'a presque pas bougé !")
+```
+
+### Le mode
+
+La valeur la **plus fréquente**. Surtout utile pour les variables catégorielles.
+
+```{python}
+from collections import Counter
+
+couleurs_voitures = ["rouge", "bleu", "rouge", "vert", "bleu", "rouge", "noir"]
+compteur = Counter(couleurs_voitures)
+mode, occurrences = compteur.most_common(1)[0]
+print(f"Mode : '{mode}' (apparaît {occurrences} fois)")
+print(f"Tous les comptes : {dict(compteur)}")
+```
+
+::: {.callout-tip}
+## 🧠 Quand utiliser quoi ?
+| Situation | Utiliser |
+|---|---|
+| Données symétriques, pas d'outliers | **Moyenne** |
+| Données asymétriques ou présence d'outliers | **Médiane** |
+| Variables catégorielles (couleurs, marques...) | **Mode** |
+
+**Exemple classique** : pour décrire un salaire, utilise la **médiane**, pas la moyenne. Un milliardaire dans ton jeu de données va complètement fausser la moyenne.
+:::
+
+## 📏 Les mesures de dispersion
+
+Connaître la moyenne ne suffit pas. Regarde ces deux jeux de données :
+
+- Notes du groupe A : [10, 10, 10, 10, 10]  → moyenne 10
+- Notes du groupe B : [5, 15, 2, 18, 10]    → moyenne 10
+
+**Même moyenne, mais comportements très différents !** Il faut une mesure de **dispersion**.
+
+### L'étendue (range)
+
+$$\text{étendue} = \max(x) - \min(x)$$
+
+Simple, mais **très sensible aux outliers** (encore eux).
+
+```{python}
+notes_A = np.array([10, 10, 10, 10, 10])
+notes_B = np.array([5, 15, 2, 18, 10])
+
+print(f"Groupe A : étendue = {notes_A.max() - notes_A.min()}")
+print(f"Groupe B : étendue = {notes_B.max() - notes_B.min()}")
+```
+
+### L'écart-type (`std` = standard deviation)
+
+**LA** mesure de dispersion en data science. Elle mesure **en moyenne, à quelle distance les valeurs sont de la moyenne**.
+
+$$\sigma = \sqrt{\frac{1}{n} \sum_{i=1}^{n} (x_i - \bar{x})^2}$$
+
+Décode ça :
+1. On calcule l'écart de chaque valeur à la moyenne : `x_i - moyenne`
+2. On les met au carré (pour qu'ils soient positifs) : `(x_i - moyenne)²`
+3. On en prend la moyenne : `variance`
+4. On en prend la racine carrée pour revenir à la bonne unité : `écart-type`
+
+```{python}
+print(f"Groupe A : écart-type = {np.std(notes_A):.2f}")
+print(f"Groupe B : écart-type = {np.std(notes_B):.2f}")
+```
+
+**Interprétation** : dans le groupe B, les notes s'écartent **en moyenne de 5.8 points** de la moyenne. Dans le groupe A, tout le monde a exactement la moyenne.
+
+### La variance
+
+C'est juste le **carré de l'écart-type** (l'étape avant la racine carrée). Même info, mais dans une mauvaise unité.
+
+```{python}
+print(f"Variance groupe B : {np.var(notes_B):.2f}")
+print(f"Écart-type²       : {np.std(notes_B)**2:.2f}")
+print("→ Les deux sont identiques (variance = écart-type²)")
+```
+
+::: {.callout-warning}
+## ⚠️ Attention : std de NumPy vs std de stats
+NumPy calcule l'écart-type avec `n` au dénominateur. Les statisticiens utilisent parfois `n-1` (écart-type « non biaisé »). En pratique, pour du ML sur beaucoup de données, la différence est négligeable. Pour utiliser `n-1` : `np.std(x, ddof=1)`.
+:::
+
+## 📦 Les quartiles et la boîte à moustaches
+
+Les **quartiles** découpent les données triées en 4 parties égales :
+
+- Q1 (25%) : un quart des valeurs sont en dessous
+- Q2 (50%) : c'est la médiane
+- Q3 (75%) : trois quarts des valeurs sont en dessous
+- L'**IQR** (Interquartile Range) = Q3 - Q1
+
+```{python}
+# Exemple : salaires (en k€/an)
+salaires = np.array([22, 25, 28, 30, 32, 35, 38, 40, 45, 48, 55, 62, 80, 150])
+
+q1 = np.percentile(salaires, 25)
+q2 = np.percentile(salaires, 50)
+q3 = np.percentile(salaires, 75)
+iqr = q3 - q1
+
+print(f"Salaires (triés) : {salaires}")
+print(f"Q1 (25%)  : {q1:.1f} k€")
+print(f"Q2 (50%)  : {q2:.1f} k€  ← médiane")
+print(f"Q3 (75%)  : {q3:.1f} k€")
+print(f"IQR       : {iqr:.1f} k€")
+print(f"Moyenne   : {np.mean(salaires):.1f} k€  (tirée vers le haut par le 150)")
+```
+
+La **boîte à moustaches** (boxplot) visualise tout ça en un coup d'œil :
+
+```{python}
+#| label: fig-boxplot-salaires
+#| fig-cap: "La boxplot : la synthèse visuelle parfaite"
+fig, ax = plt.subplots(figsize=(8, 4))
+ax.boxplot(salaires, vert=False, patch_artist=True, 
+           boxprops=dict(facecolor='lightblue'))
+ax.set_xlabel('Salaire (k€)')
+ax.set_title("Distribution des salaires — boîte à moustaches")
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+**Comment lire une boxplot** :
+- La **boîte** : entre Q1 et Q3 (50% des données)
+- La **ligne dans la boîte** : la médiane
+- Les **moustaches** : les valeurs « normales » (dans 1.5 × IQR)
+- Les **points isolés** : les outliers (ici, le salaire de 150 k€)
+
+## ✏️ Exercice 1 — Décrire un jeu de données
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+On te donne les notes d'un DS pour 30 élèves :
+```python
+notes = np.array([12, 14, 8, 15, 10, 11, 13, 16, 9, 14, 
+                  11, 12, 15, 10, 13, 14, 12, 18, 9, 11, 
+                  13, 15, 10, 12, 14, 11, 13, 20, 8, 12])
+```
+
+1. Calcule **moyenne**, **médiane**, **écart-type**, **Q1**, **Q3** et **IQR**.
+2. Affiche un **histogramme** et une **boxplot** côte à côte.
+3. Y a-t-il des outliers ? Commente la distribution (est-elle symétrique ?).
+4. La moyenne et la médiane sont-elles très différentes ? Pourquoi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+
+notes = np.array([12, 14, 8, 15, 10, 11, 13, 16, 9, 14, 
+                  11, 12, 15, 10, 13, 14, 12, 18, 9, 11, 
+                  13, 15, 10, 12, 14, 11, 13, 20, 8, 12])
+
+# 1. Statistiques
+
+
+# 2. Histogramme et boxplot côte à côte
+
+
+# 3-4. Interprétation dans une cellule markdown ci-dessous
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+notes = np.array([12, 14, 8, 15, 10, 11, 13, 16, 9, 14, 
+                  11, 12, 15, 10, 13, 14, 12, 18, 9, 11, 
+                  13, 15, 10, 12, 14, 11, 13, 20, 8, 12])
+
+# 1. Statistiques
+print(f"Moyenne     : {np.mean(notes):.2f}")
+print(f"Médiane     : {np.median(notes):.2f}")
+print(f"Écart-type  : {np.std(notes):.2f}")
+print(f"Q1          : {np.percentile(notes, 25):.2f}")
+print(f"Q3          : {np.percentile(notes, 75):.2f}")
+print(f"IQR         : {np.percentile(notes, 75) - np.percentile(notes, 25):.2f}")
+
+# 2. Visualisations
+fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+axes[0].hist(notes, bins=10, edgecolor='black', color='steelblue', alpha=0.7)
+axes[0].set_title("Histogramme des notes")
+axes[0].set_xlabel("Note")
+axes[0].set_ylabel("Effectif")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].boxplot(notes, vert=False, patch_artist=True,
+                boxprops=dict(facecolor='lightblue'))
+axes[1].set_title("Boîte à moustaches des notes")
+axes[1].set_xlabel("Note")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation :**
+
+- **Moyenne ≈ 12.4**, **médiane = 12.5** : très proches, donc distribution plutôt symétrique autour de 12.
+- La **note 20** est probablement un outlier (les moustaches s'arrêtent avant).
+- L'écart-type de 2.7 signifie que la majorité des élèves ont une note entre `12 - 2.7 ≈ 9.7` et `12 + 2.7 ≈ 15.1`.
+- La distribution ressemble à une cloche centrée autour de 12-13, avec une dispersion modérée. Pas de longue queue d'un côté.
+:::
+
+# Les distributions : la forme des données
+
+## 🔔 La loi normale (ou gaussienne)
+
+**LA** distribution star du ML. Elle apparaît **partout** dans la nature : tailles humaines, erreurs de mesure, bruit dans les capteurs... Elle a cette forme de cloche symétrique.
+
+**Deux paramètres suffisent à la décrire** : 
+- la moyenne μ (où est le centre)
+- l'écart-type σ (à quel point la cloche est large)
+
+On la note `N(μ, σ²)`.
+
+```{python}
+#| label: fig-loi-normale
+#| fig-cap: "La loi normale pour différents paramètres"
+x = np.linspace(-10, 20, 500)
+
+fig, ax = plt.subplots()
+# Formule de la densité de probabilité
+def densite_normale(x, mu, sigma):
+    return (1 / (sigma * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mu) / sigma)**2)
+
+ax.plot(x, densite_normale(x, 0, 1), 'b-', linewidth=2, label='N(0, 1) — standard')
+ax.plot(x, densite_normale(x, 5, 2), 'r-', linewidth=2, label='N(5, 4)')
+ax.plot(x, densite_normale(x, -2, 0.5), 'g-', linewidth=2, label='N(-2, 0.25) — fine')
+
+ax.set_xlabel('x')
+ax.set_ylabel('Densité')
+ax.set_title("La loi normale : trois exemples")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+## 🎲 Simulation plutôt que formules
+
+Le plus simple pour comprendre une distribution est de **simuler** plein de tirages et d'observer.
+
+```{python}
+#| label: fig-normale-simule
+#| fig-cap: "Simulation vs formule théorique"
+# Simuler 10 000 tirages d'une loi normale N(170, 10)
+tirages = np.random.normal(loc=170, scale=10, size=10000)
+
+fig, ax = plt.subplots()
+ax.hist(tirages, bins=50, density=True, alpha=0.6, color='steelblue', 
+        edgecolor='black', label='10 000 simulations')
+
+# Superposer la densité théorique
+x_theo = np.linspace(130, 210, 200)
+ax.plot(x_theo, densite_normale(x_theo, 170, 10), 'r-', linewidth=2, 
+        label='Densité théorique N(170, 100)')
+
+ax.set_xlabel('Valeur')
+ax.set_ylabel('Densité')
+ax.set_title("Simulation vs théorie — elles coïncident parfaitement !")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+
+print(f"Moyenne simulée    : {tirages.mean():.2f}  (attendu : 170)")
+print(f"Écart-type simulé  : {tirages.std():.2f}   (attendu : 10)")
+```
+
+## 🎯 La règle 68-95-99.7
+
+Pour une loi normale, **peu importe la moyenne et l'écart-type**, on a toujours :
+
+- **68%** des données dans `[μ - σ, μ + σ]`
+- **95%** des données dans `[μ - 2σ, μ + 2σ]`
+- **99.7%** des données dans `[μ - 3σ, μ + 3σ]`
+
+```{python}
+# Vérifions sur nos 10 000 tirages
+mu = tirages.mean()
+sigma = tirages.std()
+
+proportion_1sigma = np.mean((tirages > mu - sigma) & (tirages < mu + sigma))
+proportion_2sigma = np.mean((tirages > mu - 2*sigma) & (tirages < mu + 2*sigma))
+proportion_3sigma = np.mean((tirages > mu - 3*sigma) & (tirages < mu + 3*sigma))
+
+print(f"Dans [μ - σ, μ + σ]    : {proportion_1sigma:.1%}  (attendu : 68%)")
+print(f"Dans [μ - 2σ, μ + 2σ]  : {proportion_2sigma:.1%}  (attendu : 95%)")
+print(f"Dans [μ - 3σ, μ + 3σ]  : {proportion_3sigma:.1%}  (attendu : 99.7%)")
+```
+
+::: {.callout-tip}
+## 🧠 À retenir : la détection d'outliers
+Une valeur qui sort de `[μ - 3σ, μ + 3σ]` n'arrive que **0.3% du temps** pour une distribution normale. C'est souvent le critère utilisé pour détecter les outliers : une observation hors de cette plage est suspecte.
+:::
+
+## 📊 Autres distributions utiles
+
+### La loi uniforme
+
+Tout le monde a la même probabilité d'apparaître. Utile pour les simulations, les initialisations de poids en deep learning...
+
+```{python}
+#| label: fig-uniforme
+#| fig-cap: "Loi uniforme : toutes les valeurs sont équiprobables"
+tirages_unif = np.random.uniform(0, 10, 10000)
+
+fig, ax = plt.subplots()
+ax.hist(tirages_unif, bins=30, edgecolor='black', color='orange', alpha=0.7)
+ax.set_title("Loi uniforme sur [0, 10]")
+ax.set_xlabel("Valeur")
+ax.set_ylabel("Effectif")
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+### La loi de Poisson
+
+Modélise le nombre d'événements rares dans un intervalle de temps fixe. Par exemple : nombre de clients arrivant à un guichet en 1 heure.
+
+```{python}
+#| label: fig-poisson
+#| fig-cap: "Loi de Poisson : nombre d'événements en un temps fixe"
+# En moyenne 3 clients par heure
+tirages_poisson = np.random.poisson(lam=3, size=10000)
+
+fig, ax = plt.subplots()
+ax.hist(tirages_poisson, bins=range(15), edgecolor='black', color='green', alpha=0.7)
+ax.set_title("Loi de Poisson (λ = 3) — nombre de clients par heure")
+ax.set_xlabel("Nombre de clients")
+ax.set_ylabel("Effectif")
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+### Une distribution asymétrique (skewed)
+
+En pratique, beaucoup de données **ne sont pas normales**. Les revenus, les prix, les durées d'attente sont souvent **asymétriques à droite** : beaucoup de petites valeurs, quelques très grandes.
+
+```{python}
+#| label: fig-skewed
+#| fig-cap: "Distribution asymétrique : cas typique des salaires ou prix"
+# Loi log-normale : souvent utilisée pour modéliser les revenus
+revenus_simules = np.random.lognormal(mean=3, sigma=0.5, size=10000)
+
+fig, ax = plt.subplots()
+ax.hist(revenus_simules, bins=50, edgecolor='black', color='purple', alpha=0.7)
+ax.axvline(np.mean(revenus_simules), color='red', linestyle='--', 
+           linewidth=2, label=f'Moyenne = {np.mean(revenus_simules):.1f}')
+ax.axvline(np.median(revenus_simules), color='green', linestyle='--', 
+           linewidth=2, label=f'Médiane = {np.median(revenus_simules):.1f}')
+ax.set_title("Distribution asymétrique à droite (long tail)")
+ax.set_xlabel("Valeur")
+ax.set_ylabel("Effectif")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+
+print(f"Moyenne ({np.mean(revenus_simules):.1f}) > Médiane ({np.median(revenus_simules):.1f})")
+print("→ C'est la signature d'une distribution asymétrique à droite")
+```
+
+## ✏️ Exercice 2 — Simuler et visualiser
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Simule 3 distributions de 5000 valeurs chacune et affiche leurs histogrammes sur une même figure (3 sous-graphes) :
+
+1. Une loi normale `N(0, 1)` (moyenne 0, écart-type 1)
+2. Une loi uniforme sur `[0, 1]`
+3. Une loi normale `N(100, 15)` (genre QI)
+
+Pour chaque distribution, affiche en titre **la moyenne et l'écart-type empiriques** (calculés sur tes tirages).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+
+# 3 tirages
+
+
+# 3 histogrammes côte à côte
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+
+# 3 tirages
+t1 = np.random.normal(0, 1, 5000)
+t2 = np.random.uniform(0, 1, 5000)
+t3 = np.random.normal(100, 15, 5000)
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+axes[0].hist(t1, bins=40, color='steelblue', edgecolor='black', alpha=0.7)
+axes[0].set_title(f"N(0, 1)\nmoy={t1.mean():.2f}, std={t1.std():.2f}")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].hist(t2, bins=40, color='orange', edgecolor='black', alpha=0.7)
+axes[1].set_title(f"Uniforme [0, 1]\nmoy={t2.mean():.2f}, std={t2.std():.2f}")
+axes[1].grid(True, alpha=0.3)
+
+axes[2].hist(t3, bins=40, color='green', edgecolor='black', alpha=0.7)
+axes[2].set_title(f"N(100, 15) — QI\nmoy={t3.mean():.2f}, std={t3.std():.2f}")
+axes[2].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations :**
+- La loi normale standard est centrée sur 0 avec un écart-type de 1 ✓
+- La loi uniforme a une moyenne de 0.5 et un écart-type de ~0.29 (= `1/√12`, c'est une formule classique)
+- La loi du QI est centrée sur 100 avec un écart-type de 15 : ~68% des gens ont un QI entre 85 et 115
+:::
+
+# Probabilités : quantifier l'incertitude
+
+## 🎲 L'intuition fréquentiste
+
+Une **probabilité**, c'est simplement **la fréquence d'un événement sur le long terme**.
+
+Si je lance une pièce équilibrée, la probabilité d'obtenir « pile » est de 0.5. Concrètement : sur beaucoup de lancers, environ la moitié seront « pile ».
+
+On peut vérifier ça en Python :
+
+```{python}
+# Simulons 10 000 lancers de pièce
+n_lancers = 10000
+lancers = np.random.choice(['pile', 'face'], size=n_lancers)
+
+proportion_pile = np.mean(lancers == 'pile')
+print(f"Sur {n_lancers} lancers : proportion de 'pile' = {proportion_pile:.4f}")
+print(f"Probabilité théorique   : 0.5")
+```
+
+## 📈 La loi des grands nombres
+
+**Plus tu fais de tirages, plus la fréquence se rapproche de la probabilité théorique.**
+
+```{python}
+#| label: fig-grands-nombres
+#| fig-cap: "La fréquence converge vers la probabilité théorique"
+# Simulons et traçons l'évolution de la fréquence
+np.random.seed(0)
+lancers = np.random.choice([1, 0], size=5000)  # 1 = pile
+frequences = np.cumsum(lancers) / np.arange(1, len(lancers) + 1)
+
+fig, ax = plt.subplots()
+ax.plot(frequences, label='Fréquence observée')
+ax.axhline(0.5, color='red', linestyle='--', label='Probabilité théorique (0.5)')
+ax.set_xlabel("Nombre de lancers")
+ax.set_ylabel("Fréquence de 'pile'")
+ax.set_title("Loi des grands nombres : la fréquence converge")
+ax.set_ylim(0, 1)
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+::: {.callout-tip}
+## 🧠 À retenir
+La **loi des grands nombres** est la raison pour laquelle le ML fonctionne. Plus on a de données, plus nos estimations (moyennes, probabilités, coefficients) sont fiables.
+:::
+
+## 🔗 Événements indépendants
+
+Deux événements A et B sont **indépendants** si l'un n'influence pas l'autre.
+
+Pour des événements indépendants : `P(A et B) = P(A) × P(B)`
+
+**Exemple** : deux lancers de pièce successifs sont indépendants. Probabilité d'obtenir « pile-pile » ?
+
+```{python}
+# Simulation
+np.random.seed(42)
+n = 100000
+lancer_1 = np.random.choice([0, 1], size=n)
+lancer_2 = np.random.choice([0, 1], size=n)
+
+p_pile_pile_empirique = np.mean((lancer_1 == 1) & (lancer_2 == 1))
+print(f"Empirique    : {p_pile_pile_empirique:.4f}")
+print(f"Théorique    : 0.5 × 0.5 = 0.25")
+```
+
+## ⚠️ Le piège : événements dépendants
+
+Attention, beaucoup d'événements ne sont PAS indépendants. Exemple : tirer deux cartes **sans remise** dans un jeu de 52 cartes.
+
+- P(1ère carte = roi) = 4/52
+- P(2ème carte = roi **sachant que** la 1ère était un roi) = 3/51 (il reste 3 rois sur 51 cartes)
+
+C'est ce qu'on appelle une **probabilité conditionnelle**, notée `P(A | B)` (« probabilité de A sachant B »).
+
+## 🧠 Le théorème de Bayes — l'incontournable
+
+C'est peut-être **la formule la plus importante en IA**. Elle permet de **mettre à jour nos croyances quand on reçoit une nouvelle information**.
+
+$$P(A | B) = \frac{P(B | A) \times P(A)}{P(B)}$$
+
+Décodons avec un exemple concret.
+
+### Cas d'école : le test médical
+
+Une maladie rare touche **1% de la population**. Un test la détecte avec **95% de sensibilité** (si tu es malade, le test est positif dans 95% des cas), mais il a **5% de faux positifs** (si tu n'es PAS malade, le test est positif dans 5% des cas).
+
+**Question cruciale** : tu es testé positif. Quelle est la probabilité que tu sois vraiment malade ?
+
+**Intuition naïve** : 95%, non ?
+
+**Réponse correcte** : bien moins ! Calculons.
+
+```{python}
+# Notations :
+# A = "être malade"
+# B = "test positif"
+
+P_A = 0.01          # P(malade) = 1%
+P_B_sachant_A = 0.95  # P(test+ | malade) = 95%
+P_B_sachant_nonA = 0.05  # P(test+ | sain) = 5%
+
+# On a besoin de P(B) = probabilité totale d'être testé positif
+# P(B) = P(B|A) × P(A) + P(B|non A) × P(non A)
+P_B = P_B_sachant_A * P_A + P_B_sachant_nonA * (1 - P_A)
+
+# Théorème de Bayes
+P_A_sachant_B = (P_B_sachant_A * P_A) / P_B
+
+print(f"P(malade | test positif) = {P_A_sachant_B:.1%}")
+```
+
+**Seulement 16% !** Contre-intuitif, hein ? La raison : la maladie est tellement rare que même un bon test génère plus de faux positifs que de vrais positifs.
+
+### Simulation pour convaincre
+
+```{python}
+# Simulation sur 100 000 personnes
+np.random.seed(0)
+n_personnes = 100000
+
+# Qui est malade ?
+est_malade = np.random.random(n_personnes) < 0.01
+
+# Résultat du test
+# Si malade : 95% de chance d'être positif
+# Si sain   : 5% de chance d'être positif
+test_positif = np.where(
+    est_malade,
+    np.random.random(n_personnes) < 0.95,
+    np.random.random(n_personnes) < 0.05
+)
+
+# Parmi les testés positifs, combien sont vraiment malades ?
+malades_parmi_positifs = np.sum(est_malade & test_positif)
+total_positifs = np.sum(test_positif)
+
+print(f"Malades réels           : {est_malade.sum()}")
+print(f"Testés positifs         : {total_positifs}")
+print(f"Vraiment malades parmi positifs : {malades_parmi_positifs}")
+print(f"Proportion : {malades_parmi_positifs / total_positifs:.1%}")
+print(f"→ Cohérent avec notre calcul de Bayes (~16%) !")
+```
+
+::: {.callout-important}
+## 🧠 Pourquoi Bayes est central en IA
+Le théorème de Bayes est la **base** d'algorithmes comme Naive Bayes (classification texte, spam), des systèmes de diagnostic, des filtres de particules, et de l'apprentissage bayésien. On le reverra au Module 4.
+:::
+
+## ✏️ Exercice 3 — La loi des grands nombres
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+On lance un dé à 6 faces. La probabilité théorique d'obtenir un **6** est 1/6 ≈ 0.1667.
+
+1. Simule 3 séries de lancers : 100 lancers, 1000 lancers, 100 000 lancers.
+2. Pour chaque série, calcule la proportion de **6** obtenus.
+3. Affiche les résultats. Conclusion ?
+4. **Bonus** : trace l'évolution de la fréquence au cours des 5000 premiers lancers (comme dans l'exemple de la pièce).
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+
+# 1-3. Trois séries
+
+
+# 4. Bonus : évolution
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(0)
+
+# 1-3. Trois séries
+for n in [100, 1000, 100000]:
+    lancers = np.random.randint(1, 7, size=n)
+    proportion_6 = np.mean(lancers == 6)
+    ecart = abs(proportion_6 - 1/6)
+    print(f"n = {n:6d} : proportion de 6 = {proportion_6:.4f}  "
+          f"(écart à 1/6 : {ecart:.4f})")
+
+# 4. Évolution
+n_lancers = 5000
+lancers = np.random.randint(1, 7, size=n_lancers)
+est_6 = (lancers == 6).astype(int)
+frequences = np.cumsum(est_6) / np.arange(1, n_lancers + 1)
+
+fig, ax = plt.subplots()
+ax.plot(frequences)
+ax.axhline(1/6, color='red', linestyle='--', label='P théorique = 1/6')
+ax.set_xlabel("Nombre de lancers")
+ax.set_ylabel("Fréquence de 6")
+ax.set_title("Convergence vers la probabilité théorique")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+**Conclusion :**  
+Plus on fait de lancers, plus la proportion de 6 se rapproche de 1/6. À 100 000 lancers, on est à moins de 0.5% d'erreur. **C'est la loi des grands nombres en action.**
+:::
+
+## ✏️ Exercice 4 — Appliquer Bayes
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Une entreprise fabrique des lampes. Parmi elles :
+
+- 80% viennent de l'usine A, avec un taux de défaut de **2%**
+- 20% viennent de l'usine B, avec un taux de défaut de **10%**
+
+Tu tires une lampe au hasard dans le stock et elle est **défectueuse**.
+
+**Question** : quelle est la probabilité qu'elle vienne de l'usine B ?
+
+1. Formalise les probabilités : `P(A)`, `P(B)`, `P(défaut | A)`, `P(défaut | B)`.
+2. Calcule `P(défaut)` avec la formule des probabilités totales.
+3. Applique le théorème de Bayes pour calculer `P(B | défaut)`.
+4. Vérifie le résultat par une simulation sur 1 million de lampes.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+
+# 1-3. Calcul analytique
+
+
+# 4. Simulation
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Probabilités
+P_A = 0.80
+P_B = 0.20
+P_def_sachant_A = 0.02
+P_def_sachant_B = 0.10
+
+# 2. Probabilité totale de défaut
+P_def = P_def_sachant_A * P_A + P_def_sachant_B * P_B
+print(f"P(défaut) = {P_def:.4f}")
+
+# 3. Bayes
+P_B_sachant_def = (P_def_sachant_B * P_B) / P_def
+print(f"P(usine B | défaut) = {P_B_sachant_def:.4f} ({P_B_sachant_def:.1%})")
+
+# 4. Simulation
+np.random.seed(0)
+n = 1000000
+# Chaque lampe : de quelle usine ?
+usine = np.where(np.random.random(n) < 0.80, 'A', 'B')
+# Chaque lampe : défectueuse ?
+defect = np.where(
+    usine == 'A',
+    np.random.random(n) < 0.02,
+    np.random.random(n) < 0.10
+)
+# Parmi les défectueuses, quelle proportion vient de B ?
+b_parmi_def = np.sum((usine == 'B') & defect) / np.sum(defect)
+print(f"\nSimulation : P(B | défaut) ≈ {b_parmi_def:.4f}")
+```
+
+**Commentaire :**  
+Alors que l'usine B ne représente que 20% de la production, elle est responsable de **56% des défauts** ! Ce résultat illustre un phénomène fréquent : **un petit sous-groupe peut dominer les observations rares** si son taux de risque est plus élevé.
+:::
+
+# Corrélation : quand deux variables bougent ensemble
+
+## 🔗 La corrélation de Pearson
+
+La **corrélation** mesure à quel point deux variables varient ensemble. Le coefficient de Pearson `r` est compris entre -1 et 1 :
+
+- `r = 1` : corrélation positive parfaite (si X augmente, Y augmente proportionnellement)
+- `r = 0` : pas de corrélation linéaire
+- `r = -1` : corrélation négative parfaite (si X augmente, Y diminue)
+
+```{python}
+#| label: fig-correlations
+#| fig-cap: "Différents niveaux de corrélation"
+np.random.seed(42)
+n = 200
+
+# Trois cas
+x_all = np.random.randn(n)
+
+# r ≈ 1
+y1 = 2 * x_all + np.random.randn(n) * 0.1
+
+# r ≈ 0
+y2 = np.random.randn(n)
+
+# r ≈ -0.8
+y3 = -0.8 * x_all + np.random.randn(n) * 0.5
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+for ax, y, titre in zip(axes, [y1, y2, y3], 
+                        ['Forte corrélation positive', 'Pas de corrélation', 'Corrélation négative']):
+    r = np.corrcoef(x_all, y)[0, 1]
+    ax.scatter(x_all, y, alpha=0.6, s=30)
+    ax.set_title(f"{titre}\nr = {r:.2f}")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🧮 Calcul en Python
+
+```{python}
+# Exemple concret : taille et poids
+np.random.seed(1)
+tailles = np.random.normal(170, 10, 50)
+poids = 0.85 * tailles - 70 + np.random.normal(0, 5, 50)
+
+# Méthode 1 : np.corrcoef
+matrice_corr = np.corrcoef(tailles, poids)
+print(f"Coefficient de corrélation : {matrice_corr[0, 1]:.3f}")
+
+# Méthode 2 : scipy (donne aussi la p-value)
+from scipy.stats import pearsonr
+r, p_value = pearsonr(tailles, poids)
+print(f"r = {r:.3f}, p-value = {p_value:.2e}")
+```
+
+## ⚠️ Corrélation ≠ Causalité
+
+**LE piège principal en data science.** Deux variables peuvent être corrélées sans qu'il y ait de lien causal.
+
+### Exemple célèbre
+
+Les ventes de glaces et les noyades à la plage sont fortement corrélées. Ça ne veut **PAS** dire que manger des glaces fait se noyer !
+
+**L'explication** : il y a une **variable cachée** (la chaleur) qui cause les deux.
+
+```{python}
+#| label: fig-correlation-spurieuse
+#| fig-cap: "Deux variables corrélées... mais sans lien de cause à effet"
+np.random.seed(42)
+# Simulons 100 jours d'été
+temperature = np.random.uniform(15, 35, 100)  # °C
+ventes_glaces = 2 * temperature + np.random.normal(0, 3, 100)
+noyades = 0.3 * temperature + np.random.normal(0, 0.5, 100)
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+axes[0].scatter(temperature, ventes_glaces, alpha=0.6, color='orange')
+axes[0].set_xlabel("Température (°C)")
+axes[0].set_ylabel("Ventes de glaces")
+axes[0].set_title(f"Glaces vs Température\nr = {np.corrcoef(temperature, ventes_glaces)[0, 1]:.2f}")
+
+axes[1].scatter(ventes_glaces, noyades, alpha=0.6, color='red')
+axes[1].set_xlabel("Ventes de glaces")
+axes[1].set_ylabel("Nombre de noyades")
+axes[1].set_title(f"Noyades vs Glaces\nr = {np.corrcoef(ventes_glaces, noyades)[0, 1]:.2f}")
+
+plt.tight_layout()
+plt.show()
+```
+
+Les glaces et les noyades sont fortement corrélées (r ≈ 0.7), mais c'est la **chaleur** qui les explique toutes les deux.
+
+::: {.callout-warning}
+## 🧠 À retenir
+**« Correlation is not causation »** est la devise du data scientist. Avant de tirer des conclusions causales, il faut toujours se demander :
+- Y a-t-il une variable cachée ?
+- Le sens de la causalité est-il sûr (A→B ou B→A) ?
+- Est-ce une coïncidence ?
+
+Le site [tylervigen.com/spurious-correlations](https://tylervigen.com/spurious-correlations) collectionne des corrélations hilarantes mais sans sens.
+:::
+
+## ✏️ Exercice 5 — Analyser une corrélation
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+On te donne les données suivantes (notes de TP et notes de DS de 30 élèves) :
+
+```python
+np.random.seed(123)
+tp = np.random.uniform(5, 18, 30)
+ds = 0.8 * tp + 3 + np.random.normal(0, 2, 30)
+```
+
+1. Calcule le coefficient de corrélation entre TP et DS.
+2. Trace un nuage de points (scatter plot) avec titre indiquant le `r`.
+3. Commente : la corrélation est-elle forte ?
+4. **Question ouverte** : peut-on en déduire que les TP **causent** la bonne note au DS ? Discute.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 5
+
+# 1. Données et corrélation
+
+
+# 2. Scatter plot
+
+
+# 3-4. Réflexion (cellule markdown)
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(123)
+tp = np.random.uniform(5, 18, 30)
+ds = 0.8 * tp + 3 + np.random.normal(0, 2, 30)
+
+r = np.corrcoef(tp, ds)[0, 1]
+print(f"Corrélation entre TP et DS : r = {r:.3f}")
+
+fig, ax = plt.subplots()
+ax.scatter(tp, ds, alpha=0.7, s=50, edgecolor='k')
+ax.set_xlabel("Note de TP")
+ax.set_ylabel("Note de DS")
+ax.set_title(f"Notes TP vs DS — r = {r:.2f}")
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+**Commentaire :**  
+La corrélation est **forte et positive** (r ≈ 0.8). Les élèves qui réussissent leurs TP réussissent aussi leurs DS.
+
+**Mais peut-on parler de causalité ?** Non, pas directement :
+
+- Peut-être que les TP aident à mieux comprendre (→ causalité TP → DS)
+- Peut-être que les bons élèves réussissent partout (→ variable cachée « niveau général »)
+- Peut-être que la motivation générale joue (→ autre variable cachée)
+
+**La corrélation décrit ce qu'on observe. La causalité, elle, nécessite une analyse plus poussée** (expérimentation contrôlée, analyse causale...).
+:::
+
+## ✏️ Exercice 6 — Détecter des outliers avec la règle des 3 écarts-types
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+On te donne des mesures de température d'une sonde sur une semaine (avec 2 valeurs aberrantes mélangées) :
+
+```python
+temperatures = np.array([
+    21.5, 22.1, 21.8, 22.4, 21.9, 22.2, 21.7, 22.0, 21.6, 22.3,
+    21.8, 22.1, 21.9, 22.0, 95.5, 22.2, 21.7, 22.4, 21.6, 22.0,
+    21.9, 22.1, -15.2, 22.3, 21.8, 22.0, 21.7, 22.2, 21.9, 22.1
+])
+```
+
+1. Calcule la moyenne et l'écart-type.
+2. Identifie les outliers : valeurs hors de `[μ - 3σ, μ + 3σ]`.
+3. Supprime-les et recalcule moyenne et écart-type.
+4. Compare les deux moyennes : de combien la présence d'outliers fausse-t-elle le résultat ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 6
+
+temperatures = np.array([
+    21.5, 22.1, 21.8, 22.4, 21.9, 22.2, 21.7, 22.0, 21.6, 22.3,
+    21.8, 22.1, 21.9, 22.0, 95.5, 22.2, 21.7, 22.4, 21.6, 22.0,
+    21.9, 22.1, -15.2, 22.3, 21.8, 22.0, 21.7, 22.2, 21.9, 22.1
+])
+
+# 1. Stats initiales
+
+
+# 2. Détection outliers
+
+
+# 3. Nettoyage et nouvelles stats
+
+
+# 4. Comparaison
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+temperatures = np.array([
+    21.5, 22.1, 21.8, 22.4, 21.9, 22.2, 21.7, 22.0, 21.6, 22.3,
+    21.8, 22.1, 21.9, 22.0, 95.5, 22.2, 21.7, 22.4, 21.6, 22.0,
+    21.9, 22.1, -15.2, 22.3, 21.8, 22.0, 21.7, 22.2, 21.9, 22.1
+])
+
+# 1. Stats initiales
+mu = temperatures.mean()
+sigma = temperatures.std()
+print(f"Avec outliers : μ = {mu:.2f}, σ = {sigma:.2f}")
+
+# 2. Détection (méthode 3-sigma)
+seuil_bas = mu - 3 * sigma
+seuil_haut = mu + 3 * sigma
+outliers = temperatures[(temperatures < seuil_bas) | (temperatures > seuil_haut)]
+print(f"Bornes : [{seuil_bas:.2f}, {seuil_haut:.2f}]")
+print(f"Outliers détectés : {outliers}")
+
+# 3. Nettoyage
+temps_clean = temperatures[(temperatures >= seuil_bas) & (temperatures <= seuil_haut)]
+mu_clean = temps_clean.mean()
+sigma_clean = temps_clean.std()
+print(f"\nSans outliers : μ = {mu_clean:.2f}, σ = {sigma_clean:.2f}")
+
+# 4. Impact
+print(f"\nDifférence de moyenne : {abs(mu - mu_clean):.2f}°C")
+print(f"Division de l'écart-type : {sigma / sigma_clean:.1f}x")
+```
+
+**Commentaire pédagogique important :**
+
+⚠️ **Observe le résultat** : la règle des 3σ ne détecte probablement **qu'un seul des deux outliers** (typiquement `95.5`, mais pas `-15.2`).
+
+**Pourquoi ?** Avec 2 valeurs aberrantes dans les données, l'écart-type σ est **artificiellement gonflé**. Résultat : la borne `μ - 3σ` descend très bas et passe sous `-15.2`, qui n'est alors plus considéré comme un outlier.
+
+**C'est LE piège classique de la règle des 3σ : les outliers eux-mêmes masquent d'autres outliers.**
+
+**Solutions possibles** :
+
+1. **Itérer** : on nettoie, on recalcule μ et σ sur les données propres, on re-détecte. À chaque itération on enlève les outliers les plus extrêmes.
+2. **Utiliser des statistiques robustes** : la médiane et l'IQR (insensibles aux outliers) sont bien plus fiables.
+
+::: {.callout-tip}
+## Méthode IQR, plus robuste
+Un outlier est une valeur hors de `[Q1 - 1.5 × IQR, Q3 + 1.5 × IQR]`. Elle détecte bien les deux aberrants ici :
+
+```python
+q1 = np.percentile(temperatures, 25)
+q3 = np.percentile(temperatures, 75)
+iqr = q3 - q1
+outliers_iqr = temperatures[
+    (temperatures < q1 - 1.5 * iqr) | (temperatures > q3 + 1.5 * iqr)
+]
+```
+:::
+
+On reverra tout ça au **Module 3** (nettoyage des données). Cet exercice t'a fait découvrir, au passage, une **limite importante** que les livres de stats oublient souvent de mentionner.
+:::
+
+# 🏁 Exercice bilan — Analyse d'un jeu de données réel
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+**Ton défi** : on te donne des données de ventes journalières d'une boutique sur 1 an (365 jours) :
+
+```python
+np.random.seed(42)
+# Saisonnalité (plus de ventes en été) + tendance + bruit
+jours = np.arange(365)
+saisonnalite = 100 * np.sin(2 * np.pi * jours / 365) 
+tendance = 0.5 * jours
+bruit = np.random.normal(0, 50, 365)
+ventes = 500 + saisonnalite + tendance + bruit
+```
+
+Tu dois produire un **rapport d'exploration complet** :
+
+1. **Résumé statistique** : moyenne, médiane, min, max, écart-type, Q1, Q3
+2. **Visualisations** : 
+   - Évolution temporelle (plot)
+   - Distribution globale (histogramme + boxplot côte à côte)
+3. **Détection d'outliers** avec la règle des 3σ
+4. **Analyse d'une variable dérivée** : ajoute le jour de la semaine (jours 0-6 répétés), et calcule la **moyenne des ventes par jour de la semaine**
+5. **Corrélation** : calcule la corrélation entre le jour de l'année et les ventes. Qu'en déduis-tu ?
+
+Rédige une **conclusion** en quelques lignes sur ce que tu as découvert.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+
+np.random.seed(42)
+jours = np.arange(365)
+saisonnalite = 100 * np.sin(2 * np.pi * jours / 365)
+tendance = 0.5 * jours
+bruit = np.random.normal(0, 50, 365)
+ventes = 500 + saisonnalite + tendance + bruit
+
+# 1. Résumé statistique
+
+
+# 2. Visualisations
+
+
+# 3. Outliers
+
+
+# 4. Moyenne par jour de la semaine
+
+
+# 5. Corrélation temps-ventes
+
+
+# Conclusion dans une cellule markdown
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+jours = np.arange(365)
+saisonnalite = 100 * np.sin(2 * np.pi * jours / 365)
+tendance = 0.5 * jours
+bruit = np.random.normal(0, 50, 365)
+ventes = 500 + saisonnalite + tendance + bruit
+
+# 1. Résumé
+print("=== Résumé statistique ===")
+print(f"Moyenne    : {ventes.mean():.1f}")
+print(f"Médiane    : {np.median(ventes):.1f}")
+print(f"Min / Max  : {ventes.min():.1f} / {ventes.max():.1f}")
+print(f"Écart-type : {ventes.std():.1f}")
+print(f"Q1 / Q3    : {np.percentile(ventes, 25):.1f} / {np.percentile(ventes, 75):.1f}")
+
+# 2. Visualisations
+fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+
+# Évolution temporelle
+axes[0, 0].plot(jours, ventes, alpha=0.7)
+axes[0, 0].set_title("Évolution des ventes sur l'année")
+axes[0, 0].set_xlabel("Jour")
+axes[0, 0].set_ylabel("Ventes")
+axes[0, 0].grid(True, alpha=0.3)
+
+# Histogramme
+axes[0, 1].hist(ventes, bins=30, edgecolor='black', color='steelblue', alpha=0.7)
+axes[0, 1].set_title("Distribution des ventes journalières")
+axes[0, 1].set_xlabel("Ventes")
+axes[0, 1].grid(True, alpha=0.3)
+
+# Boxplot
+axes[1, 0].boxplot(ventes, vert=False, patch_artist=True, 
+                   boxprops=dict(facecolor='lightblue'))
+axes[1, 0].set_title("Boîte à moustaches")
+axes[1, 0].set_xlabel("Ventes")
+axes[1, 0].grid(True, alpha=0.3)
+
+# Moyenne par jour de la semaine
+jour_semaine = jours % 7
+moy_par_jour = [ventes[jour_semaine == j].mean() for j in range(7)]
+noms_jours = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+axes[1, 1].bar(noms_jours, moy_par_jour, color='orange', edgecolor='black')
+axes[1, 1].set_title("Ventes moyennes par jour de la semaine")
+axes[1, 1].set_ylabel("Ventes moyennes")
+axes[1, 1].grid(True, alpha=0.3, axis='y')
+
+plt.tight_layout()
+plt.show()
+
+# 3. Outliers
+mu = ventes.mean()
+sigma = ventes.std()
+outliers = ventes[(ventes < mu - 3*sigma) | (ventes > mu + 3*sigma)]
+print(f"\n=== Outliers (règle 3σ) ===")
+print(f"Nombre d'outliers : {len(outliers)}")
+if len(outliers) > 0:
+    print(f"Valeurs : {outliers}")
+
+# 4. Analyse jour de la semaine
+print("\n=== Ventes moyennes par jour ===")
+for nom, moy in zip(noms_jours, moy_par_jour):
+    print(f"  {nom} : {moy:.1f}")
+
+# 5. Corrélation temps-ventes
+r = np.corrcoef(jours, ventes)[0, 1]
+print(f"\nCorrélation jour-ventes : r = {r:.3f}")
+```
+
+**Conclusion type :**
+
+Les ventes présentent **trois caractéristiques principales** :
+
+1. **Tendance haussière cachée** : la tendance linéaire est bien présente dans les données générées (coefficient 0.5 par jour), mais elle est **complètement masquée** par la saisonnalité ! La corrélation brute avec le temps est quasi nulle (r ≈ 0.01), alors qu'on aurait pu croire qu'elle serait forte.
+2. **Saisonnalité dominante** : on voit clairement un pic en été (autour du jour 90) et un creux en hiver sur la courbe temporelle — la sinusoïde saisonnière annuelle **noie la tendance**.
+3. **Pas de pattern par jour de la semaine** : les ventes moyennes sont équivalentes chaque jour (on n'a pas simulé cet effet).
+
+**Leçon pédagogique cruciale** :
+
+⚠️ **La corrélation brute peut mentir !** Ici, le coefficient r ≈ 0 pourrait te faire conclure qu'il n'y a **aucun lien** entre temps et ventes. **C'est faux**. La tendance existe, mais elle est masquée par la saisonnalité.
+
+Pour la débusquer, il faudrait :
+- Soit **désaisonnaliser** les données (soustraire la saisonnalité estimée)
+- Soit utiliser un modèle qui gère les deux (ARIMA, Prophet)
+
+C'est tout l'enjeu de la préparation des données avant modélisation — on y reviendra au **Module 3**.
+
+**À retenir** : avant de modéliser, on **explore**, mais on explore aussi **les interactions** entre phénomènes. Une corrélation nulle ne signifie pas absence de lien !
+:::
+
+# 🎓 Récapitulatif
+
+## Ce que tu dois savoir faire
+
+| Notion | Commande NumPy |
+|---|---|
+| Moyenne | `np.mean(x)` |
+| Médiane | `np.median(x)` |
+| Écart-type | `np.std(x)` |
+| Variance | `np.var(x)` |
+| Min / Max | `x.min()`, `x.max()` |
+| Quartiles | `np.percentile(x, 25)`, `np.percentile(x, 75)` |
+| Tirage loi normale | `np.random.normal(μ, σ, n)` |
+| Tirage loi uniforme | `np.random.uniform(a, b, n)` |
+| Corrélation | `np.corrcoef(x, y)[0, 1]` |
+| Histogramme | `plt.hist(x, bins=30)` |
+| Boxplot | `plt.boxplot(x)` |
+
+## Ce que tu dois comprendre
+
+1. **Moyenne ≠ médiane** : choisir selon la symétrie des données.
+2. **Écart-type** : mesure la dispersion, règle 68-95-99.7 pour la loi normale.
+3. **La loi normale est partout** : tailles, mesures, erreurs, poids de neurones...
+4. **Bayes** : mettre à jour nos croyances avec de nouvelles informations (central en IA).
+5. **Corrélation ≠ causalité** : LE piège classique du data scientist.
+6. **Outliers** : à détecter et traiter avant toute modélisation.
+
+## 🚀 La suite
+
+Tu as terminé les **3 notions mathématiques fondatrices** du parcours. Bravo ! 🎉
+
+**Prochaine étape** : le [**TP sommatif du Module 1**](#) — tu vas construire un mini-moteur de machine learning from scratch, qui mobilise **toutes les notions** des 3 dernières notions :
+
+- Vecteurs et matrices (Notion 1.1)
+- Descente de gradient (Notion 1.2)
+- Analyse statistique des données (Notion 1.3)
+
+Ce sera l'occasion de mettre en pratique tout ce que tu viens d'apprendre, sur un vrai jeu de données.
+
+::: {.callout-tip}
+## 💡 Petit défi pour la route
+Prends un jeu de données qui t'intéresse (Kaggle, data.gouv.fr, ou simplement le prix des actions Apple) et applique-lui toutes les analyses de cette notion. C'est le meilleur moyen de consolider ces outils : les utiliser sur **tes** données.
+:::

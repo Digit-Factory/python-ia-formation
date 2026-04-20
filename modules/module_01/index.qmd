@@ -1,0 +1,89 @@
+---
+title: "Module 1 — Mathématiques pour l'IA"
+subtitle: "Le strict nécessaire pour comprendre (et pas juste appliquer)"
+---
+
+## 🎯 Pourquoi ce module ?
+
+La plupart des parcours d'IA supposent que tu as un bagage mathématique solide (bac+3 en maths, école d'ingé...). Ce n'est pas forcément ton cas, et c'est OK. Ce module te donne **exactement ce qu'il faut** — ni plus ni moins — pour comprendre tous les modules suivants.
+
+::: {.callout-important}
+## L'objectif n'est pas de faire de toi un mathématicien
+L'objectif est que tu puisses **lire une formule** sans paniquer, **comprendre** ce qu'un algorithme calcule, et donc **faire les bons choix** quand tu modéliseras.
+:::
+
+## 📦 Récupère tes ressources pratiques
+
+Avant de commencer, **télécharge le pack élève** de ce module. Il contient :
+
+- 📓 Un notebook Jupyter par notion (avec les exercices vides à compléter)
+- 📂 Les datasets nécessaires pour le TP sommatif
+- 📝 Un README qui explique comment s'organiser
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local (recommandé)
+
+Télécharge le ZIP, extrais-le, et ouvre les notebooks dans Jupyter Lab ou VS Code.
+
+<a href="../../ressources_eleves/module_01_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 1 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Si tu préfères ne rien installer, ouvre les notebooks directement dans Colab depuis les pages de chaque notion (bouton en haut).
+
+::: {.callout-note appearance="simple"}
+Nécessite un compte Google gratuit.
+:::
+:::
+
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Lire et comprendre une formule mathématique utilisée en ML
+- Manipuler des vecteurs et des matrices avec NumPy
+- Interpréter une dérivée et un gradient comme une « pente »
+- Comprendre ce qu'est une probabilité, une loi normale, un écart-type
+- Traduire ces concepts en code Python concret
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **1.1** | [Algèbre linéaire appliquée](notion_1_1_algebre_lineaire.qmd) | 3-4 h |
+| **1.2** | [Calcul différentiel](notion_1_2_calcul_differentiel.qmd) | 3-4 h |
+| **1.3** | [Statistiques et probabilités](notion_1_3_statistiques.qmd) | 3-4 h |
+| **🎓 TP** | [Moteur de ML from scratch](tp_sommatif.qmd) | 6-8 h |
+
+## 💡 Approche pédagogique
+
+Pour chaque notion, on suit le même triptyque :
+
+1. **Intuition visuelle** — un dessin avant une formule
+2. **Implémentation naïve en Python pur** — pour voir ce qu'il y a sous le capot
+3. **Version NumPy idiomatique** — pour apprendre les bons réflexes
+
+::: {.callout-tip}
+## 🎯 Workflow recommandé pour chaque notion
+1. **Lis la théorie ici, sur le site** (plus agréable à lire)
+2. **Ouvre le notebook correspondant** dans Jupyter (téléchargé plus haut)
+3. **Fais les exercices** dans les cellules `# TODO`
+4. **Si tu bloques**, reviens sur le site et déplie les corrections
+:::
+
+::: {.callout-warning}
+## Ne saute aucune notion
+Même si tu penses la connaître. Les exercices bâtissent une intuition qui te servira pour le reste du parcours.
+:::
+
+---
+
+[**→ Commencer par la Notion 1.1 : Algèbre linéaire appliquée**](notion_1_1_algebre_lineaire.qmd)

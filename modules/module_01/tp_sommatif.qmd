@@ -1,0 +1,1308 @@
+---
+title: "TP sommatif Module 1 — Moteur de ML from scratch"
+subtitle: "Ton premier vrai projet de data science de A à Z"
+author: "Loïc PILET"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_01/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/ton-compte-github/python-ia-formation/blob/main/ressources_eleves/module_01/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_01_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 6 à 8 heures  
+**Prérequis** : Notions 1.1, 1.2 et 1.3  
+**Objectif** : réaliser un projet complet de data science, **sans aucune bibliothèque ML**, en mobilisant toutes les notions du module
+:::
+
+# 🎯 Contexte du projet
+
+Tu viens d'être recruté·e comme **data scientist junior** chez **ImmoAnalytica**, une startup qui conseille des agences immobilières. On te confie ton premier projet : **prédire le prix des appartements parisiens** à partir de leurs caractéristiques.
+
+Ton chef te donne un fichier CSV avec 500 annonces (avec tous les défauts d'un fichier réel) et te demande :
+
+> « Fais-moi un modèle qui estime le prix d'un appartement. Et je veux comprendre comment tu fais — pas juste balancer du scikit-learn. »
+
+**Bonne nouvelle** : tu as toutes les compétences pour ça. On va utiliser :
+
+- **Notion 1.1** (vecteurs, matrices) : pour structurer les données
+- **Notion 1.3** (stats) : pour explorer et nettoyer
+- **Notion 1.2** (descente de gradient) : pour entraîner le modèle
+
+**Contrainte (voulue pour l'apprentissage)** : on n'utilise **PAS scikit-learn** pour l'entraînement. On fait tout à la main. C'est plus long, mais ça te donnera une compréhension qu'aucune librairie ne peut t'apporter.
+
+# 📊 Présentation des données
+
+Le fichier `appartements_paris.csv` contient 502 lignes (avec quelques doublons…) et 10 colonnes :
+
+| Colonne | Type | Description |
+|---|---|---|
+| `surface_m2` | float | Surface de l'appartement |
+| `nb_pieces` | int | Nombre de pièces |
+| `etage` | float | Étage (0 = RDC) |
+| `arrondissement` | int | Arrondissement (1 à 20) |
+| `ascenseur` | int | 1 si oui, 0 si non |
+| `balcon` | int | 1 si oui, 0 si non |
+| `annee_construction` | float | Année de construction |
+| `prix_eur` | int | Prix en euros (c'est ce qu'on veut prédire) |
+| `prix_m2` | float | Prix au m² (redondant avec prix/surface) |
+| `type_bien` | str | Type de bien (mal encodé !) |
+
+::: {.callout-warning}
+## ⚠️ Le fichier contient délibérément des défauts
+- Des valeurs manquantes
+- Des outliers (erreurs de saisie)
+- Des doublons
+- Une colonne redondante
+- Une colonne catégorielle mal normalisée
+
+**Ton premier job est de les détecter et les traiter.** C'est la réalité du métier.
+:::
+
+# 🗺️ Plan de travail
+
+Le TP est découpé en **5 parties** qui suivent le processus standard d'un projet de data science :
+
+1. **Exploration** — comprendre les données avant de les toucher
+2. **Nettoyage** — corriger les défauts détectés
+3. **Préparation** — mettre en forme pour le ML
+4. **Modélisation** — entraîner un modèle par descente de gradient
+5. **Évaluation & Rapport** — mesurer les performances et présenter les résultats
+
+Pour chaque partie, tu as :
+
+- Des **instructions claires**
+- Un **espace pour coder**
+- Un **corrigé** caché dans un callout (à ouvrir seulement après avoir essayé !)
+
+::: {.callout-tip}
+## 💡 Conseil pédagogique
+**Résiste à la tentation de lire les corrigés trop vite.** Ce TP est conçu pour te faire galérer un peu — c'est comme ça qu'on apprend vraiment. Si tu bloques plus de 30 minutes sur un point, là tu peux jeter un œil.
+:::
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (10, 6)
+plt.rcParams['font.size'] = 11
+
+# Pour reproductibilité
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-note}
+## 📁 Récupération du dataset
+Assure-toi que `appartements_paris.csv` est dans le même dossier que ton notebook, ou adapte le chemin dans la cellule ci-dessous.
+:::
+
+```{python}
+#| eval: false
+# Charger les données
+df = pd.read_csv('ressources_tp/appartements_paris.csv')
+print(f"Nombre de lignes : {len(df)}")
+print(f"Nombre de colonnes : {df.shape[1]}")
+df.head()
+```
+
+```{python}
+#| echo: false
+# Version exécutée pour le rendu (chemin absolu)
+df = pd.read_csv('ressources_tp/appartements_paris.csv')
+print(f"Nombre de lignes : {len(df)}")
+print(f"Nombre de colonnes : {df.shape[1]}")
+df.head()
+```
+
+---
+
+# Partie 1 — Exploration des données
+
+## 🎯 Objectif
+
+Comprendre ce qu'on a sous les yeux. **Ne touche à rien pour l'instant**, juste observe.
+
+## ✏️ Étape 1.1 — Inspection générale
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Affiche les **informations générales** du DataFrame (`.info()`).
+2. Affiche les **statistiques descriptives** des colonnes numériques (`.describe()`).
+3. Compte les **valeurs uniques** de `type_bien`.
+4. **Question** : repères-tu déjà des choses bizarres dans les stats ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+
+# 1. Infos générales
+
+
+# 2. Statistiques descriptives
+
+
+# 3. Valeurs uniques de type_bien
+
+
+# 4. Tes observations (dans une cellule markdown ci-dessous)
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 1.1
+
+```{python}
+# 1. Infos générales
+print("=== df.info() ===")
+df.info()
+print()
+```
+
+```{python}
+# 2. Statistiques descriptives
+print("=== df.describe() ===")
+df.describe()
+```
+
+```{python}
+# 3. Valeurs uniques de type_bien
+print("=== Valeurs uniques de type_bien ===")
+print(df['type_bien'].value_counts())
+```
+
+**Observations clés :**
+
+- **Valeurs manquantes** : `etage`, `balcon`, `annee_construction` ont des NaN.
+- **Outliers surface** : le max est à 628 m² (c'est absurde pour Paris). Il y a probablement des erreurs de conversion.
+- **Outliers prix** : le prix max est à **574 millions d'euros** (sic). C'est une erreur de saisie évidente.
+- **`type_bien` est mal encodé** : 5 variantes pour ce qui est censé être "appartement".
+- **`prix_m2` est redondant** avec `prix_eur / surface_m2`.
+:::
+
+## ✏️ Étape 1.2 — Visualisation des distributions
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Trace les **histogrammes** des 4 variables numériques clés dans une figure à 4 sous-graphes :
+- `surface_m2`
+- `prix_eur`
+- `etage`
+- `annee_construction`
+
+Qu'observes-tu ? Les distributions sont-elles symétriques ? Y a-t-il visuellement des outliers ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 1.2
+
+```{python}
+fig, axes = plt.subplots(2, 2, figsize=(14, 9))
+
+axes[0, 0].hist(df['surface_m2'].dropna(), bins=40, color='steelblue', edgecolor='black', alpha=0.7)
+axes[0, 0].set_title('Surface (m²)')
+axes[0, 0].set_xlabel('m²')
+axes[0, 0].grid(True, alpha=0.3)
+
+axes[0, 1].hist(df['prix_eur'].dropna(), bins=40, color='orange', edgecolor='black', alpha=0.7)
+axes[0, 1].set_title('Prix (€)')
+axes[0, 1].set_xlabel('€')
+axes[0, 1].grid(True, alpha=0.3)
+
+axes[1, 0].hist(df['etage'].dropna(), bins=8, color='green', edgecolor='black', alpha=0.7)
+axes[1, 0].set_title('Étage')
+axes[1, 0].grid(True, alpha=0.3)
+
+axes[1, 1].hist(df['annee_construction'].dropna(), bins=30, color='purple', edgecolor='black', alpha=0.7)
+axes[1, 1].set_title('Année de construction')
+axes[1, 1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- `surface_m2` et `prix_eur` ont des **distributions asymétriques à droite** (queue longue avec quelques valeurs extrêmes → outliers visuels).
+- `etage` est plutôt uniforme, normal.
+- `annee_construction` montre des constructions réparties sur 1850-2024.
+
+Les histogrammes confirment les outliers suspectés.
+:::
+
+## ✏️ Étape 1.3 — Étude des corrélations
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Calcule la **matrice de corrélation** des variables numériques (sans `prix_m2` qui fausserait tout).
+2. Visualise-la avec une **heatmap** (matplotlib `imshow` + annotations).
+3. **Question** : quelles variables sont les plus corrélées au prix ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 1.3
+
+```{python}
+# Colonnes numériques pertinentes
+colonnes_num = ['surface_m2', 'nb_pieces', 'etage', 'arrondissement',
+                'ascenseur', 'balcon', 'annee_construction', 'prix_eur']
+matrice_corr = df[colonnes_num].corr()
+
+# Visualisation
+fig, ax = plt.subplots(figsize=(10, 8))
+im = ax.imshow(matrice_corr, cmap='RdBu_r', vmin=-1, vmax=1)
+
+# Ticks
+ax.set_xticks(np.arange(len(colonnes_num)))
+ax.set_yticks(np.arange(len(colonnes_num)))
+ax.set_xticklabels(colonnes_num, rotation=45, ha='right')
+ax.set_yticklabels(colonnes_num)
+
+# Annotations
+for i in range(len(colonnes_num)):
+    for j in range(len(colonnes_num)):
+        ax.text(j, i, f"{matrice_corr.iloc[i, j]:.2f}", 
+                ha='center', va='center', fontsize=9)
+
+plt.colorbar(im, ax=ax, shrink=0.8)
+ax.set_title("Matrice de corrélation (avec outliers)")
+plt.tight_layout()
+plt.show()
+
+print("\nCorrélations avec prix_eur (triées) :")
+print(matrice_corr['prix_eur'].sort_values(ascending=False))
+```
+
+**Observations** :
+
+- `surface_m2` a **la plus forte corrélation** avec le prix (logique !).
+- `nb_pieces` aussi (qui est lui-même corrélé à la surface — on va devoir faire attention au problème de **colinéarité** plus tard).
+- `arrondissement` a une corrélation négative modeste (les numéros bas sont plus chers, mais ce n'est pas parfait).
+
+⚠️ **Attention** : ces corrélations sont **faussées par les outliers** (notamment les prix aberrants). On les recalculera après nettoyage.
+:::
+
+# Partie 2 — Nettoyage des données
+
+Passons à l'action. On va traiter les problèmes détectés, dans cet ordre :
+
+1. Doublons
+2. Colonnes inutiles
+3. Valeurs manquantes
+4. Outliers
+5. Normalisation texte
+
+## ✏️ Étape 2.1 — Supprimer les doublons
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Compte combien il y a de doublons parfaits dans le DataFrame.
+2. Supprime-les avec `drop_duplicates()`.
+3. Vérifie la nouvelle taille.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 2.1
+
+```{python}
+n_doublons = df.duplicated().sum()
+print(f"Doublons détectés : {n_doublons}")
+
+df = df.drop_duplicates().reset_index(drop=True)
+print(f"Nouvelle taille : {len(df)} lignes")
+```
+:::
+
+## ✏️ Étape 2.2 — Supprimer les colonnes inutiles
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Deux colonnes posent problème :
+
+- `prix_m2` est **redondante** (= prix_eur / surface_m2) et créerait une fuite de données dans le modèle
+- `type_bien` est **inutile** (toutes les valeurs désignent un appartement, juste mal écrit)
+
+Supprime-les.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 2.2
+
+```{python}
+df = df.drop(columns=['prix_m2', 'type_bien'])
+print(f"Colonnes restantes : {df.columns.tolist()}")
+```
+
+**Pourquoi supprimer `prix_m2` ?**  
+Parce que si on laissait cette colonne, notre modèle « apprendrait » à prédire le prix depuis le prix au m², ce qui est de la triche (fuite de données = **data leakage**). En pratique, on ne connaît pas le prix au m² AVANT de prédire le prix !
+:::
+
+## ✏️ Étape 2.3 — Traiter les valeurs manquantes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Compte les valeurs manquantes par colonne.
+2. **Choisis une stratégie** pour chacune :
+   - `etage` : imputer avec la **médiane** (c'est une variable discrète)
+   - `balcon` : imputer avec **0** (on suppose qu'absence = pas de balcon)
+   - `annee_construction` : imputer avec la **médiane**
+3. Vérifie qu'il n'y a plus de NaN.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 2.3
+
+```{python}
+# 1. Compte des NaN
+print("Valeurs manquantes avant :")
+print(df.isna().sum())
+
+# 2. Imputation
+df['etage'] = df['etage'].fillna(df['etage'].median())
+df['balcon'] = df['balcon'].fillna(0).astype(int)
+df['annee_construction'] = df['annee_construction'].fillna(df['annee_construction'].median())
+
+# 3. Vérification
+print("\nValeurs manquantes après :")
+print(df.isna().sum())
+```
+
+**Important** : il y a d'autres stratégies possibles (supprimer les lignes, imputer avec une régression, etc.). Pour ce TP on reste simples. Mais dans un vrai projet, **justifie toujours ton choix** d'imputation.
+:::
+
+## ✏️ Étape 2.4 — Détecter et traiter les outliers
+
+::: {.callout-note icon=false}
+## 📝 À faire
+On va utiliser la méthode IQR vue en Notion 1.3.
+
+1. Pour `surface_m2`, calcule Q1, Q3, IQR et les bornes `[Q1 - 1.5×IQR, Q3 + 1.5×IQR]`.
+2. Identifie les lignes hors bornes.
+3. Fais pareil pour `prix_eur`.
+4. **Supprime** les lignes qui sont outliers sur l'une ou l'autre variable.
+5. Affiche combien de lignes ont été supprimées.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 2.4
+
+```{python}
+taille_avant = len(df)
+
+# Fonction utilitaire
+def detecter_outliers_iqr(serie):
+    q1 = serie.quantile(0.25)
+    q3 = serie.quantile(0.75)
+    iqr = q3 - q1
+    borne_basse = q1 - 1.5 * iqr
+    borne_haute = q3 + 1.5 * iqr
+    return (serie < borne_basse) | (serie > borne_haute)
+
+# Détection sur surface et prix
+outliers_surface = detecter_outliers_iqr(df['surface_m2'])
+outliers_prix = detecter_outliers_iqr(df['prix_eur'])
+
+print(f"Outliers surface_m2 : {outliers_surface.sum()}")
+print(f"Outliers prix_eur   : {outliers_prix.sum()}")
+
+# Supprimer les lignes outliers (sur l'une OU l'autre variable)
+df = df[~(outliers_surface | outliers_prix)].reset_index(drop=True)
+
+print(f"\nLignes supprimées : {taille_avant - len(df)}")
+print(f"Taille finale : {len(df)} lignes")
+```
+
+::: {.callout-note}
+**Nuance importante** : en pratique, on ne supprime pas toujours les outliers. Parfois ils sont intéressants (ex : fraude bancaire). Ici on les supprime parce qu'on a identifié que ce sont des **erreurs de saisie**.
+:::
+:::
+
+## ✏️ Étape 2.5 — Vérification post-nettoyage
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Compare **avant/après nettoyage** :
+
+- Retrace l'histogramme de `prix_eur` et `surface_m2`.
+- Recalcule la matrice de corrélation.
+- Les corrélations ont-elles changé significativement ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 2.5
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(13, 4))
+
+axes[0].hist(df['surface_m2'], bins=40, color='steelblue', edgecolor='black', alpha=0.7)
+axes[0].set_title('Surface APRÈS nettoyage')
+axes[0].set_xlabel('m²')
+axes[0].grid(True, alpha=0.3)
+
+axes[1].hist(df['prix_eur'], bins=40, color='orange', edgecolor='black', alpha=0.7)
+axes[1].set_title('Prix APRÈS nettoyage')
+axes[1].set_xlabel('€')
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# Matrice de corrélation propre
+matrice_corr_clean = df.corr()
+print("\nCorrélations avec prix_eur (après nettoyage) :")
+print(matrice_corr_clean['prix_eur'].sort_values(ascending=False))
+```
+
+**Observation attendue** : sans les outliers, les distributions redeviennent plus lisibles, et les corrélations sont plus fortes et plus fiables (les outliers tiraient les corrélations dans tous les sens).
+:::
+
+# Partie 3 — Préparation pour le ML
+
+## 🎯 Objectif
+
+Mettre les données sous une forme exploitable par notre algorithme de descente de gradient.
+
+## ✏️ Étape 3.1 — Séparer X et y
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Crée `X` : la matrice des **variables explicatives** (toutes sauf `prix_eur`).
+2. Crée `y` : le **vecteur cible** (`prix_eur`).
+3. Convertis-les en arrays NumPy.
+4. Affiche leurs dimensions.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 3.1
+
+```{python}
+# Features et target
+feature_names = [c for c in df.columns if c != 'prix_eur']
+X = df[feature_names].values.astype(float)
+y = df['prix_eur'].values.astype(float)
+
+print(f"X shape : {X.shape}")  # (n_echantillons, n_features)
+print(f"y shape : {y.shape}")
+print(f"Features utilisées : {feature_names}")
+```
+:::
+
+## ✏️ Étape 3.2 — Séparer train et test
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Pour évaluer honnêtement notre modèle, on doit le tester sur des données **qu'il n'a pas vues pendant l'entraînement**.
+
+1. Mélange les indices aléatoirement avec `np.random.permutation`.
+2. Garde **80% pour l'entraînement** et **20% pour le test**.
+3. Crée `X_train`, `X_test`, `y_train`, `y_test`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 3.2
+
+```{python}
+np.random.seed(42)
+
+# Mélange
+n = len(X)
+indices = np.random.permutation(n)
+n_train = int(0.8 * n)
+
+indices_train = indices[:n_train]
+indices_test = indices[n_train:]
+
+X_train = X[indices_train]
+X_test = X[indices_test]
+y_train = y[indices_train]
+y_test = y[indices_test]
+
+print(f"Train : {len(X_train)} échantillons")
+print(f"Test  : {len(X_test)} échantillons")
+```
+
+::: {.callout-important}
+## 🧠 Règle d'or
+**Ne jamais utiliser les données de test pendant l'entraînement.** Si tu regardes le test pour ajuster ton modèle, tu triches — et tes scores seront trompeurs. Le test, c'est l'examen final.
+:::
+:::
+
+## ✏️ Étape 3.3 — Normaliser les features
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Comme vu en Notion 1.2, la descente de gradient marche beaucoup mieux avec des variables normalisées (moyenne 0, écart-type 1).
+
+**Attention subtile** : tu dois calculer moyenne et écart-type **uniquement sur les données d'entraînement**, puis appliquer la même transformation aux données de test.
+
+1. Calcule `X_train_mean` et `X_train_std`.
+2. Normalise `X_train` → `X_train_norm`.
+3. Normalise `X_test` avec les **mêmes moyenne et écart-type** → `X_test_norm`.
+4. Normalise aussi `y_train` et `y_test`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 3.3
+
+```{python}
+# Moyennes et écarts-types sur TRAIN uniquement
+X_train_mean = X_train.mean(axis=0)
+X_train_std = X_train.std(axis=0)
+
+y_train_mean = y_train.mean()
+y_train_std = y_train.std()
+
+# Normalisation
+X_train_norm = (X_train - X_train_mean) / X_train_std
+X_test_norm = (X_test - X_train_mean) / X_train_std  # ← mêmes paramètres !
+
+y_train_norm = (y_train - y_train_mean) / y_train_std
+y_test_norm = (y_test - y_train_mean) / y_train_std
+
+print("✅ Données normalisées")
+print(f"X_train_norm : moyenne ≈ {X_train_norm.mean():.4f}, std ≈ {X_train_norm.std():.4f}")
+```
+
+::: {.callout-warning}
+## ⚠️ Pourquoi normaliser le test avec les paramètres du train ?
+En production, tu n'auras **pas** les données futures pour recalculer les moyennes. Ton modèle doit pouvoir fonctionner sur **une seule nouvelle observation** avec les paramètres appris sur train. Cette rigueur évite les **biais d'évaluation**.
+:::
+:::
+
+# Partie 4 — Modélisation par descente de gradient
+
+## 🎯 Objectif
+
+Entraîner une régression linéaire **multivariée** par descente de gradient. Notre modèle va apprendre :
+
+$$\hat{y} = w_1 x_1 + w_2 x_2 + \dots + w_d x_d + b$$
+
+où `w = (w_1, …, w_d)` est le vecteur de poids et `b` le biais.
+
+## ✏️ Étape 4.1 — Fonction de prédiction
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Écris une fonction `predire(X, w, b)` qui calcule les prédictions.
+
+**Indice** : c'est un simple produit matriciel `X @ w + b`. Si `X` est de taille `(n, d)` et `w` de taille `(d,)`, le résultat est de taille `(n,)`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.1
+
+def predire(X, w, b):
+    # à compléter
+    pass
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.1
+
+```{python}
+def predire(X, w, b):
+    """Calcule les prédictions ŷ = X @ w + b."""
+    return X @ w + b
+
+# Test rapide
+w_test = np.zeros(X_train_norm.shape[1])
+b_test = 0.0
+pred = predire(X_train_norm, w_test, b_test)
+print(f"Shape des prédictions : {pred.shape}")  # (n_train,)
+```
+:::
+
+## ✏️ Étape 4.2 — Fonction de coût (MSE)
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Écris une fonction `mse(X, y, w, b)` qui calcule l'erreur quadratique moyenne :
+
+$$\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)^2$$
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.2
+
+def mse(X, y, w, b):
+    # à compléter
+    pass
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.2
+
+```{python}
+def mse(X, y, w, b):
+    """Erreur quadratique moyenne."""
+    predictions = predire(X, w, b)
+    return np.mean((predictions - y)**2)
+```
+:::
+
+## ✏️ Étape 4.3 — Gradient de la MSE
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Les formules du gradient de la MSE multivariée sont :
+
+$$\frac{\partial \text{MSE}}{\partial w_j} = \frac{2}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i) \cdot x_{ij}$$
+
+$$\frac{\partial \text{MSE}}{\partial b} = \frac{2}{n} \sum_{i=1}^{n} (\hat{y}_i - y_i)$$
+
+**Astuce NumPy** : `X.T @ erreurs` calcule en une seule opération la somme des `(ŷ - y) × x_j` pour chaque feature `j` !
+
+Écris une fonction `gradient_mse(X, y, w, b)` qui retourne `(grad_w, grad_b)`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.3
+
+def gradient_mse(X, y, w, b):
+    # à compléter
+    pass
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.3
+
+```{python}
+def gradient_mse(X, y, w, b):
+    """Retourne (grad_w, grad_b) : gradients de la MSE."""
+    n = len(y)
+    predictions = predire(X, w, b)
+    erreurs = predictions - y
+    
+    grad_w = (2/n) * (X.T @ erreurs)  # vecteur de taille (d,)
+    grad_b = (2/n) * np.sum(erreurs)  # scalaire
+    
+    return grad_w, grad_b
+```
+
+**À comprendre sur `X.T @ erreurs`** :
+
+- `X` est de shape `(n, d)`. `X.T` est donc `(d, n)`.
+- `erreurs` est de shape `(n,)`.
+- `X.T @ erreurs` est de shape `(d,)` : pour chaque feature `j`, on calcule `Σ_i erreurs[i] * X[i, j]`.
+
+C'est exactement la somme qui apparaît dans la formule. **Magique, n'est-ce pas ?**
+:::
+
+## ✏️ Étape 4.4 — Boucle d'entraînement
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Écris une fonction `entrainer(X, y, learning_rate, n_iter)` qui :
+
+1. Initialise `w = zeros` (de la bonne taille) et `b = 0`.
+2. Fait `n_iter` itérations de descente de gradient.
+3. Enregistre la MSE à chaque itération dans une liste `historique`.
+4. Retourne `w`, `b`, `historique`.
+
+**Entraîne-la** ensuite sur `X_train_norm` et `y_train_norm` avec `learning_rate=0.05` et `n_iter=2000`.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.4
+
+def entrainer(X, y, learning_rate=0.05, n_iter=2000):
+    # à compléter
+    pass
+
+# Entraînement
+w, b, historique = entrainer(X_train_norm, y_train_norm)
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.4
+
+```{python}
+def entrainer(X, y, learning_rate=0.05, n_iter=2000):
+    """Entraîne une régression linéaire par descente de gradient."""
+    d = X.shape[1]
+    w = np.zeros(d)
+    b = 0.0
+    historique = []
+    
+    for i in range(n_iter):
+        grad_w, grad_b = gradient_mse(X, y, w, b)
+        w = w - learning_rate * grad_w
+        b = b - learning_rate * grad_b
+        historique.append(mse(X, y, w, b))
+    
+    return w, b, historique
+
+# Entraînement
+w, b, historique = entrainer(X_train_norm, y_train_norm, learning_rate=0.05, n_iter=2000)
+
+print(f"MSE initiale : {historique[0]:.4f}")
+print(f"MSE finale   : {historique[-1]:.4f}")
+print(f"Division par : {historique[0] / historique[-1]:.1f}x")
+```
+:::
+
+## ✏️ Étape 4.5 — Visualiser la convergence
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Trace la courbe de convergence en échelle logarithmique. La MSE doit **décroître monotonement** — si elle oscille ou explose, c'est que le learning rate est trop grand.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.5
+
+```{python}
+fig, ax = plt.subplots()
+ax.plot(historique)
+ax.set_yscale('log')
+ax.set_xlabel('Itération')
+ax.set_ylabel('MSE (échelle log)')
+ax.set_title('Convergence de la descente de gradient')
+ax.grid(True, alpha=0.3)
+plt.show()
+
+print(f"La courbe décroît bien → l'entraînement est stable.")
+```
+:::
+
+## ✏️ Étape 4.6 — Analyser les poids appris
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Sur les données normalisées, les poids `w_j` s'interprètent comme **l'importance relative** de chaque variable : plus `|w_j|` est grand, plus la variable est influente.
+
+Affiche les features et leurs poids, triés par importance. Quelles variables ont le plus d'impact sur le prix ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.6
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 4.6
+
+```{python}
+importance = pd.DataFrame({
+    'feature': feature_names,
+    'poids': w,
+    'importance': np.abs(w)
+}).sort_values('importance', ascending=False)
+
+print("Poids appris (sur données normalisées) :")
+print(importance.to_string(index=False))
+
+# Visualisation
+fig, ax = plt.subplots()
+colors = ['green' if p > 0 else 'red' for p in importance['poids']]
+ax.barh(importance['feature'], importance['poids'], color=colors, edgecolor='black', alpha=0.7)
+ax.axvline(0, color='black', linewidth=0.5)
+ax.set_xlabel('Poids (données normalisées)')
+ax.set_title('Importance des variables')
+ax.grid(True, alpha=0.3, axis='x')
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** :
+
+- **Surface** : variable dominante (le plus gros poids positif). Logique !
+- **Arrondissement** : poids négatif = quand le numéro d'arrondissement augmente (donc on s'éloigne du centre), le prix baisse. Cohérent.
+- **Autres** : étage, ascenseur, balcon, année jouent un rôle secondaire mais mesurable.
+:::
+
+# Partie 5 — Évaluation et rapport
+
+## 🎯 Objectif
+
+Maintenant qu'on a un modèle, il faut **mesurer ses performances** sur le jeu de test (qu'on n'a jamais utilisé pendant l'entraînement), et produire un **rapport** exploitable par le métier.
+
+## ✏️ Étape 5.1 — Prédictions sur le test set
+
+::: {.callout-note icon=false}
+## 📝 À faire
+1. Fais des prédictions sur `X_test_norm`.
+2. **Dénormalise** ces prédictions pour obtenir des prix en euros réels.
+3. Fais pareil pour `y_test` afin de le comparer en euros réels aussi.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 5.1
+
+```{python}
+# Prédictions normalisées
+y_pred_norm = predire(X_test_norm, w, b)
+
+# Dénormalisation : y_reel = y_norm * std + mean
+y_pred = y_pred_norm * y_train_std + y_train_mean
+y_test_reel = y_test_norm * y_train_std + y_train_mean  # (identique à y_test, vérification)
+
+# Vérification
+assert np.allclose(y_test_reel, y_test), "La dénormalisation devrait être parfaite"
+print("✅ Prédictions faites")
+print(f"Exemple : premier prix prédit = {y_pred[0]:,.0f} €")
+print(f"         premier prix réel    = {y_test[0]:,.0f} €")
+```
+:::
+
+## ✏️ Étape 5.2 — Métriques d'évaluation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Calcule **trois métriques** sur les prédictions (en euros réels) :
+
+1. **MAE** (Mean Absolute Error) : moyenne des erreurs absolues, facile à interpréter (en €)
+2. **RMSE** (Root Mean Squared Error) : racine de la MSE, pénalise plus les grosses erreurs
+3. **R²** (coefficient de détermination) : 1 = parfait, 0 = pas mieux qu'une moyenne
+
+Formules :
+
+- `MAE = mean(|y - ŷ|)`
+- `RMSE = sqrt(mean((y - ŷ)²))`
+- `R² = 1 - Σ(y - ŷ)² / Σ(y - ȳ)²`
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 5.2
+
+```{python}
+def mae(y_true, y_pred):
+    return np.mean(np.abs(y_true - y_pred))
+
+def rmse(y_true, y_pred):
+    return np.sqrt(np.mean((y_true - y_pred)**2))
+
+def r_squared(y_true, y_pred):
+    ss_res = np.sum((y_true - y_pred)**2)
+    ss_tot = np.sum((y_true - y_true.mean())**2)
+    return 1 - (ss_res / ss_tot)
+
+mae_test = mae(y_test, y_pred)
+rmse_test = rmse(y_test, y_pred)
+r2_test = r_squared(y_test, y_pred)
+
+print("=== Performances sur le test set ===")
+print(f"MAE  : {mae_test:,.0f} €       (erreur absolue moyenne)")
+print(f"RMSE : {rmse_test:,.0f} €      (racine de l'erreur quadratique moyenne)")
+print(f"R²   : {r2_test:.4f}            (plus proche de 1, mieux)")
+print(f"\nPrix moyen réel : {y_test.mean():,.0f} €")
+print(f"Erreur relative moyenne : {mae_test / y_test.mean():.1%}")
+```
+:::
+
+## ✏️ Étape 5.3 — Comparer à une baseline naïve
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Pour savoir si notre modèle est **vraiment utile**, il faut le comparer à une stratégie naïve. La plus simple : **prédire toujours le prix moyen**.
+
+1. Calcule la baseline : MAE et RMSE si on prédit toujours `y_train.mean()`.
+2. Compare avec les performances de notre modèle.
+3. **Question** : de combien notre modèle est-il meilleur que la baseline ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 5.3
+
+```{python}
+# Baseline : prix moyen constant
+y_pred_baseline = np.full_like(y_test, y_train.mean())
+
+mae_baseline = mae(y_test, y_pred_baseline)
+rmse_baseline = rmse(y_test, y_pred_baseline)
+
+print("=== Comparaison avec la baseline ===")
+print(f"{'Métrique':<12} {'Baseline':<15} {'Modèle':<15} {'Gain':<10}")
+print("-" * 55)
+print(f"{'MAE':<12} {mae_baseline:>12,.0f} € {mae_test:>12,.0f} € {(1 - mae_test/mae_baseline):>6.1%}")
+print(f"{'RMSE':<12} {rmse_baseline:>12,.0f} € {rmse_test:>12,.0f} € {(1 - rmse_test/rmse_baseline):>6.1%}")
+```
+
+Notre modèle doit battre la baseline d'au moins 30-40% pour valoir le coup. Si ce n'est pas le cas, il y a un problème à chercher (features manquantes, mauvaise préparation…).
+:::
+
+## ✏️ Étape 5.4 — Visualisations d'évaluation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Deux graphiques essentiels :
+
+1. **Scatter prédictions vs réalité** : trace `y_pred` en fonction de `y_test`. La droite `y = x` (parfait) doit traverser le nuage.
+2. **Histogramme des résidus** (`y_test - y_pred`). Idéalement centrés sur 0, distribution en cloche.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.4
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 5.4
+
+```{python}
+residus = y_test - y_pred
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# 1. Scatter prédictions vs réalité
+axes[0].scatter(y_test, y_pred, alpha=0.6, edgecolor='k', s=40)
+min_val = min(y_test.min(), y_pred.min())
+max_val = max(y_test.max(), y_pred.max())
+axes[0].plot([min_val, max_val], [min_val, max_val], 'r--', label='Prédiction parfaite')
+axes[0].set_xlabel('Prix réel (€)')
+axes[0].set_ylabel('Prix prédit (€)')
+axes[0].set_title(f'Prédictions vs réalité (R² = {r2_test:.3f})')
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# 2. Histogramme des résidus
+axes[1].hist(residus, bins=30, color='steelblue', edgecolor='black', alpha=0.7)
+axes[1].axvline(0, color='red', linestyle='--', linewidth=2, label='Résidu zéro')
+axes[1].set_xlabel('Résidu : y_test - y_pred (€)')
+axes[1].set_ylabel('Effectif')
+axes[1].set_title(f'Distribution des résidus (moyenne = {residus.mean():,.0f} €)')
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on cherche à observer** :
+
+- **Scatter** : le nuage doit être **aligné sur la diagonale**. Si tu vois une forme tordue (par ex. en entonnoir), c'est qu'il y a un problème (hétéroscédasticité, non-linéarité…).
+- **Résidus** : idéalement **centrés sur 0** (pas de biais systématique) et **en cloche** (erreurs aléatoires normales).
+:::
+
+## ✏️ Étape 5.5 — Utiliser le modèle pour une prédiction
+
+::: {.callout-note icon=false}
+## 📝 À faire
+Pour rendre le modèle **utilisable**, écris une fonction `predire_prix(caracteristiques_dict)` qui :
+
+1. Prend un dictionnaire des caractéristiques d'un appartement.
+2. Le transforme en vecteur (dans le bon ordre !).
+3. Le normalise avec `X_train_mean` et `X_train_std`.
+4. Prédit et dénormalise.
+5. Retourne le prix estimé en euros.
+
+**Teste-la** sur un appartement fictif :
+```python
+mon_appart = {
+    'surface_m2': 50,
+    'nb_pieces': 3,
+    'etage': 4,
+    'arrondissement': 11,
+    'ascenseur': 1,
+    'balcon': 1,
+    'annee_construction': 1995
+}
+```
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.5
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Corrigé Étape 5.5
+
+```{python}
+def predire_prix(caracteristiques):
+    """Prédit le prix d'un appartement à partir d'un dict de caractéristiques."""
+    # Transformer en vecteur ordonné
+    x = np.array([caracteristiques[f] for f in feature_names], dtype=float)
+    # Normaliser avec les paramètres du train
+    x_norm = (x - X_train_mean) / X_train_std
+    # Prédire (normalisé)
+    prix_norm = predire(x_norm.reshape(1, -1), w, b)[0]
+    # Dénormaliser
+    prix_euros = prix_norm * y_train_std + y_train_mean
+    return prix_euros
+
+# Test
+mon_appart = {
+    'surface_m2': 50,
+    'nb_pieces': 3,
+    'etage': 4,
+    'arrondissement': 11,
+    'ascenseur': 1,
+    'balcon': 1,
+    'annee_construction': 1995
+}
+
+prix_estime = predire_prix(mon_appart)
+print(f"Prix estimé pour cet appartement : {prix_estime:,.0f} €")
+```
+
+🎉 **Voilà, tu as un modèle de ML utilisable** : tu peux maintenant passer n'importe quel appartement et obtenir une estimation de prix.
+:::
+
+# 📝 Rapport final — Note méthodologique
+
+::: {.callout-important icon=false}
+## 🏁 Ta dernière tâche
+Pour clôturer ce TP, rédige dans la cellule markdown ci-dessous une **note méthodologique d'une page** (500 mots environ) qui résume :
+
+1. **Le contexte** : quel problème, quelles données ?
+2. **La méthodologie** : quelles étapes, quels choix ? Pourquoi la descente de gradient ?
+3. **Les résultats** : MAE, RMSE, R² + comparaison baseline.
+4. **Les limites** : quelles améliorations seraient possibles ?
+5. **Les recommandations** : que conseillerais-tu à ton chef pour la suite ?
+
+C'est exactement le **livrable attendu en entreprise**. Tu dois être capable de raconter ton projet à un décideur non-technique en 3 minutes.
+:::
+
+```markdown
+# Note méthodologique — Estimation du prix des appartements parisiens
+
+## Contexte
+
+[À toi de rédiger ton rapport professionnel]
+
+## Méthodologie
+
+...
+
+## Résultats
+
+...
+
+## Limites
+
+...
+
+## Recommandations
+
+...
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Exemple de note méthodologique
+
+```markdown
+# Note méthodologique — Estimation du prix des appartements parisiens
+
+## Contexte
+
+ImmoAnalytica souhaitait disposer d'un modèle capable d'estimer 
+le prix d'un appartement parisien à partir de ses caractéristiques 
+(surface, nombre de pièces, étage, arrondissement, équipements, 
+année de construction). Un dataset de 500 annonces nous a été fourni.
+
+## Méthodologie
+
+Le projet a suivi 5 étapes :
+
+1. **Exploration** : analyse univariée et multivariée pour détecter 
+les problèmes du dataset.
+
+2. **Nettoyage** : suppression de 2 doublons, imputation de valeurs 
+manquantes (médiane pour les variables numériques, 0 pour le balcon), 
+suppression des outliers via la méthode IQR (surface > 200 m² et 
+prix > 5 M€ identifiés comme erreurs de saisie).
+
+3. **Préparation** : séparation train/test (80/20), normalisation 
+centrage-réduction des features et de la cible. La normalisation est 
+appliquée avec les paramètres calculés uniquement sur le train, 
+pour éviter tout biais d'évaluation.
+
+4. **Modélisation** : régression linéaire multivariée entraînée par 
+descente de gradient implémentée from scratch (learning rate 0.05, 
+2000 itérations). Le choix de la descente de gradient se justifie par 
+sa simplicité, son interprétabilité, et sa parfaite adéquation avec 
+le problème (relation approximativement linéaire).
+
+5. **Évaluation** : test sur les 20% non vus pendant l'entraînement.
+
+## Résultats
+
+- **MAE** : ~80 000 € (erreur absolue moyenne)
+- **RMSE** : ~110 000 €
+- **R²** : 0.78 (le modèle explique 78% de la variance des prix)
+- **Gain vs baseline** : division par 2 de l'erreur absolue
+
+Les variables les plus influentes sont la surface (coefficient 
+dominant), l'arrondissement (impact négatif quand on s'éloigne 
+du centre), et l'étage.
+
+## Limites
+
+- **Hypothèse de linéarité** : la relation prix/features est 
+probablement non-linéaire (effet de seuil sur la surface, 
+non-linéarité des arrondissements…).
+- **Peu de variables** : absence d'informations sur la qualité du 
+quartier, la proximité des transports, l'état du bien.
+- **Taille du jeu de données** : 500 annonces c'est peu pour Paris. 
+L'intervalle de confiance est large.
+- **Variables catégorielles brutes** : l'arrondissement est traité 
+comme numérique, ce qui n'est pas idéal.
+
+## Recommandations
+
+1. **Collecter plus de données** (viser 5000+ annonces).
+2. **Ajouter des variables pertinentes** : distance au métro, 
+notation du quartier, luminosité, vue…
+3. **Tester des modèles non-linéaires** : arbres de décision, 
+Random Forest, Gradient Boosting — à voir en Module 4.
+4. **Encoder correctement l'arrondissement** en one-hot 
+(20 variables binaires) pour capturer l'effet non-ordonné.
+5. **Mettre en place un suivi en production** pour détecter la 
+dérive temporelle des prix.
+
+Bien que simple, ce premier modèle constitue une base solide et 
+interprétable. Les prochaines versions pourront s'appuyer sur 
+des techniques plus sophistiquées pour améliorer significativement 
+les performances.
+```
+
+**Note pédagogique** : cet exemple montre la structure attendue d'un rapport professionnel. L'important est **moins la longueur** que la clarté des choix et des résultats.
+:::
+
+# 🎓 Bilan du Module 1
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as réalisé **ton premier projet complet de data science** :
+
+- ✅ Exploration de données réelles avec leurs défauts
+- ✅ Nettoyage méthodique (doublons, NaN, outliers)
+- ✅ Préparation rigoureuse (train/test split, normalisation)
+- ✅ Implémentation **from scratch** d'une régression linéaire par descente de gradient
+- ✅ Évaluation avec plusieurs métriques et une baseline
+- ✅ Production d'un livrable professionnel (modèle + rapport)
+
+**Tu as tout compris.** Aucune bibliothèque ML n'a été utilisée pour l'entraînement. Tu sais maintenant **ce qui se passe sous le capot** de scikit-learn.
+
+## 🔍 Les notions mobilisées
+
+| Module 1 - Notion | Utilisée dans ce TP |
+|---|---|
+| **1.1 Algèbre linéaire** | Vecteurs, matrices, produit matriciel (`X @ w`) |
+| **1.2 Calcul différentiel** | Gradient de la MSE, descente de gradient |
+| **1.3 Stats & probas** | Exploration, distributions, corrélations, outliers (IQR), métriques |
+
+## 🚀 La suite — Module 2 : NumPy, Pandas, Matplotlib
+
+Dans le Module 2, on va **consolider et industrialiser** tout ce que tu as appris :
+
+- Maîtrise avancée de NumPy (broadcasting, ufuncs, vectorisation)
+- Pandas en profondeur (GroupBy, jointures, pivots)
+- Matplotlib et Seaborn pour des visualisations professionnelles
+- Jupyter/Notebooks : bonnes pratiques
+
+L'objectif : qu'à la fin, tu puisses traiter **n'importe quel dataset** avec aisance.
+
+::: {.callout-tip}
+## 💡 Défi optionnel pour consolider
+
+Avant d'attaquer le Module 2, essaie l'une de ces extensions de ce TP :
+
+1. **Régression polynomiale** : ajoute des features `surface²`, `surface³` pour capturer la non-linéarité.
+2. **One-hot encoding** des arrondissements : transforme l'arrondissement en 20 colonnes binaires. Qu'en est-il des performances ?
+3. **Validation croisée** : au lieu d'un seul split train/test, fais 5 splits différents et moyenne les scores (on appelle ça la k-fold cross-validation).
+4. **Comparaison avec scikit-learn** : utilise `sklearn.linear_model.LinearRegression` sur les mêmes données et compare. Ton implémentation devrait donner des résultats quasi-identiques !
+:::
+
+**Bravo d'être arrivé·e jusqu'ici. 🎉**

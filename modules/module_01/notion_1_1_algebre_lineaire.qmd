@@ -1,0 +1,817 @@
+---
+title: "Notion 1.1 — Algèbre linéaire appliquée"
+subtitle: "Vecteurs, matrices, et pourquoi tout ça est partout en IA"
+author: "Loïc PILET"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_01/notion_1_1_algebre_lineaire_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/ton-compte-github/python-ia-formation/blob/main/ressources_eleves/module_01/notion_1_1_algebre_lineaire_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_01_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Python de base (tu as ton TOSA, tu es au top)  
+**Objectif** : comprendre ce qu'est un vecteur, une matrice, et ce qu'on fait avec — pour ne plus jamais subir les formules du ML
+:::
+
+## 📋 Ce que tu sauras faire à la fin de cette notion
+
+- Expliquer à ton voisin ce qu'est un vecteur (sans paniquer)
+- Additionner, multiplier, normer des vecteurs — à la main et avec NumPy
+- Comprendre un produit scalaire et savoir pourquoi il est partout
+- Manipuler des matrices et faire des produits matriciels
+- Lire une formule comme `y = Wx + b` sans avoir peur
+
+## 🎯 Pourquoi on fait ça ?
+
+En machine learning, **absolument tout** est du calcul matriciel :
+
+- Une image de 28×28 pixels ? Une matrice de 784 nombres.
+- Un neurone qui fait une prédiction ? Un produit scalaire.
+- Une couche de réseau de neurones ? Un produit matriciel.
+- Une base de données ? Une grosse matrice.
+
+Bref : si tu ne comprends pas ce chapitre, tu vas appliquer des recettes sans les comprendre. Si tu le comprends, **tout le reste devient facile**. On y va.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+#| echo: true
+import numpy as np
+import matplotlib.pyplot as plt
+
+plt.rcParams['figure.figsize'] = (8, 6)
+plt.rcParams['font.size'] = 12
+
+print("✅ NumPy version :", np.__version__)
+print("✅ Matplotlib prêt")
+```
+
+# Le vecteur : une flèche dans l'espace
+
+## Intuition visuelle
+
+Un **vecteur**, ce n'est rien d'autre qu'**une flèche**. Elle a :
+
+- un **point de départ** (souvent l'origine (0,0))
+- un **point d'arrivée**
+- donc une **direction** et une **longueur**
+
+En pratique, pour désigner un vecteur, on donne juste les coordonnées de son point d'arrivée (si on part de l'origine).
+
+**Exemple** : le vecteur `v = (3, 2)` va de (0,0) à (3,2).
+
+```{python}
+#| label: fig-vecteur-simple
+#| fig-cap: "Le vecteur v = (3, 2) représenté comme une flèche"
+fig, ax = plt.subplots()
+ax.quiver(0, 0, 3, 2, angles='xy', scale_units='xy', scale=1, 
+          color='red', width=0.01)
+ax.set_xlim(-1, 5)
+ax.set_ylim(-1, 4)
+ax.axhline(y=0, color='gray', linewidth=0.5)
+ax.axvline(x=0, color='gray', linewidth=0.5)
+ax.grid(True, alpha=0.3)
+ax.set_aspect('equal')
+ax.set_title("Le vecteur v = (3, 2)")
+ax.annotate('v = (3, 2)', xy=(3, 2), xytext=(3.2, 2.1), 
+            fontsize=14, color='red')
+plt.show()
+```
+
+## Deux manières de voir un vecteur
+
+::: {.panel-tabset}
+
+### Vision géométrique
+C'est ce qu'on vient de dessiner. Utile pour **visualiser** en 2D ou 3D.
+
+### Vision numérique
+`v = (3, 2)` est aussi simplement **une liste de 2 nombres**. On peut avoir des vecteurs de **taille quelconque** :
+
+- Taille 3 : `(3, 2, 5)` — une flèche en 3D
+- Taille 100 : `(x1, x2, ..., x100)` — impossible à dessiner, mais parfaitement manipulable
+
+:::
+
+::: {.callout-tip}
+## 🧠 À retenir
+En data science, on travaille souvent avec des vecteurs de **milliers de dimensions**. Tu ne peux plus les « voir », mais tu peux toujours les calculer.
+:::
+
+## Le lien avec la data science
+
+Une **ligne** d'un tableau de données = **un vecteur**.
+
+Exemple : si tu as un tableau de clients avec les colonnes `[âge, salaire, nb_enfants]`, un client est un vecteur de taille 3.
+
+```{python}
+client_1 = [35, 42000, 2]   # âge=35, salaire=42000, enfants=2
+client_2 = [52, 65000, 0]
+
+print(f"Client 1 : {client_1}")
+print(f"Client 2 : {client_2}")
+print(f"Chaque client est un vecteur de {len(client_1)} dimensions")
+```
+
+# Opérations de base sur les vecteurs
+
+## Addition de vecteurs
+
+Quand on additionne deux vecteurs, on additionne **composante par composante** :
+
+$$\vec{u} + \vec{v} = (u_1 + v_1, u_2 + v_2)$$
+
+**Géométriquement** : c'est la règle du parallélogramme. Tu mets le début du 2ème vecteur à la fin du 1er.
+
+```{python}
+# Addition en Python pur
+u = [2, 1]
+v = [1, 3]
+
+# Méthode naïve : boucle
+somme = []
+for i in range(len(u)):
+    somme.append(u[i] + v[i])
+print(f"u + v = {somme}")
+
+# Méthode plus pythonique
+somme_bis = [u[i] + v[i] for i in range(len(u))]
+print(f"u + v = {somme_bis}")
+```
+
+```{python}
+# Avec NumPy, c'est BEAUCOUP plus simple
+u = np.array([2, 1])
+v = np.array([1, 3])
+print(f"u + v = {u + v}")
+```
+
+::: {.callout-warning}
+## ⚠️ Piège classique
+En Python pur, `[2, 1] + [1, 3]` donne `[2, 1, 1, 3]` (concaténation !), **pas** l'addition. C'est une des raisons pour lesquelles NumPy existe.
+:::
+
+```{python}
+a = [2, 1]
+b = [1, 3]
+print(f"Listes Python : {a} + {b} = {a + b}  (concaténation !)")
+
+a_np = np.array([2, 1])
+b_np = np.array([1, 3])
+print(f"Tableaux NumPy : {a_np} + {b_np} = {a_np + b_np}  (vraie addition)")
+```
+
+```{python}
+#| label: fig-parallelo
+#| fig-cap: "Addition de vecteurs : règle du parallélogramme"
+fig, ax = plt.subplots()
+
+u = np.array([2, 1])
+v = np.array([1, 3])
+somme = u + v
+
+ax.quiver(0, 0, u[0], u[1], angles='xy', scale_units='xy', scale=1, 
+          color='red', label=f'u = {u}')
+ax.quiver(0, 0, v[0], v[1], angles='xy', scale_units='xy', scale=1, 
+          color='blue', label=f'v = {v}')
+ax.quiver(0, 0, somme[0], somme[1], angles='xy', scale_units='xy', scale=1, 
+          color='green', label=f'u+v = {somme}')
+ax.quiver(u[0], u[1], v[0], v[1], angles='xy', scale_units='xy', scale=1, 
+          color='blue', alpha=0.3)
+
+ax.set_xlim(-1, 5)
+ax.set_ylim(-1, 5)
+ax.axhline(y=0, color='gray', linewidth=0.5)
+ax.axvline(x=0, color='gray', linewidth=0.5)
+ax.grid(True, alpha=0.3)
+ax.set_aspect('equal')
+ax.legend(loc='upper left')
+ax.set_title("Addition de vecteurs : règle du parallélogramme")
+plt.show()
+```
+
+## Multiplication par un scalaire
+
+Multiplier un vecteur par un nombre, c'est **étirer** ou **compresser** la flèche :
+
+$$k \cdot \vec{v} = (k \cdot v_1, k \cdot v_2)$$
+
+- Si $k > 1$ : la flèche s'allonge
+- Si $0 < k < 1$ : la flèche raccourcit
+- Si $k < 0$ : la flèche change de sens
+
+```{python}
+v = np.array([2, 1])
+print(f"v       = {v}")
+print(f"2 * v   = {2 * v}   (doublé)")
+print(f"0.5 * v = {0.5 * v} (moitié)")
+print(f"-1 * v  = {-1 * v}  (sens inverse)")
+```
+
+## ✏️ Exercice 1 — Premiers pas avec les vecteurs
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+On te donne deux vecteurs `a = [4, 1, 3]` et `b = [2, 5, 7]`.
+
+1. Crée ces deux vecteurs en NumPy.
+2. Calcule et affiche `a + b`.
+3. Calcule et affiche `3 * a`.
+4. Calcule et affiche `a - b`.
+5. Explique ce que représente la soustraction de deux vecteurs, géométriquement.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1 — à toi de jouer
+
+# 1. Créer les deux vecteurs
+
+
+# 2. Calculer a + b
+
+
+# 3. Calculer 3 * a
+
+
+# 4. Calculer a - b
+
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Créer les deux vecteurs
+a = np.array([4, 1, 3])
+b = np.array([2, 5, 7])
+print(f"a = {a}")
+print(f"b = {b}")
+
+# 2. Addition
+print(f"a + b = {a + b}")
+
+# 3. Multiplication scalaire
+print(f"3 * a = {3 * a}")
+
+# 4. Soustraction
+print(f"a - b = {a - b}")
+```
+
+**Réponse à la question 5 :** la soustraction `a - b` représente le **vecteur qui va du point b au point a**. C'est la flèche qu'il faut ajouter à `b` pour arriver à `a`.
+
+Autrement dit : `b + (a - b) = a` ✓
+
+En data science, la soustraction de deux vecteurs mesure à quel point ils sont **différents**.
+:::
+
+# Le produit scalaire — LA notion clé
+
+Accroche-toi, c'est LA notion à ne surtout pas louper. Elle est partout en IA.
+
+## Définition
+
+Le produit scalaire de deux vecteurs `u` et `v` (noté `u · v`) est :
+
+$$\vec{u} \cdot \vec{v} = u_1 \times v_1 + u_2 \times v_2 + \dots + u_n \times v_n$$
+
+**On multiplie composante par composante, puis on additionne tout.**
+
+::: {.callout-warning}
+Le résultat est **UN seul nombre** (un scalaire), pas un vecteur !
+:::
+
+```{python}
+# Produit scalaire à la main
+u = [1, 2, 3]
+v = [4, 5, 6]
+
+resultat = 0
+for i in range(len(u)):
+    resultat += u[i] * v[i]
+print(f"u · v = {u[0]}×{v[0]} + {u[1]}×{v[1]} + {u[2]}×{v[2]} = {resultat}")
+```
+
+```{python}
+# Avec NumPy : trois syntaxes équivalentes
+u = np.array([1, 2, 3])
+v = np.array([4, 5, 6])
+
+print(f"np.dot(u, v) = {np.dot(u, v)}")
+print(f"u @ v        = {u @ v}")
+print(f"u.dot(v)     = {u.dot(v)}")
+```
+
+## Intuition : « à quel point ils pointent dans la même direction ? »
+
+Le produit scalaire répond à la question : **« les deux vecteurs vont-ils dans la même direction ? »**
+
+- Produit scalaire **grand et positif** → même direction 🔗
+- Produit scalaire **proche de 0** → perpendiculaires ⊥
+- Produit scalaire **négatif** → directions opposées ↔️
+
+C'est ce qui permet, en IA, de mesurer la **similarité** entre deux vecteurs.
+
+```{python}
+#| label: fig-produit-scalaire
+#| fig-cap: "Trois cas d'interprétation du produit scalaire"
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+cas = [
+    ("Même direction (ps > 0)", np.array([3, 1]), np.array([2, 1])),
+    ("Perpendiculaires (ps ≈ 0)", np.array([3, 0]), np.array([0, 3])),
+    ("Opposés (ps < 0)", np.array([3, 1]), np.array([-2, -1])),
+]
+
+for ax, (titre, u, v) in zip(axes, cas):
+    ax.quiver(0, 0, u[0], u[1], angles='xy', scale_units='xy', scale=1, 
+              color='red', label=f'u = {u}')
+    ax.quiver(0, 0, v[0], v[1], angles='xy', scale_units='xy', scale=1, 
+              color='blue', label=f'v = {v}')
+    ps = np.dot(u, v)
+    ax.set_title(f"{titre}\nu · v = {ps}")
+    ax.set_xlim(-4, 4)
+    ax.set_ylim(-3, 3)
+    ax.axhline(y=0, color='gray', linewidth=0.5)
+    ax.axvline(x=0, color='gray', linewidth=0.5)
+    ax.grid(True, alpha=0.3)
+    ax.set_aspect('equal')
+    ax.legend(loc='upper left', fontsize=9)
+
+plt.tight_layout()
+plt.show()
+```
+
+## Application concrète : recommandation de produits
+
+Imagine un site e-commerce. Chaque client est un vecteur de préférences `[bio, sport, tech, mode]` avec des notes de 0 à 10.
+
+```{python}
+client_A = np.array([1, 9, 8, 2])  # aime sport et tech
+client_B = np.array([2, 8, 9, 1])  # aime sport et tech aussi
+client_C = np.array([9, 1, 2, 9])  # aime bio et mode
+
+print(f"A et B : produit scalaire = {np.dot(client_A, client_B)}")
+print(f"A et C : produit scalaire = {np.dot(client_A, client_C)}")
+print()
+print("➡️ A et B sont bien plus similaires que A et C.")
+```
+
+::: {.callout-important}
+## 🧠 À retenir
+Le produit scalaire est le **cœur battant** du machine learning. Chaque neurone calcule un produit scalaire. Chaque système de recommandation repose dessus. Chaque moteur de recherche sémantique utilise cette idée.
+:::
+
+## ✏️ Exercice 2 — Similarité entre documents
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Tu as 3 documents, et pour chacun on a compté la fréquence de 5 mots-clés : `[python, recette, cuisine, algorithme, matrice]`.
+
+- Document 1 (tuto Python) : `[8, 0, 0, 7, 3]`
+- Document 2 (livre de cuisine) : `[0, 9, 8, 0, 0]`
+- Document 3 (cours de ML) : `[6, 0, 0, 5, 9]`
+
+1. Crée les trois vecteurs en NumPy.
+2. Calcule le produit scalaire entre chaque paire.
+3. Quel document est le plus proche du document 1 ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+
+# 1. Créer les trois vecteurs
+
+
+# 2. Calculer les 3 produits scalaires
+
+
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+doc_1 = np.array([8, 0, 0, 7, 3])  # tuto Python
+doc_2 = np.array([0, 9, 8, 0, 0])  # livre de cuisine
+doc_3 = np.array([6, 0, 0, 5, 9])  # cours de ML
+
+print(f"Similarité doc_1 et doc_2 : {np.dot(doc_1, doc_2)}")
+print(f"Similarité doc_1 et doc_3 : {np.dot(doc_1, doc_3)}")
+print(f"Similarité doc_2 et doc_3 : {np.dot(doc_2, doc_3)}")
+```
+
+**Conclusion** : le document 3 (cours de ML) est le plus proche du document 1 (tuto Python) avec un score de 90. Ils partagent Python, algorithme et matrice. C'est exactement le principe des moteurs de recherche sémantique modernes (avec des vecteurs bien plus gros).
+:::
+
+# Norme et distance
+
+## La norme : la longueur du vecteur
+
+La **norme** d'un vecteur (notée $||v||$), c'est **sa longueur**. Formule (Pythagore généralisé) :
+
+$$||\vec{v}|| = \sqrt{v_1^2 + v_2^2 + \dots + v_n^2}$$
+
+On appelle ça aussi la **norme euclidienne** ou **norme L2**.
+
+```{python}
+v = np.array([3, 4])
+
+norme_manuelle = np.sqrt(v[0]**2 + v[1]**2)
+print(f"Norme de {v} à la main : {norme_manuelle}")
+
+norme_numpy = np.linalg.norm(v)
+print(f"Norme de {v} avec NumPy : {norme_numpy}")
+```
+
+## Distance entre deux vecteurs
+
+La **distance euclidienne** entre deux points `a` et `b`, c'est la norme du vecteur `a - b` :
+
+$$d(\vec{a}, \vec{b}) = ||\vec{a} - \vec{b}||$$
+
+```{python}
+a = np.array([1, 2])
+b = np.array([4, 6])
+
+distance = np.linalg.norm(a - b)
+print(f"Distance euclidienne : {distance}")
+```
+
+## Autres distances utiles
+
+| Distance | Formule | Intuition |
+|---|---|---|
+| **Manhattan (L1)** | $\sum_i \|a_i - b_i\|$ | « En taxi dans New York » |
+| **Euclidienne (L2)** | $\sqrt{\sum_i (a_i - b_i)^2}$ | « À vol d'oiseau » |
+| **Chebyshev (L∞)** | $\max_i \|a_i - b_i\|$ | Plus grande différence sur une dimension |
+
+```{python}
+a = np.array([1, 2])
+b = np.array([4, 6])
+
+d_manhattan = np.sum(np.abs(a - b))
+d_euclid = np.linalg.norm(a - b)
+d_cheby = np.max(np.abs(a - b))
+
+print(f"Distance de Manhattan : {d_manhattan}")
+print(f"Distance euclidienne  : {d_euclid:.2f}")
+print(f"Distance de Chebyshev : {d_cheby}")
+```
+
+::: {.callout-note}
+## 🧠 À retenir
+Le choix de la distance influe sur le comportement des algorithmes (k-NN, k-means...). L'euclidienne est la plus fréquente, mais pas toujours la meilleure.
+:::
+
+# Les matrices
+
+## Définition
+
+Une **matrice**, c'est un **tableau rectangulaire de nombres**. On parle de matrice de taille `m × n` (m lignes, n colonnes).
+
+$$M = \begin{pmatrix} 1 & 2 \\ 3 & 4 \\ 5 & 6 \end{pmatrix}$$
+
+```{python}
+M = np.array([
+    [1, 2],
+    [3, 4],
+    [5, 6]
+])
+
+print("Matrice M :")
+print(M)
+print(f"\nTaille : {M.shape}  (lignes, colonnes)")
+print(f"Accéder à M[1, 0] (2e ligne, 1re colonne) : {M[1, 0]}")
+```
+
+## Lien avec les données réelles
+
+Un jeu de données **est** une matrice :
+
+- Chaque **ligne** = un individu
+- Chaque **colonne** = une variable
+
+```{python}
+donnees = np.array([
+    [35, 42000, 2, 1],   # Client 1
+    [52, 65000, 0, 1],   # Client 2
+    [28, 31000, 1, 0],   # Client 3
+])
+
+print(f"Jeu de données {donnees.shape} :")
+print(donnees)
+print(f"\nClient 2 : {donnees[1]}")
+print(f"Colonne salaire : {donnees[:, 1]}")
+```
+
+## Le produit matriciel — LE calcul central du ML
+
+::: {.callout-warning}
+## ⚠️ Attention
+Le produit matriciel **n'est pas** élément par élément. C'est un calcul plus subtil.
+:::
+
+### Règle de base
+
+Pour multiplier `A × B` :
+
+- Le nombre de **colonnes de A** doit être égal au nombre de **lignes de B**
+- Si A est `m × n` et B est `n × p`, alors `A × B` est `m × p`
+
+### Intuition
+
+Chaque élément de la matrice résultat est un **produit scalaire** :
+
+> `(A×B)[i, j]` = produit scalaire entre la **ligne i de A** et la **colonne j de B**
+
+```{python}
+A = np.array([[1, 2], [3, 4]])
+B = np.array([[5, 6], [7, 8]])
+
+print("A @ B =")
+print(A @ B)
+print()
+print("Vérification du premier élément :")
+print(f"(A×B)[0,0] = ligne 0 de A · colonne 0 de B")
+print(f"         = [1,2] · [5,7] = 1×5 + 2×7 = {1*5 + 2*7}")
+```
+
+```{python}
+# Attention : A @ B ≠ B @ A (non commutatif !)
+print("A @ B =")
+print(A @ B)
+print("\nB @ A =")
+print(B @ A)
+```
+
+## Pourquoi c'est partout en ML ?
+
+Un **neurone** calcule : $y = w_1 x_1 + w_2 x_2 + \dots + w_n x_n + b$
+
+Avec les notations vectorielles : $y = \vec{w} \cdot \vec{x} + b$
+
+Une **couche de neurones** :
+
+$$\vec{y} = W \vec{x} + \vec{b}$$
+
+où `W` est une matrice de poids. **C'est un produit matriciel.**
+
+::: {.callout-tip}
+Tout modèle de deep learning, ce sont juste des produits matriciels enchaînés (avec des fonctions d'activation entre les deux). Voilà, c'est aussi simple et aussi profond que ça.
+:::
+
+## ✏️ Exercice 3 — Gestion boulangerie
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Tu gères une boulangerie qui produit 3 pâtisseries (croissant, pain au chocolat, chausson).
+
+**Ingrédients par pâtisserie :**
+
+| Pâtisserie | Farine (g) | Beurre (g) | Sucre (g) |
+|---|---|---|---|
+| Croissant | 50 | 30 | 5 |
+| Pain au choc | 60 | 35 | 8 |
+| Chausson | 80 | 40 | 10 |
+
+**Commandes du jour :** 20 croissants, 15 pains au chocolat, 10 chaussons.
+
+1. Crée une matrice `ingredients` et un vecteur `commandes`.
+2. Calcule le produit matriciel pour obtenir la quantité totale de chaque ingrédient.
+3. Affiche joliment le résultat.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+ingredients = np.array([
+    [50, 30, 5],   # croissant
+    [60, 35, 8],   # pain au choc
+    [80, 40, 10],  # chausson
+])
+
+commandes = np.array([20, 15, 10])
+
+totaux = commandes @ ingredients
+
+noms = ["Farine", "Beurre", "Sucre"]
+print("📋 Quantités à préparer pour la journée :\n")
+for nom, quantite in zip(noms, totaux):
+    print(f"  {nom:10s} : {quantite:5d} g")
+```
+
+**Vérification pour la farine** : 20×50 + 15×60 + 10×80 = 1000 + 900 + 800 = **2700 g** ✓
+
+C'est exactement ce que fait un neurone, avec `commandes` = entrées, `ingredients` = poids, résultat = sorties.
+:::
+
+# Transposée, inverse, déterminant
+
+On ne rentre pas dans les calculs à la main — juste à quoi ça sert et comment faire avec NumPy.
+
+## La transposée (Aᵀ)
+
+Transposer, c'est **échanger lignes et colonnes**.
+
+```{python}
+M = np.array([[1, 2, 3], [4, 5, 6]])
+print(f"M (taille {M.shape}) :")
+print(M)
+print(f"\nM.T (taille {M.T.shape}) :")
+print(M.T)
+```
+
+**À quoi ça sert ?** Rendre compatibles deux matrices dans un produit, et apparaît dans toutes les formules de ML.
+
+## L'inverse (A⁻¹)
+
+L'inverse d'une matrice carrée `A`, c'est la matrice `A⁻¹` telle que :
+
+$$A \times A^{-1} = I$$
+
+où `I` est la **matrice identité** (l'équivalent de « 1 » pour les matrices).
+
+::: {.callout-warning}
+Toutes les matrices n'ont **pas** d'inverse.
+:::
+
+```{python}
+A = np.array([[4, 7], [2, 6]])
+
+A_inv = np.linalg.inv(A)
+print("A⁻¹ :")
+print(A_inv)
+
+print("\nA @ A⁻¹ doit donner la matrice identité :")
+print(np.round(A @ A_inv, 10))
+```
+
+**À quoi ça sert ?** À résoudre des systèmes d'équations linéaires — la base de la régression linéaire.
+
+## Le déterminant
+
+Un nombre unique calculé à partir d'une matrice carrée.
+
+- `det(A) = 0` → la matrice n'a pas d'inverse
+- `det(A) ≠ 0` → la matrice a un inverse
+
+```{python}
+A = np.array([[4, 7], [2, 6]])
+B = np.array([[2, 4], [1, 2]])  # lignes proportionnelles
+
+print(f"det(A) = {np.linalg.det(A):.2f}")
+print(f"det(B) = {np.linalg.det(B):.2f}  (proche de 0 → pas d'inverse)")
+```
+
+# 🏁 Exercice bilan — Mini-classifieur k-NN
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+L'algorithme des **k plus proches voisins** (k-NN) classe un nouveau point en regardant les `k` points les plus proches qu'il connaît.
+
+**Ton défi** : implémenter k-NN pour `k=1` en utilisant tout ce que tu viens d'apprendre.
+
+```python
+fruits_connus = np.array([
+    [150, 8],   # pomme rouge
+    [140, 9],   # pomme rouge
+    [160, 2],   # pomme verte
+    [170, 1],   # pomme verte
+    [200, 5],   # orange
+])
+etiquettes = ["pomme rouge", "pomme rouge", "pomme verte", 
+              "pomme verte", "orange"]
+
+nouveau_fruit = np.array([155, 9])  # à classer
+```
+
+**À faire :**
+
+1. Pour chaque fruit connu, calculer la distance euclidienne au nouveau fruit.
+2. Trouver l'indice du fruit le plus proche (`np.argmin`).
+3. Retourner son étiquette.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+
+fruits_connus = np.array([
+    [150, 8], [140, 9], [160, 2], [170, 1], [200, 5],
+])
+etiquettes = ["pomme rouge", "pomme rouge", "pomme verte", 
+              "pomme verte", "orange"]
+nouveau_fruit = np.array([155, 9])
+
+# 1. Distances
+
+
+# 2. Indice du plus proche
+
+
+# 3. Classe prédite
+
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fruits_connus = np.array([
+    [150, 8], [140, 9], [160, 2], [170, 1], [200, 5],
+])
+etiquettes = ["pomme rouge", "pomme rouge", "pomme verte", 
+              "pomme verte", "orange"]
+nouveau_fruit = np.array([155, 9])
+
+# 1. Distances (broadcasting NumPy)
+differences = fruits_connus - nouveau_fruit
+distances = np.linalg.norm(differences, axis=1)
+
+print("Distances au nouveau fruit :")
+for i, (etiq, dist) in enumerate(zip(etiquettes, distances)):
+    print(f"  Fruit {i} ({etiq:15s}) : {dist:.2f}")
+
+# 2. Indice du plus proche
+indice = np.argmin(distances)
+
+# 3. Prédiction
+print(f"\n🎯 Prédiction pour {nouveau_fruit} : {etiquettes[indice]}")
+```
+
+**Ce qui est remarquable :** tu viens d'implémenter **ton premier algorithme de machine learning** ! C'est exactement ce que fait `sklearn.neighbors.KNeighborsClassifier(n_neighbors=1)`. Mais toi, tu comprends ce qui se passe sous le capot.
+
+**Points techniques :**
+
+- `fruits_connus - nouveau_fruit` utilise le **broadcasting** : soustraction automatique du vecteur à chaque ligne.
+- `np.linalg.norm(..., axis=1)` calcule la norme ligne par ligne.
+- `np.argmin` retourne **l'indice** du minimum, pas la valeur.
+:::
+
+# 🎓 Récapitulatif
+
+## Ce que tu dois savoir faire
+
+| Notion | Commande NumPy |
+|---|---|
+| Créer un vecteur | `np.array([1, 2, 3])` |
+| Créer une matrice | `np.array([[1,2], [3,4]])` |
+| Addition | `u + v` |
+| Produit scalaire | `u @ v` ou `np.dot(u, v)` |
+| Norme | `np.linalg.norm(v)` |
+| Distance euclidienne | `np.linalg.norm(u - v)` |
+| Produit matriciel | `A @ B` |
+| Transposée | `A.T` |
+| Inverse | `np.linalg.inv(A)` |
+| Déterminant | `np.linalg.det(A)` |
+
+## Ce que tu dois comprendre
+
+1. **Un vecteur = une ligne de données**
+2. **Le produit scalaire mesure la similarité** — au cœur de toute la data science
+3. **Une matrice = un jeu de données** (lignes = individus, colonnes = variables)
+4. **Le produit matriciel est partout en IA** (chaque couche de neurones en est un)
+5. **La distance euclidienne** = fondation de k-NN, clustering, etc.
+
+## 🚀 La suite
+
+Dans la [**Notion 1.2 — Calcul différentiel**](#), on s'attaque aux dérivées, au gradient, et à la descente de gradient. C'est l'autre pilier de l'IA — le cœur de l'apprentissage automatique.
+
+Spoiler : la descente de gradient, c'est **juste une balle qui roule sur une colline**. Tu vas voir 🎢
+
+::: {.callout-tip}
+## 💡 Petit défi
+Dans ta prochaine session, essaie de coder un k-NN avec `k=3` (prendre la classe majoritaire des 3 plus proches voisins). Tu as tout ce qu'il faut !
+:::

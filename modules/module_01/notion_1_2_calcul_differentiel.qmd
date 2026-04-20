@@ -1,0 +1,1060 @@
+---
+title: "Notion 1.2 — Calcul différentiel"
+subtitle: "Dérivée, gradient, descente de gradient — le cœur battant de l'IA"
+author: "Loïc PILET"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_01/notion_1_2_calcul_differentiel_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/ton-compte-github/python-ia-formation/blob/main/ressources_eleves/module_01/notion_1_2_calcul_differentiel_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_01_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notion 1.1 (vecteurs, matrices, norme)  
+**Objectif** : comprendre ce qu'est une dérivée, un gradient, et la descente de gradient — l'algorithme qui fait apprendre **tous** les modèles de machine learning
+:::
+
+## 📋 Ce que tu sauras faire à la fin de cette notion
+
+- Expliquer ce qu'est une dérivée avec une image simple (une pente)
+- Calculer une dérivée numériquement en Python
+- Comprendre ce qu'est un gradient et ce qu'il indique
+- Implémenter à la main la descente de gradient
+- Savoir pourquoi le « pas d'apprentissage » (learning rate) est la valeur la plus importante du ML
+- Entraîner ta première régression linéaire **sans scikit-learn**
+
+## 🎢 Pourquoi on fait ça ?
+
+Imagine : tu veux construire un modèle qui prédit le prix d'une maison. Tu as une formule `prix = a × surface + b`. Il te faut trouver les bonnes valeurs de `a` et `b` pour que ton modèle colle bien aux vrais prix.
+
+**Question** : comment on fait, concrètement ?
+
+Réponse : **on part de valeurs au hasard, et on les ajuste progressivement pour que l'erreur diminue**. Cette « boussole » qui nous dit dans quelle direction ajuster, c'est **la dérivée** (en 1D) ou **le gradient** (en plusieurs dimensions). L'algorithme qui fait les ajustements s'appelle **la descente de gradient**.
+
+Tout. Le. Machine. Learning. Repose. Là. Dessus.
+
+On y va, et promis, ça va bien se passer.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # pour les visualisations 3D
+
+plt.rcParams['figure.figsize'] = (8, 6)
+plt.rcParams['font.size'] = 12
+
+print("✅ Tout est prêt")
+```
+
+# La dérivée : « ça monte à quelle vitesse ? »
+
+## 🎨 L'intuition : la pente d'une route
+
+Imagine une route qui monte. À chaque endroit, tu peux te demander : **« si j'avance d'un mètre, de combien je monte ? »**
+
+- Si tu montes de 10 cm → la pente est faible
+- Si tu montes de 50 cm → la pente est forte
+- Si tu **descends** de 20 cm → la pente est négative
+
+**La dérivée d'une fonction en un point, c'est EXACTEMENT ça : sa pente à cet endroit.**
+
+Autrement dit : si `f(x)` est ta fonction, la dérivée `f'(x)` te dit **à quelle vitesse `f` monte (ou descend) quand `x` augmente légèrement**.
+
+## 📐 Définition mathématique
+
+Formellement, la dérivée au point `x` est :
+
+$$f'(x) = \lim_{h \to 0} \frac{f(x+h) - f(x)}{h}$$
+
+Ne paniques pas. Décode ça comme ça :
+
+- `f(x+h) - f(x)` → « de combien la fonction a monté »
+- `h` → « de combien on a avancé horizontalement »
+- Le rapport des deux → **la pente !**
+- `h → 0` → on prend une avancée minuscule (pour avoir la pente au point précis)
+
+::: {.callout-tip}
+## 🧠 À retenir
+**Dérivée = pente**. Point. C'est tout ce que tu as besoin de savoir pour comprendre 95% du ML.
+:::
+
+## 🐍 Calculer une dérivée en Python (approche numérique)
+
+Au lieu de calculer formellement `lim(...)`, on peut **approximer** la dérivée avec un `h` très petit. C'est ce qu'on appelle la **méthode des différences finies**.
+
+```{python}
+def derivee_numerique(f, x, h=1e-5):
+    """Calcule la dérivée de f en x par différences finies."""
+    return (f(x + h) - f(x)) / h
+
+# Testons sur f(x) = x² (dérivée connue : f'(x) = 2x)
+f = lambda x: x**2
+
+print(f"f'(3) calculée   : {derivee_numerique(f, 3):.4f}")
+print(f"f'(3) théorique  : {2*3}")  # Pour x=3, 2x = 6
+print()
+print(f"f'(-2) calculée  : {derivee_numerique(f, -2):.4f}")
+print(f"f'(-2) théorique : {2*(-2)}")
+```
+
+On a approximé parfaitement la dérivée — sans avoir besoin de connaître la formule ! C'est un résultat à méditer : **on peut toujours calculer une dérivée numériquement**, même si on ne sait pas la formule.
+
+## 📊 Visualisons ce qui se passe
+
+```{python}
+#| label: fig-derivee-pente
+#| fig-cap: "La dérivée d'une fonction = la pente de la tangente"
+# Fonction test
+f = lambda x: x**2
+
+# Plage de tracé
+x = np.linspace(-3, 3, 100)
+y = f(x)
+
+# Point où on calcule la dérivée
+x0 = 1.5
+y0 = f(x0)
+pente = derivee_numerique(f, x0)
+
+# Tangente : y = pente * (x - x0) + y0
+x_tang = np.linspace(x0 - 1, x0 + 1, 10)
+y_tang = pente * (x_tang - x0) + y0
+
+fig, ax = plt.subplots()
+ax.plot(x, y, 'b-', linewidth=2, label='f(x) = x²')
+ax.plot(x_tang, y_tang, 'r-', linewidth=2, label=f'Tangente (pente = {pente:.2f})')
+ax.plot(x0, y0, 'ko', markersize=10)
+ax.annotate(f'Point ({x0}, {y0:.2f})', xy=(x0, y0), xytext=(x0+0.3, y0-0.5),
+            fontsize=11, arrowprops=dict(arrowstyle='->'))
+ax.axhline(y=0, color='gray', linewidth=0.5)
+ax.axvline(x=0, color='gray', linewidth=0.5)
+ax.grid(True, alpha=0.3)
+ax.legend()
+ax.set_title(f"Dérivée au point x={x0} : pente de la tangente = {pente:.2f}")
+plt.show()
+```
+
+La ligne rouge (la tangente) **effleure** la courbe au point choisi. Sa pente, c'est la dérivée.
+
+## ✏️ Exercice 1 — Calcul numérique de dérivée
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Soit la fonction `g(x) = x³ - 2x + 1`.
+
+1. Crée la fonction `g` en Python.
+2. Utilise `derivee_numerique` pour calculer `g'(2)`, `g'(0)`, `g'(-1)`.
+3. Sachant qu'en théorie `g'(x) = 3x² - 2`, vérifie que tes résultats numériques correspondent.
+4. Que vaut `g'(0)` et que cela signifie-t-il géométriquement ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+
+# 1. Définir g
+
+
+# 2. Calculer g'(2), g'(0), g'(-1)
+
+
+# 3. Comparer avec la formule théorique
+
+
+# 4. Interprétation de g'(0) dans une cellule markdown
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. La fonction
+g = lambda x: x**3 - 2*x + 1
+
+# 2. Dérivées numériques
+points = [2, 0, -1]
+for x in points:
+    d_num = derivee_numerique(g, x)
+    d_theo = 3*x**2 - 2
+    print(f"g'({x:2d}) numérique = {d_num:7.4f}  | théorique = {d_theo}")
+```
+
+**Réponse à la question 4 :**  
+`g'(0) = -2` : cela signifie qu'au point `x=0`, la fonction **descend** (pente négative) à la vitesse de 2 unités par unité de `x`. Géométriquement, si tu imagines la courbe de `g`, au point `x=0` elle penche vers le bas.
+:::
+
+## 🤔 Pourquoi la dérivée est-elle si importante en ML ?
+
+Parce qu'elle répond à la question **fondamentale** : « si je modifie légèrement `x`, comment `f(x)` change ? »
+
+En machine learning, on a :
+- Une fonction d'**erreur** (l'écart entre prédictions et vérité)
+- Des **paramètres** (les `a`, `b` de notre modèle)
+
+**La dérivée nous dit comment ajuster les paramètres pour diminuer l'erreur.**
+
+On va voir comment concrètement.
+
+# Le gradient : la dérivée en plusieurs dimensions
+
+## 🏔️ L'intuition : de la pente à la montagne
+
+Jusqu'ici, on avait une fonction `f(x)` avec une seule variable. Et sa dérivée `f'(x)` était **un seul nombre** (la pente).
+
+Mais en ML, on a souvent **plusieurs paramètres à ajuster en même temps**. Par exemple, pour `prix = a × surface + b × nb_pièces + c`, on a 3 paramètres à optimiser.
+
+La fonction d'erreur dépend alors de 3 variables : `erreur(a, b, c)`. Il faut **plusieurs pentes** pour savoir comment changer chaque paramètre.
+
+**Le gradient** = l'ensemble des dérivées partielles, une pour chaque variable.
+
+Pour une fonction `f(x, y)`, le gradient est :
+
+$$\nabla f(x, y) = \left( \frac{\partial f}{\partial x}, \frac{\partial f}{\partial y} \right)$$
+
+- `∂f/∂x` = la dérivée par rapport à `x` (en fixant `y`)
+- `∂f/∂y` = la dérivée par rapport à `y` (en fixant `x`)
+
+Le symbole `∇` (prononcé « nabla ») c'est juste « gradient de ».
+
+## 🗺️ Visualisation : une montagne en 3D
+
+Imagine une montagne. Sa hauteur à chaque point `(x, y)` est donnée par une fonction `f(x, y)`. En chaque point, le **gradient est une flèche qui pointe dans la direction de la plus forte montée**.
+
+```{python}
+#| label: fig-montagne-3d
+#| fig-cap: "La fonction f(x, y) = x² + y² vue en 3D"
+# Créer une grille de points
+x = np.linspace(-3, 3, 50)
+y = np.linspace(-3, 3, 50)
+X, Y = np.meshgrid(x, y)
+Z = X**2 + Y**2  # Une belle cuvette
+
+# Tracer la surface
+fig = plt.figure(figsize=(10, 7))
+ax = fig.add_subplot(111, projection='3d')
+ax.plot_surface(X, Y, Z, cmap='viridis', alpha=0.8)
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_zlabel('f(x, y)')
+ax.set_title("f(x, y) = x² + y²\n(une cuvette — minimum au centre)")
+plt.show()
+```
+
+## 🧭 Le gradient pointe vers la montée la plus forte
+
+Pour `f(x, y) = x² + y²`, les dérivées partielles sont :
+- `∂f/∂x = 2x`
+- `∂f/∂y = 2y`
+
+Donc le gradient au point `(1, 2)` est `(2, 4)` : une flèche qui pointe « en haut à droite ».
+
+```{python}
+#| label: fig-gradient-2d
+#| fig-cap: "Le gradient en chaque point : flèches qui montrent la direction de montée"
+# Grille plus espacée pour les flèches
+x = np.linspace(-2.5, 2.5, 10)
+y = np.linspace(-2.5, 2.5, 10)
+X, Y = np.meshgrid(x, y)
+Z = X**2 + Y**2
+
+# Gradient
+U = 2 * X  # ∂f/∂x
+V = 2 * Y  # ∂f/∂y
+
+fig, ax = plt.subplots(figsize=(9, 7))
+# Lignes de niveau (comme sur une carte topographique)
+contour = ax.contour(X, Y, Z, levels=10, colors='gray', alpha=0.5)
+ax.clabel(contour, inline=True, fontsize=8)
+# Flèches du gradient
+ax.quiver(X, Y, U, V, color='red', alpha=0.7)
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.set_title("Gradient de f(x, y) = x² + y²\nLes flèches pointent vers la MONTÉE la plus forte")
+ax.set_aspect('equal')
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+::: {.callout-important}
+## 🧠 À retenir
+- Le **gradient** est un **vecteur** qui indique la direction de la **montée la plus forte**.
+- Pour **descendre**, il suffit d'aller dans la direction **opposée** au gradient (`-∇f`).
+- C'est exactement l'idée de la **descente de gradient** !
+:::
+
+## 🐍 Gradient numérique en Python
+
+On peut calculer un gradient exactement comme une dérivée, mais en faisant varier chaque variable séparément.
+
+```{python}
+def gradient_numerique(f, x, y, h=1e-5):
+    """Calcule le gradient de f(x, y) au point (x, y)."""
+    df_dx = (f(x + h, y) - f(x, y)) / h
+    df_dy = (f(x, y + h) - f(x, y)) / h
+    return np.array([df_dx, df_dy])
+
+# Test sur f(x, y) = x² + y²
+f = lambda x, y: x**2 + y**2
+
+# Au point (1, 2) : gradient théorique = (2*1, 2*2) = (2, 4)
+grad = gradient_numerique(f, 1, 2)
+print(f"Gradient au point (1, 2) : {grad}")
+print(f"Théorique                 : [2, 4]")
+```
+
+## ✏️ Exercice 2 — Calculer un gradient
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Soit la fonction `f(x, y) = x² + 3y² - 2xy + 5`.
+
+1. Calcule le gradient de `f` au point `(2, 1)` avec `gradient_numerique`.
+2. Calcule-le aussi à la main : les dérivées partielles théoriques sont `∂f/∂x = 2x - 2y` et `∂f/∂y = 6y - 2x`.
+3. Vérifie que les deux résultats correspondent.
+4. **Question** : si tu es au point `(2, 1)` et que tu veux **descendre** le plus vite possible, dans quelle direction dois-tu aller ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+
+# 1. Définir f
+
+
+# 2. Calculer le gradient numérique au point (2, 1)
+
+
+# 3. Comparer avec le théorique
+
+
+# 4. Direction de descente
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. La fonction
+f = lambda x, y: x**2 + 3*y**2 - 2*x*y + 5
+
+# 2. Gradient numérique
+grad = gradient_numerique(f, 2, 1)
+print(f"Gradient numérique : {grad}")
+
+# 3. Gradient théorique : (2x - 2y, 6y - 2x) au point (2, 1)
+grad_theo = np.array([2*2 - 2*1, 6*1 - 2*2])
+print(f"Gradient théorique : {grad_theo}")
+
+# 4. Direction de descente : opposée au gradient
+direction_descente = -grad
+print(f"\nDirection de DESCENTE au point (2, 1) : {direction_descente}")
+```
+
+**Réponse à la question 4 :**  
+Au point `(2, 1)`, le gradient est `(2, 2)`. Pour **descendre** le plus vite, il faut aller dans la direction **opposée** : `(-2, -2)`, c'est-à-dire « en bas à gauche » dans le plan (x, y).
+:::
+
+# La descente de gradient : le cœur du machine learning
+
+## 🎢 L'algorithme en une image
+
+Imagine que tu es **au sommet d'une montagne dans le brouillard** et que tu veux atteindre la vallée.
+
+**Tu ne vois rien.** Mais tu peux sentir sous tes pieds **dans quelle direction ça descend**.
+
+La stratégie :
+1. **Regarde où tu es** : calcule la pente (le gradient)
+2. **Fais un petit pas** dans la direction de descente
+3. **Recommence** jusqu'à arriver en bas
+
+C'est **exactement** ce que fait un algorithme de machine learning pendant son apprentissage.
+
+## 📝 L'algorithme
+
+Pour minimiser une fonction `f(x)` :
+
+1. Partir d'un point de départ `x₀` (souvent au hasard)
+2. À chaque itération :
+   - Calculer le gradient `∇f(x)`
+   - Mettre à jour : `x_nouveau = x_ancien - α × ∇f(x)`
+3. Répéter jusqu'à convergence
+
+Le paramètre **α** (alpha) est **le pas d'apprentissage** (learning rate). C'est la taille des pas qu'on fait.
+
+## 🐍 Implémentation à partir de zéro
+
+On va minimiser `f(x) = x² - 4x + 7`. Son minimum théorique est en `x = 2` (dérivée = `2x - 4 = 0` quand `x = 2`).
+
+```{python}
+def descente_gradient_1d(f, df, x_depart, learning_rate, n_iterations):
+    """
+    Descente de gradient en 1D.
+    Retourne l'historique des x pour pouvoir visualiser.
+    """
+    x = x_depart
+    historique = [x]
+    
+    for _ in range(n_iterations):
+        gradient = df(x)
+        x = x - learning_rate * gradient
+        historique.append(x)
+    
+    return x, historique
+
+# Notre fonction et sa dérivée (calculée à la main ici, mais on pourrait la faire numériquement)
+f = lambda x: x**2 - 4*x + 7
+df = lambda x: 2*x - 4
+
+# Lançons la descente
+x_final, historique = descente_gradient_1d(
+    f=f, df=df, 
+    x_depart=10,       # on part loin du minimum
+    learning_rate=0.1, # pas raisonnable
+    n_iterations=30
+)
+
+print(f"Point de départ : 10")
+print(f"Point final     : {x_final:.4f}")
+print(f"Valeur théorique du minimum : 2")
+print(f"Nombre d'itérations         : {len(historique)}")
+```
+
+## 📊 Visualisons la trajectoire
+
+```{python}
+#| label: fig-descente-trajectoire
+#| fig-cap: "La descente de gradient en action"
+x_range = np.linspace(-1, 11, 100)
+y_range = f(x_range)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(x_range, y_range, 'b-', linewidth=2, label='f(x) = x² - 4x + 7')
+
+# Tracer chaque étape de la descente
+hist_x = np.array(historique)
+hist_y = f(hist_x)
+ax.plot(hist_x, hist_y, 'ro-', markersize=6, alpha=0.7, label='Trajectoire')
+ax.plot(hist_x[0], hist_y[0], 'go', markersize=12, label='Départ')
+ax.plot(hist_x[-1], hist_y[-1], 'y*', markersize=20, label='Arrivée')
+
+ax.axvline(x=2, color='gray', linestyle='--', alpha=0.5, label='Minimum théorique (x=2)')
+ax.set_xlabel('x')
+ax.set_ylabel('f(x)')
+ax.set_title("Descente de gradient : la balle dévale la cuvette")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.show()
+```
+
+La balle rouge dévale progressivement la cuvette jusqu'au fond. C'est magique, et c'est **exactement** ce qui se passe quand tu entraînes un réseau de neurones — sauf qu'il y a des milliers de dimensions au lieu d'une seule.
+
+## ⚠️ Les trois pièges à connaître
+
+### 1. Le pas d'apprentissage TROP PETIT : c'est lent
+
+```{python}
+#| label: fig-lr-trop-petit
+#| fig-cap: "Learning rate trop petit : on avance, mais très lentement"
+_, hist_lent = descente_gradient_1d(f, df, x_depart=10, learning_rate=0.01, n_iterations=30)
+
+x_range = np.linspace(-1, 11, 100)
+fig, ax = plt.subplots()
+ax.plot(x_range, f(x_range), 'b-')
+ax.plot(hist_lent, f(np.array(hist_lent)), 'ro-', alpha=0.7)
+ax.axvline(x=2, color='gray', linestyle='--')
+ax.set_title(f"LR = 0.01 : après 30 itérations, on est à x = {hist_lent[-1]:.2f}\n(on devrait être à 2...)")
+plt.show()
+```
+
+### 2. Le pas d'apprentissage TROP GRAND : ça explose
+
+```{python}
+#| label: fig-lr-trop-grand
+#| fig-cap: "Learning rate trop grand : divergence !"
+_, hist_grand = descente_gradient_1d(f, df, x_depart=10, learning_rate=1.1, n_iterations=15)
+
+x_range = np.linspace(-30, 30, 200)
+fig, ax = plt.subplots()
+ax.plot(x_range, f(x_range), 'b-')
+ax.plot(hist_grand, f(np.array(hist_grand)), 'ro-', alpha=0.7)
+ax.axvline(x=2, color='gray', linestyle='--')
+ax.set_title(f"LR = 1.1 : au lieu de descendre, on s'éloigne !\nDernier x = {hist_grand[-1]:.2f}")
+plt.show()
+```
+
+### 3. Les minima locaux : on peut se coincer
+
+Si la fonction a plusieurs « vallées », on risque d'atterrir dans la mauvaise.
+
+```{python}
+#| label: fig-minima-locaux
+#| fig-cap: "Une fonction avec plusieurs minima : on peut se coincer dans le mauvais"
+# Fonction avec deux minima
+f_complex = lambda x: x**4 - 3*x**3 - x**2 + 3*x
+df_complex = lambda x: 4*x**3 - 9*x**2 - 2*x + 3
+
+# Démarrage à deux endroits différents
+_, hist_1 = descente_gradient_1d(f_complex, df_complex, x_depart=-1, learning_rate=0.02, n_iterations=100)
+_, hist_2 = descente_gradient_1d(f_complex, df_complex, x_depart=1.5, learning_rate=0.02, n_iterations=100)
+
+x_range = np.linspace(-2, 3.5, 200)
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.plot(x_range, f_complex(x_range), 'b-', linewidth=2)
+ax.plot(hist_1, f_complex(np.array(hist_1)), 'ro-', alpha=0.5, markersize=4, label=f'Départ à x=-1 → arrive à x={hist_1[-1]:.2f}')
+ax.plot(hist_2, f_complex(np.array(hist_2)), 'g^-', alpha=0.5, markersize=4, label=f'Départ à x=1.5 → arrive à x={hist_2[-1]:.2f}')
+ax.grid(True, alpha=0.3)
+ax.legend()
+ax.set_title("Selon le point de départ, on tombe dans une vallée différente !")
+plt.show()
+```
+
+::: {.callout-warning}
+## 🧠 À retenir sur le learning rate
+C'est **LE** paramètre le plus important en ML. Les valeurs typiques sont entre `0.001` et `0.1`. Trop grand → divergence. Trop petit → apprentissage interminable. Il n'y a pas de valeur magique — on la cherche par essais-erreurs.
+:::
+
+## ✏️ Exercice 3 — Impact du learning rate
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Reprends la fonction `f(x) = x² - 4x + 7` (minimum en x=2).
+
+1. Lance la descente de gradient avec 4 valeurs de learning rate : `0.001`, `0.05`, `0.5`, `0.99`.
+2. Pour chacune, affiche le `x` final après 20 itérations.
+3. Laquelle est la meilleure ?
+4. Que se passe-t-il avec `lr = 0.99` ? Explique.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+
+f = lambda x: x**2 - 4*x + 7
+df = lambda x: 2*x - 4
+
+# 1. Tester 4 learning rates
+
+
+
+# 2. Afficher les résultats
+
+
+# 3 et 4. Interprétation
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+f = lambda x: x**2 - 4*x + 7
+df = lambda x: 2*x - 4
+
+learning_rates = [0.001, 0.05, 0.5, 0.99]
+
+for lr in learning_rates:
+    x_final, _ = descente_gradient_1d(f, df, x_depart=10, learning_rate=lr, n_iterations=20)
+    print(f"LR = {lr:6.3f} → x final après 20 iter = {x_final:10.4f}")
+```
+
+**Interprétation :**
+- `lr = 0.001` : trop petit, on est encore loin du minimum après 20 itérations.
+- `lr = 0.05` : lent mais correct, on s'approche.
+- `lr = 0.5` : parfait ! Le plus rapide pour atteindre `x = 2`.
+- `lr = 0.99` : trop grand ! On **oscille** autour du minimum sans y arriver, voire on diverge selon le point de départ.
+
+**Pourquoi `lr = 0.5` est parfait ici ?**  
+Pour `f(x) = x² - 4x + 7`, la « courbure » est de 2 (le coefficient devant `x²` fois 2). Le learning rate optimal est `1/courbure = 1/2 = 0.5`. C'est une propriété rare : dans la vraie vie, on ne sait jamais à l'avance.
+:::
+
+## ✏️ Exercice 4 — Descente de gradient sur une fonction complexe
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Soit `f(x) = x⁴ - 3x³ + 2` et sa dérivée `f'(x) = 4x³ - 9x²`.
+
+1. Trace la fonction sur l'intervalle `[-2, 4]` pour observer ses variations.
+2. Lance la descente de gradient avec `x₀ = 3`, `lr = 0.01`, `n = 100` itérations.
+3. Quel minimum a-t-elle trouvé ?
+4. **Bonus** : essaie avec `x₀ = -1`. Que se passe-t-il ? Pourquoi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 4
+
+f = lambda x: x**4 - 3*x**3 + 2
+df = lambda x: 4*x**3 - 9*x**2
+
+# 1. Tracer f
+
+
+# 2. Descente à partir de x=3
+
+
+# 3. Résultat
+
+
+# 4. Bonus : x₀ = -1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+f = lambda x: x**4 - 3*x**3 + 2
+df = lambda x: 4*x**3 - 9*x**2
+
+# 1. Tracer
+x_range = np.linspace(-2, 4, 200)
+plt.figure(figsize=(10, 5))
+plt.plot(x_range, f(x_range), 'b-', linewidth=2)
+plt.axhline(y=0, color='gray', linewidth=0.5)
+plt.grid(True, alpha=0.3)
+plt.title("f(x) = x⁴ - 3x³ + 2")
+plt.xlabel('x')
+plt.ylabel('f(x)')
+plt.show()
+
+# 2. Descente à partir de x=3
+x_final, hist = descente_gradient_1d(f, df, x_depart=3, learning_rate=0.01, n_iterations=100)
+print(f"Depuis x=3  : arrive à x = {x_final:.4f}, f(x) = {f(x_final):.4f}")
+
+# 4. Bonus : x=-1
+x_final_bis, _ = descente_gradient_1d(f, df, x_depart=-1, learning_rate=0.01, n_iterations=100)
+print(f"Depuis x=-1 : arrive à x = {x_final_bis:.4f}, f(x) = {f(x_final_bis):.4f}")
+```
+
+**Interprétation :**  
+- La fonction a un **minimum global** en `x ≈ 2.25` (valeur `f ≈ -6.4`).
+- Elle a aussi un **point critique** en `x = 0` (ce n'est pas un minimum mais un « point selle » — la dérivée vaut 0 mais ça ne descend pas).
+
+Depuis `x=3`, on tombe dans le bon minimum.  
+Depuis `x=-1`, le gradient descend vers `x=0` où la dérivée s'annule — **on reste coincé au point selle**, jamais on ne trouvera le vrai minimum. **Le point de départ compte énormément** !
+:::
+
+# 🎯 Application : régression linéaire par descente de gradient
+
+On va utiliser tout ce qu'on vient d'apprendre pour construire **notre premier vrai modèle de ML** : une régression linéaire, **sans scikit-learn**. Juste NumPy et la descente de gradient.
+
+## 📊 Les données
+
+On veut prédire le **poids** d'une personne en fonction de sa **taille**. On a 20 observations.
+
+```{python}
+# Générer des données bruitées (taille en cm, poids en kg)
+np.random.seed(42)
+taille = np.random.uniform(150, 200, 20)
+poids_vrai = 0.9 * taille - 80 + np.random.normal(0, 5, 20)
+
+plt.figure(figsize=(9, 6))
+plt.scatter(taille, poids_vrai, s=50, alpha=0.7, edgecolors='k')
+plt.xlabel('Taille (cm)')
+plt.ylabel('Poids (kg)')
+plt.title('Relation taille / poids (20 personnes)')
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+## ⚠️ Un piège classique : l'échelle des données
+
+Avant d'attaquer, il faut qu'on parle d'un **piège majeur** de la descente de gradient : **les échelles de tes variables comptent énormément**.
+
+Nos tailles sont entre 150 et 200. Si on lance une descente de gradient directement, les gradients vont être **énormes** (à cause des valeurs élevées), et le moindre learning rate va faire diverger l'algorithme.
+
+**La solution** : **normaliser** les données avant l'apprentissage. On va les ramener à une moyenne de 0 et un écart-type de 1.
+
+```{python}
+# Normalisation (centrage-réduction)
+taille_mean = taille.mean()
+taille_std = taille.std()
+poids_mean = poids_vrai.mean()
+poids_std = poids_vrai.std()
+
+taille_norm = (taille - taille_mean) / taille_std
+poids_norm = (poids_vrai - poids_mean) / poids_std
+
+print(f"Taille avant : moyenne = {taille.mean():.1f}, std = {taille.std():.1f}")
+print(f"Taille après : moyenne = {taille_norm.mean():.3f}, std = {taille_norm.std():.3f}")
+```
+
+::: {.callout-tip}
+## 🧠 À retenir
+**Normaliser les données est une étape quasi obligatoire avant toute descente de gradient.** C'est exactement ce que fait `StandardScaler` dans scikit-learn. On reviendra là-dessus dans le Module 3.
+:::
+
+## 🎯 Le modèle
+
+On cherche à trouver `a` et `b` tels que `poids_norm ≈ a × taille_norm + b`.
+
+**La fonction d'erreur** (ou fonction de coût) la plus classique est l'**erreur quadratique moyenne** (MSE) :
+
+$$\text{MSE}(a, b) = \frac{1}{n} \sum_{i=1}^{n} \left( (a \cdot x_i + b) - y_i \right)^2$$
+
+On veut **minimiser** cette erreur — et pour ça, on va utiliser... la descente de gradient !
+
+## 🧮 Le gradient de la MSE
+
+Les dérivées partielles de la MSE par rapport à `a` et `b` sont :
+
+- `∂MSE/∂a = (2/n) × Σ (a·xᵢ + b - yᵢ) × xᵢ`
+- `∂MSE/∂b = (2/n) × Σ (a·xᵢ + b - yᵢ)`
+
+On ne va pas redémontrer cette formule. Crois-moi sur parole (ou calcule-la si tu veux t'amuser !) — c'est juste de la dérivation basique.
+
+## 🚀 L'entraînement
+
+```{python}
+def mse(a, b, x, y):
+    """Erreur quadratique moyenne."""
+    predictions = a * x + b
+    return np.mean((predictions - y)**2)
+
+def gradient_mse(a, b, x, y):
+    """Gradient de la MSE par rapport à a et b."""
+    n = len(x)
+    predictions = a * x + b
+    errors = predictions - y
+    grad_a = (2/n) * np.sum(errors * x)
+    grad_b = (2/n) * np.sum(errors)
+    return grad_a, grad_b
+
+def regression_par_descente(x, y, learning_rate=0.1, n_iterations=1000):
+    """Entraîne une régression linéaire par descente de gradient."""
+    a, b = 0.0, 0.0
+    historique = []
+    
+    for i in range(n_iterations):
+        grad_a, grad_b = gradient_mse(a, b, x, y)
+        a = a - learning_rate * grad_a
+        b = b - learning_rate * grad_b
+        
+        if i % 100 == 0 or i == n_iterations - 1:
+            erreur = mse(a, b, x, y)
+            historique.append((i, a, b, erreur))
+    
+    return a, b, historique
+
+# Entraînement sur les données normalisées !
+a_norm, b_norm, hist = regression_par_descente(
+    taille_norm, poids_norm, 
+    learning_rate=0.1,
+    n_iterations=1000
+)
+
+print(f"Sur les données normalisées : a = {a_norm:.4f}, b = {b_norm:.4f}")
+print()
+print("Progression de l'erreur :")
+for i, a, b, err in hist[:3]:
+    print(f"  Itération {i:4d} : a = {a:7.4f}, b = {b:7.4f}, MSE = {err:.4f}")
+print("  ...")
+for i, a, b, err in hist[-2:]:
+    print(f"  Itération {i:4d} : a = {a:7.4f}, b = {b:7.4f}, MSE = {err:.4f}")
+```
+
+## 🔄 Retour aux unités d'origine
+
+Notre modèle est maintenant entraîné sur les données normalisées. Pour prédire le poids réel à partir d'une taille réelle, il faut inverser la normalisation.
+
+```{python}
+# Reconstruire a et b en unités réelles
+# poids_norm = a_norm * taille_norm + b_norm
+# (poids - poids_mean) / poids_std = a_norm * (taille - taille_mean) / taille_std + b_norm
+# poids = (a_norm * poids_std / taille_std) * taille + (poids_mean - a_norm * poids_std * taille_mean / taille_std + b_norm * poids_std)
+
+a_reel = a_norm * poids_std / taille_std
+b_reel = poids_mean - a_reel * taille_mean + b_norm * poids_std
+
+print(f"Modèle final : poids = {a_reel:.3f} × taille + ({b_reel:.3f})")
+print(f"Valeurs vraies cachées dans les données : a = 0.9, b = -80")
+```
+
+Pas mal ! On retrouve des valeurs **très proches** des vraies coefficients (`a ≈ 0.9`, `b ≈ -80`).
+
+## 📉 Visualisons le résultat
+
+```{python}
+#| label: fig-regression-finale
+#| fig-cap: "Le modèle appris par descente de gradient"
+plt.figure(figsize=(10, 6))
+plt.scatter(taille, poids_vrai, s=50, alpha=0.7, edgecolors='k', label='Données')
+
+# Droite apprise (en unités réelles)
+x_line = np.linspace(taille.min(), taille.max(), 50)
+y_pred = a_reel * x_line + b_reel
+plt.plot(x_line, y_pred, 'r-', linewidth=2, label=f'Modèle : y = {a_reel:.2f}x + {b_reel:.2f}')
+
+plt.xlabel('Taille (cm)')
+plt.ylabel('Poids (kg)')
+plt.title('Régression linéaire par descente de gradient')
+plt.legend()
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+::: {.callout-important}
+## 🎉 Ce que tu viens d'accomplir
+Tu viens d'entraîner **ton premier modèle de machine learning à la main**. Aucune bibliothèque ML utilisée : juste des dérivées, un gradient, et une boucle. **C'est exactement ce que fait scikit-learn sous le capot** (en beaucoup plus optimisé, bien sûr).
+:::
+
+## ✏️ Exercice 5 — Visualiser la convergence
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+Modifie la fonction `regression_par_descente` pour qu'elle enregistre **toutes** les erreurs (à chaque itération) dans une liste `toutes_erreurs`.
+
+Puis :
+1. Relance l'entraînement sur les données **normalisées** (`taille_norm`, `poids_norm`).
+2. Trace la courbe de l'erreur en fonction de l'itération (échelle linéaire puis logarithmique).
+3. Que constates-tu sur la vitesse de diminution de l'erreur ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 5
+
+def regression_par_descente_v2(x, y, learning_rate=0.1, n_iterations=1000):
+    a, b = 0.0, 0.0
+    toutes_erreurs = []
+    
+    for i in range(n_iterations):
+        # TODO : à compléter
+        pass
+    
+    return a, b, toutes_erreurs
+
+
+# Relancer sur les données normalisées et tracer
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+def regression_par_descente_v2(x, y, learning_rate=0.1, n_iterations=1000):
+    a, b = 0.0, 0.0
+    toutes_erreurs = []
+    
+    for i in range(n_iterations):
+        grad_a, grad_b = gradient_mse(a, b, x, y)
+        a = a - learning_rate * grad_a
+        b = b - learning_rate * grad_b
+        toutes_erreurs.append(mse(a, b, x, y))
+    
+    return a, b, toutes_erreurs
+
+a, b, erreurs = regression_par_descente_v2(taille_norm, poids_norm, n_iterations=500)
+
+# Tracer
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+axes[0].plot(erreurs)
+axes[0].set_title("Erreur (MSE) au fil des itérations — échelle linéaire")
+axes[0].set_xlabel("Itération")
+axes[0].set_ylabel("MSE")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(erreurs)
+axes[1].set_yscale('log')
+axes[1].set_title("Erreur (MSE) — échelle logarithmique")
+axes[1].set_xlabel("Itération")
+axes[1].set_ylabel("MSE (log)")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation :**  
+- En échelle linéaire : l'erreur chute **très vite au début**, puis se stabilise.
+- En échelle logarithmique : on voit que l'amélioration continue — mais de plus en plus lentement.
+
+C'est typique d'une descente de gradient : **beaucoup de progrès au début, diminishing returns ensuite**. C'est pour ça qu'on utilise souvent un **critère d'arrêt** : on stoppe quand l'erreur ne diminue presque plus.
+:::
+
+# 🏁 Exercice bilan — Du zéro au modèle complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+**Ton défi** : résoudre un problème de régression de A à Z, sans aucune bibliothèque ML.
+
+Tu disposes de données artificielles : la consommation électrique d'un appartement en fonction de sa surface et du nombre d'occupants.
+
+```python
+np.random.seed(0)
+surfaces = np.random.uniform(20, 150, 50)
+occupants = np.random.randint(1, 6, 50)
+conso = 2.5 * surfaces + 15 * occupants + 10 + np.random.normal(0, 20, 50)
+```
+
+Le modèle à apprendre est : `conso = a × surface + b × occupants + c`.
+
+**Étapes :**
+
+1. Génère les données avec le code ci-dessus.
+2. **Normalise** `surfaces`, `occupants` et `conso` (centrage-réduction).
+3. Écris une fonction `mse_multi(a, b, c, x1, x2, y)` qui calcule la MSE.
+4. Écris une fonction `gradient_mse_multi(a, b, c, x1, x2, y)` qui retourne `(grad_a, grad_b, grad_c)`.  
+   *Indice* : `∂MSE/∂a = (2/n) Σ (erreur × x1ᵢ)`, `∂MSE/∂b = (2/n) Σ (erreur × x2ᵢ)`, `∂MSE/∂c = (2/n) Σ erreur`.
+5. Écris la boucle de descente de gradient sur les données **normalisées** (commence avec `lr = 0.1`, `n = 1000`).
+6. Affiche les valeurs finales de `a`, `b`, `c` (sur les données normalisées).
+7. Trace la courbe d'erreur.
+
+::: {.callout-warning}
+⚠️ **Rappel important** : travailler sur des données normalisées simplifie énormément la vie ! C'est pour ça que `StandardScaler` est systématique en pratique.
+:::
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+
+# 1. Générer les données
+
+
+# 2. Normaliser
+
+
+# 3. Fonction MSE à 3 paramètres
+
+
+# 4. Gradient
+
+
+# 5. Descente de gradient
+
+
+# 6. Résultats
+
+
+# 7. Courbe d'erreur
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. Les données
+np.random.seed(0)
+surfaces = np.random.uniform(20, 150, 50)
+occupants = np.random.randint(1, 6, 50).astype(float)
+conso = 2.5 * surfaces + 15 * occupants + 10 + np.random.normal(0, 20, 50)
+
+# 2. Normalisation
+surfaces_norm = (surfaces - surfaces.mean()) / surfaces.std()
+occupants_norm = (occupants - occupants.mean()) / occupants.std()
+conso_norm = (conso - conso.mean()) / conso.std()
+
+# 3. MSE à 3 paramètres
+def mse_multi(a, b, c, x1, x2, y):
+    predictions = a * x1 + b * x2 + c
+    return np.mean((predictions - y)**2)
+
+# 4. Gradient
+def gradient_mse_multi(a, b, c, x1, x2, y):
+    n = len(y)
+    predictions = a * x1 + b * x2 + c
+    errors = predictions - y
+    grad_a = (2/n) * np.sum(errors * x1)
+    grad_b = (2/n) * np.sum(errors * x2)
+    grad_c = (2/n) * np.sum(errors)
+    return grad_a, grad_b, grad_c
+
+# 5. Descente sur les données normalisées
+a, b, c = 0.0, 0.0, 0.0
+lr = 0.1
+n_iter = 1000
+erreurs = []
+
+for i in range(n_iter):
+    grad_a, grad_b, grad_c = gradient_mse_multi(
+        a, b, c, surfaces_norm, occupants_norm, conso_norm
+    )
+    a -= lr * grad_a
+    b -= lr * grad_b
+    c -= lr * grad_c
+    erreurs.append(mse_multi(a, b, c, surfaces_norm, occupants_norm, conso_norm))
+
+# 6. Résultats
+print(f"Coefficients sur données normalisées :")
+print(f"  a = {a:.4f}  (influence de la surface)")
+print(f"  b = {b:.4f}  (influence du nb d'occupants)")
+print(f"  c = {c:.4f}  (terme constant)")
+print(f"  MSE finale = {erreurs[-1]:.6f}")
+print()
+print(f"Les valeurs sont interprétables :")
+print(f"  → a > b signifie que la surface a plus d'influence que le nb d'occupants")
+print(f"  → c ≈ 0 car on a centré les données")
+
+# 7. Courbe d'erreur
+plt.figure(figsize=(10, 5))
+plt.plot(erreurs)
+plt.xlabel('Itération')
+plt.ylabel('MSE (sur données normalisées)')
+plt.title('Convergence de la descente de gradient')
+plt.yscale('log')
+plt.grid(True, alpha=0.3)
+plt.show()
+```
+
+**Remarques pédagogiques :**
+- Grâce à la normalisation, **un seul learning rate (0.1)** suffit et la convergence est rapide (1000 itérations seulement).
+- Sur les données normalisées, les coefficients s'interprètent directement comme **l'importance relative** de chaque variable : si `a > b`, la surface a plus d'impact que le nombre d'occupants pour prédire la consommation.
+- Pour retrouver les vrais coefficients (2.5, 15, 10) sur les données brutes, il faudrait « dé-normaliser » — un exercice que tu pourras faire plus tard quand on utilisera scikit-learn qui fait tout ça automatiquement.
+
+**Ce que tu as accompli :** tu as entraîné un modèle de régression linéaire **multivariée** à la main. Et ça marche parfaitement ! 🎉
+:::
+
+# 🎓 Récapitulatif
+
+## Ce que tu dois savoir faire
+
+| Notion | Commande / Formule |
+|---|---|
+| Dérivée d'une fonction en un point | `(f(x+h) - f(x)) / h` |
+| Gradient (dérivées partielles) | `(∂f/∂x, ∂f/∂y, ...)` |
+| Mise à jour par descente de gradient | `x = x - learning_rate × gradient` |
+| Fonction d'erreur MSE | `mean((prédictions - vérité)²)` |
+| Learning rate typique | entre 0.001 et 0.1 |
+
+## Ce que tu dois comprendre
+
+1. **Dérivée = pente**. La dérivée d'une fonction en un point te dit à quelle vitesse elle monte ou descend.
+2. **Gradient = pente en plusieurs dimensions**. C'est un vecteur qui pointe dans la direction de montée la plus forte.
+3. **Descente de gradient = aller dans la direction opposée au gradient**, par petits pas.
+4. **Le learning rate est critique** : trop grand → divergence, trop petit → lent.
+5. **Tous les modèles de ML apprennent comme ça** (régressions, réseaux de neurones, transformers...). Avec des fonctions plus complexes, des millions de paramètres, mais le principe est le même.
+
+## 🚀 La suite
+
+Dans la [**Notion 1.3 — Statistiques et probabilités**](#), on s'attaque aux notions qui te permettent de **comprendre tes données** : moyenne, écart-type, distributions, corrélations, et l'indispensable loi normale.
+
+Après ces 3 notions, tu auras **toutes les bases mathématiques** nécessaires pour le reste du parcours. Promis, c'est la dernière ligne droite des maths — ensuite, on plonge dans la data.
+
+::: {.callout-tip}
+## 💡 Petit défi pour la route
+Essaie d'implémenter la descente de gradient en utilisant **le gradient numérique** (calculé avec des différences finies) au lieu du gradient analytique. Tu verras que ça marche tout aussi bien ! C'est exactement comme ça que certains frameworks ML modernes (comme PyTorch) calculent automatiquement les gradients sans qu'on ait besoin de les dériver à la main.
+:::

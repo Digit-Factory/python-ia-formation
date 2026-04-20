@@ -1,0 +1,88 @@
+project:
+  type: book
+  output-dir: _build
+
+book:
+  title: "Python pour l'Intelligence Artificielle"
+  subtitle: "Spécialisation IA complémentaire à la certification TOSA"
+  author: "Loïc PILET"
+  date: today
+  date-format: "DD MMMM YYYY"
+  language: fr
+  
+  # Page d'accueil et sidebar
+  chapters:
+    - index.qmd
+    - part: "Axe 1 — Fondations"
+      chapters:
+        - modules/module_01/index.qmd
+        - modules/module_01/notion_1_1_algebre_lineaire.qmd
+        - modules/module_01/notion_1_2_calcul_differentiel.qmd
+        - modules/module_01/notion_1_3_statistiques.qmd
+        - modules/module_01/tp_sommatif.qmd
+    # - part: "Axe 2 — Modélisation"
+    #   chapters:
+    #     - modules/module_04/index.qmd
+    # - part: "Axe 3 — Industrialisation"
+    #   chapters:
+    #     - modules/module_07/index.qmd
+  
+  # Bas de page
+  page-footer:
+    left: "© 2026 — Loïc PILET"
+    right: "Construit avec [Quarto](https://quarto.org)"
+  
+  # Barre de recherche
+  search: true
+  
+  # Liens sociaux (optionnel)
+  # repo-url: https://github.com/ton-compte/python-ia
+  # repo-actions: [edit, issue]
+
+# Apparence du site web
+format:
+  html:
+    theme:
+      light: [cosmo, styles/custom.scss]
+      dark: [darkly, styles/custom.scss]
+    toc: true
+    toc-depth: 3
+    toc-location: right
+    toc-title: "Sur cette page"
+    number-sections: false
+    code-copy: true
+    code-overflow: wrap
+    code-link: true
+    highlight-style: github
+    fig-align: center
+    smooth-scroll: true
+    css: styles/custom.css
+    
+  # Version PDF imprimable
+  pdf:
+    documentclass: scrbook
+    papersize: a4
+    geometry:
+      - margin=2.5cm
+    fontsize: 11pt
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    colorlinks: true
+    fig-pos: "H"
+    code-block-border-left: "#2E5A88"
+    highlight-style: github
+
+# Paramètres d'exécution du code
+execute:
+  freeze: auto      # Ne réexécute que si le fichier a changé
+  cache: true       # Met en cache les résultats
+  warning: false    # Masque les warnings dans le rendu
+  message: false    # Masque les messages info
+
+# Langue française partout
+lang: fr
+
+# Bibliographie (à activer plus tard si besoin)
+# bibliography: references.bib
+# csl: apa.csl
