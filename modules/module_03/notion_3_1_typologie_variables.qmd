@@ -1,0 +1,916 @@
+---
+title: "Notion 3.1 — Typologie des variables"
+subtitle: "Chaque variable a un type, et ce type détermine ce qu'on peut en faire"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_03/notion_3_1_typologie_variables_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_03/notion_3_1_typologie_variables_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_03_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 2 à 3 heures  
+**Prérequis** : Module 2 (Pandas)  
+**Objectif** : savoir identifier le type statistique de chaque variable d'un dataset pour choisir les bons traitements et les bonnes analyses
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Distinguer les **4 grandes catégories** de variables (quantitatives, qualitatives, textuelles, temporelles)
+- Reconnaître les **sous-types** (continu/discret, nominal/ordinal)
+- Identifier le **dtype Pandas** adapté à chaque type
+- Savoir quelles **opérations** sont possibles (et pertinentes) pour chaque type
+- Détecter les **types mal inférés** par Pandas et les corriger
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Voici une erreur classique de débutant :
+
+```python
+# Quelqu'un veut calculer la "moyenne des codes postaux"...
+df["code_postal"].mean()  # retourne 45327.8 — NON-SENS
+```
+
+Ou encore :
+
+```python
+# ... calculer la corrélation entre un code produit et un prix
+df[["code_produit", "prix"]].corr()  # absurde
+```
+
+Le problème ? **Un code postal ou un code produit est un nombre qui ne représente pas une quantité.** On ne peut pas faire de moyenne dessus. Mais Pandas ne le sait pas — c'est à toi de le savoir.
+
+Cette notion te donne les bases pour **ne plus jamais faire ce genre d'erreur**, et pour choisir consciemment quel traitement appliquer à chaque variable.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 4)
+pd.set_option('display.max_columns', 20)
+
+print("✅ Environnement prêt")
+```
+
+# La grande carte des types de variables
+
+## 🗺️ Vue d'ensemble
+
+Il existe **4 grandes catégories** de variables, avec des sous-types :
+
+```
+                    Variables
+                        │
+      ┌─────────────────┼─────────────────┐
+      │                 │                 │
+  Quantitatives    Qualitatives       Textuelles
+  (numériques)    (catégorielles)   (texte libre)
+      │                 │
+  ┌───┴───┐        ┌────┴────┐
+  │       │        │         │
+Continues Discrètes Nominales Ordinales
+                                │
+                           Temporelles
+                           (dates, heures)
+```
+
+## 🔢 1. Variables quantitatives
+
+**Ce qu'elles mesurent** : une **quantité numérique** sur laquelle les opérations mathématiques (somme, moyenne, différence) ont un **sens**.
+
+Deux sous-types :
+
+### 1a. Quantitatives continues
+
+Peuvent prendre **n'importe quelle valeur** dans un intervalle.
+
+**Exemples** :
+- Taille (`1.67 m`)
+- Poids (`68.3 kg`)
+- Température (`24.5°C`)
+- Prix (`49.99 €`)
+- Chiffre d'affaires
+
+**Dtype Pandas** : `float64` (ou `float32`)
+
+### 1b. Quantitatives discrètes
+
+Ne peuvent prendre que des valeurs **entières** (et chaque valeur a un sens de comptage).
+
+**Exemples** :
+- Nombre d'enfants
+- Nombre de pièces d'un appartement
+- Nombre de commandes par client
+- Âge (en années entières)
+
+**Dtype Pandas** : `int64` (ou `int32`)
+
+::: {.callout-warning}
+## ⚠️ Piège
+Tu as le droit de calculer la moyenne d'une variable discrète (`moyenne = 2.3 enfants`), **même si la moyenne n'est pas une valeur "atteignable"**. C'est une statistique pertinente.
+:::
+
+## 🏷️ 2. Variables qualitatives (catégorielles)
+
+**Ce qu'elles mesurent** : une **catégorie**, pas une quantité. Les opérations mathématiques n'ont **aucun sens**.
+
+Deux sous-types :
+
+### 2a. Qualitatives nominales
+
+Catégories **sans ordre naturel**.
+
+**Exemples** :
+- Genre (Homme, Femme, Autre)
+- Pays de résidence
+- Couleur préférée (Rouge, Bleu, Vert)
+- Catégorie de produit (Électronique, Vêtement, Alimentaire)
+
+### 2b. Qualitatives ordinales
+
+Catégories **avec un ordre naturel**.
+
+**Exemples** :
+- Niveau de satisfaction (Mauvais < Moyen < Bon < Excellent)
+- Taille de vêtement (XS < S < M < L < XL)
+- Niveau d'études (Bac < Licence < Master < Doctorat)
+- Classement (1er, 2e, 3e…)
+
+**Dtype Pandas** : `object` (string) ou `category` (plus efficace en mémoire)
+
+::: {.callout-tip}
+## 🧠 La différence entre nominal et ordinal est cruciale
+Pour les **nominales**, tu utilises **One-Hot Encoding** (une colonne par modalité).  
+Pour les **ordinales**, tu peux utiliser **Label Encoding** (un entier croissant) parce que l'ordre a du sens.
+
+On verra ça en détail dans la Notion 3.4.
+:::
+
+### Le piège des "codes numériques"
+
+Certaines variables **semblent** numériques mais sont en réalité nominales :
+
+- **Code postal** (`75001`, `13000`…)
+- **Identifiant client** (`12345`, `67890`…)
+- **Numéro de département** (`75`, `13`, `69`…)
+
+Une moyenne de code postal n'a aucun sens, même si Pandas peut la calculer !
+
+## 📝 3. Variables textuelles
+
+**Ce qu'elles contiennent** : du **texte libre**, non catégorisé.
+
+**Exemples** :
+- Commentaire client
+- Description d'un produit
+- Article de blog
+- Tweet
+
+**Dtype Pandas** : `object`
+
+La différence avec les variables qualitatives ? Les **textuelles** n'ont pas un petit nombre de modalités répétées. Chaque valeur est (quasi) unique.
+
+On les traite avec des techniques de **NLP** (traitement du langage naturel) : tokenisation, embedding… On verra ça au Module 7.
+
+## 📅 4. Variables temporelles
+
+**Ce qu'elles contiennent** : des **dates**, des **heures**, des **durées**.
+
+**Exemples** :
+- Date de naissance
+- Date d'achat
+- Heure d'une transaction
+- Durée d'une session
+
+**Dtype Pandas** : `datetime64[ns]`
+
+Elles ont des propriétés spéciales : on peut extraire l'année, le mois, le jour de la semaine…
+
+## 📊 Tableau récapitulatif
+
+| Catégorie | Sous-type | Dtype | Exemple | Moyenne ? | Ordre ? |
+|---|---|---|---|:---:|:---:|
+| Quantitative | Continue | `float64` | Taille | ✅ | ✅ |
+| Quantitative | Discrète | `int64` | Nb enfants | ✅ | ✅ |
+| Qualitative | Nominale | `object` / `category` | Pays | ❌ | ❌ |
+| Qualitative | Ordinale | `object` / `category` | Satisfaction | ❌ | ✅ |
+| Textuelle | — | `object` | Commentaire | ❌ | ❌ |
+| Temporelle | — | `datetime64` | Date | ❌ | ✅ |
+
+# Identifier les types dans un vrai dataset
+
+## 🎬 Un dataset d'exemple
+
+```{python}
+# Créer un petit dataset pédagogique avec tous les types de variables
+data = {
+    # Quantitatives continues
+    "taille_m": [1.72, 1.68, 1.85, 1.65, 1.90, 1.78, 1.60, 1.82],
+    "poids_kg": [68.5, 55.2, 89.0, 52.1, 95.3, 71.8, 48.5, 80.0],
+    
+    # Quantitative discrète
+    "nb_enfants": [2, 0, 3, 1, 2, 0, 0, 1],
+    
+    # "Codes numériques" (PIÈGE : ce sont des qualitatives nominales)
+    "code_postal": [75001, 13000, 69000, 44000, 33000, 75015, 69003, 13008],
+    "id_client": [1001, 1002, 1003, 1004, 1005, 1006, 1007, 1008],
+    
+    # Qualitatives nominales
+    "ville": ["Paris", "Marseille", "Lyon", "Nantes", "Bordeaux", "Paris", "Lyon", "Marseille"],
+    "genre": ["M", "F", "M", "F", "M", "F", "F", "M"],
+    
+    # Qualitatives ordinales
+    "satisfaction": ["Bon", "Moyen", "Excellent", "Mauvais", "Bon", "Excellent", "Bon", "Moyen"],
+    "niveau_etudes": ["Master", "Licence", "Doctorat", "Bac", "Master", "Doctorat", "Licence", "Bac"],
+    
+    # Textuelle
+    "commentaire": [
+        "Super expérience, très satisfait !",
+        "Livraison trop longue",
+        "Produit parfait, rien à redire",
+        "Article cassé à la réception",
+        "RAS",
+        "Excellente qualité prix",
+        "Bof, j'attendais mieux",
+        "Parfait, je recommande"
+    ],
+    
+    # Temporelle
+    "date_inscription": pd.to_datetime([
+        "2022-01-15", "2021-06-22", "2023-03-08", "2020-11-30",
+        "2023-07-04", "2022-09-12", "2021-12-25", "2023-05-01"
+    ])
+}
+
+df = pd.DataFrame(data)
+df
+```
+
+## 🔍 Voir les dtypes inférés par Pandas
+
+```{python}
+df.dtypes
+```
+
+**Observations importantes** :
+
+- `taille_m`, `poids_kg` sont bien en `float64` ✅
+- `nb_enfants` est en `int64` ✅
+- `code_postal` et `id_client` sont en `int64` → **PIÈGE** : Pandas pense que ce sont des quantitatives, mais ce sont des nominales !
+- `ville`, `genre`, `satisfaction`, `niveau_etudes`, `commentaire` sont tous en `object` (ou `string`/`str` selon ta version de pandas)
+- `date_inscription` est bien en `datetime64[ns]` ✅
+
+::: {.callout-note}
+## Note sur les versions de pandas
+Selon ta version de pandas, le dtype affiché pour les chaînes peut être `object` (pandas < 3.0), `string` ou `str`. Cela ne change rien aux traitements, mais ne sois pas surpris·e si tu vois `str` au lieu de `object`.
+:::
+
+## ⚠️ Le danger des "codes numériques"
+
+Regarde ce qui se passe si je fais un `describe()` par défaut :
+
+```{python}
+df.describe()
+```
+
+**Pandas a calculé la moyenne de `code_postal` et `id_client` !** Ces statistiques n'ont **aucun sens**. Ton job est de **reconnaître ce problème** et de corriger.
+
+## 🔧 Corriger le type d'une variable
+
+### Convertir en string / category
+
+Pour signaler à Pandas qu'une variable numérique est en fait catégorielle :
+
+```{python}
+# Convertir en string (simple)
+df["code_postal"] = df["code_postal"].astype(str)
+df["id_client"] = df["id_client"].astype(str)
+
+print(df.dtypes)
+```
+
+Maintenant, `describe()` ne calcule plus la moyenne de ces colonnes :
+
+```{python}
+df.describe()
+```
+
+Seulement les vraies variables numériques ! ✅
+
+### Utiliser le type `category` pour les qualitatives
+
+Le type `category` est **plus efficace en mémoire** et permet certaines opérations :
+
+```{python}
+df["ville"] = df["ville"].astype("category")
+df["genre"] = df["genre"].astype("category")
+
+print(df[["ville", "genre"]].dtypes)
+```
+
+```{python}
+# Gain de mémoire (surtout sur gros datasets)
+memoire_object = df["ville"].astype("object").memory_usage(deep=True)
+memoire_category = df["ville"].memory_usage(deep=True)
+print(f"Mémoire avec object   : {memoire_object} octets")
+print(f"Mémoire avec category : {memoire_category} octets")
+```
+
+Sur un petit dataset la différence est minime, mais sur des millions de lignes **c'est énorme**.
+
+### Encoder l'ordre d'une variable ordinale
+
+Pour signaler à Pandas que `satisfaction` a un ordre, on utilise le type `CategoricalDtype` :
+
+```{python}
+from pandas.api.types import CategoricalDtype
+
+# Définir l'ordre
+ordre_satisfaction = CategoricalDtype(
+    categories=["Mauvais", "Moyen", "Bon", "Excellent"],
+    ordered=True
+)
+df["satisfaction"] = df["satisfaction"].astype(ordre_satisfaction)
+
+print(f"Dtype : {df['satisfaction'].dtype}")
+print(f"Ordre : {df['satisfaction'].cat.categories.tolist()}")
+```
+
+Maintenant, les comparaisons ont du sens :
+
+```{python}
+# Qui a eu au moins "Bon" ?
+df[df["satisfaction"] >= "Bon"][["ville", "satisfaction"]]
+```
+
+C'est magique : une comparaison `>=` sur du texte fonctionne parce qu'on a défini l'ordre.
+
+## ✏️ Exercice 1 — Identifier les types
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Voici une liste de variables d'un dataset fictif. Pour chacune, indique :
+
+- Sa **catégorie** (quantitative, qualitative, textuelle, temporelle)
+- Son **sous-type** si applicable (continue/discrète, nominale/ordinale)
+- Le **dtype Pandas** approprié
+
+Les variables :
+
+1. `age` (en années)
+2. `numero_telephone`
+3. `taille_tshirt` (XS, S, M, L, XL)
+4. `salaire_annuel` (en euros)
+5. `marque_voiture` (Peugeot, Renault, Tesla...)
+6. `temperature_corporelle` (en °C)
+7. `nationalite`
+8. `note_satisfaction` (entier de 1 à 5)
+9. `date_creation_compte`
+10. `description_produit`
+11. `departement_francais` (75, 13, 69...)
+12. `nombre_pages_livre`
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1 — Réponds dans des commentaires ou markdown
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+| # | Variable | Catégorie | Sous-type | Dtype |
+|:-:|---|---|---|---|
+| 1 | `age` | Quantitative | Discrète | `int64` |
+| 2 | `numero_telephone` | Qualitative | Nominale | `object` (pas de moyenne !) |
+| 3 | `taille_tshirt` | Qualitative | **Ordinale** | `category` ordonnée |
+| 4 | `salaire_annuel` | Quantitative | Continue | `float64` |
+| 5 | `marque_voiture` | Qualitative | Nominale | `category` |
+| 6 | `temperature_corporelle` | Quantitative | Continue | `float64` |
+| 7 | `nationalite` | Qualitative | Nominale | `category` |
+| 8 | `note_satisfaction` | Qualitative | **Ordinale** | `category` ordonnée |
+| 9 | `date_creation_compte` | Temporelle | — | `datetime64` |
+| 10 | `description_produit` | Textuelle | — | `object` |
+| 11 | `departement_francais` | Qualitative | Nominale | `object` (pas une quantité !) |
+| 12 | `nombre_pages_livre` | Quantitative | Discrète | `int64` |
+
+**Cas à discuter** :
+
+- `note_satisfaction` (entier 1-5) : on pourrait la traiter comme quantitative discrète SI on considère que les distances entre les notes sont égales. Mais en général, on la traite comme ordinale (l'écart entre "1" et "2" n'est pas forcément le même qu'entre "4" et "5").
+- `departement_francais` : même si c'est écrit en chiffres, ça reste une catégorie. Faire la moyenne n'a pas de sens.
+:::
+
+# Exploration par type de variable
+
+## 🎯 Quelles analyses pour quel type ?
+
+Selon le type, les analyses pertinentes changent :
+
+| Type | Statistiques | Visualisations |
+|---|---|---|
+| **Quantitative continue** | Moyenne, médiane, écart-type, quantiles | Histogramme, boxplot, scatter |
+| **Quantitative discrète** | Idem + comptage des valeurs | Bar chart (petites valeurs), histogramme |
+| **Qualitative nominale** | Modalités, fréquences, mode | Bar chart, camembert (max 5 catégories) |
+| **Qualitative ordinale** | Idem + médiane (si ordre numérique) | Bar chart ordonné |
+| **Textuelle** | Longueur moyenne, nb mots, top tokens | Word cloud, histogramme longueur |
+| **Temporelle** | Plage, fréquence, saisonnalité | Line plot, heatmap calendrier |
+
+## 🔢 Explorer une variable quantitative
+
+```{python}
+# Exemple : poids
+print(df["poids_kg"].describe())
+```
+
+```{python}
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+
+# Histogramme
+axes[0].hist(df["poids_kg"], bins=6, color="steelblue", edgecolor="black", alpha=0.7)
+axes[0].axvline(df["poids_kg"].mean(), color="red", linestyle="--", label=f"Moyenne")
+axes[0].axvline(df["poids_kg"].median(), color="green", linestyle="--", label=f"Médiane")
+axes[0].set_title("Distribution du poids")
+axes[0].set_xlabel("Poids (kg)")
+axes[0].legend()
+
+# Boxplot
+axes[1].boxplot(df["poids_kg"], vert=True)
+axes[1].set_title("Boxplot du poids")
+axes[1].set_ylabel("Poids (kg)")
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🏷️ Explorer une variable qualitative nominale
+
+```{python}
+# Comptage des modalités
+print(df["ville"].value_counts())
+```
+
+```{python}
+fig, ax = plt.subplots(figsize=(8, 4))
+df["ville"].value_counts().plot(kind="bar", ax=ax, color="coral", edgecolor="black")
+ax.set_title("Répartition des villes")
+ax.set_ylabel("Nombre d'observations")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+## 📊 Explorer une variable qualitative ordinale
+
+Pour une ordinale, on conserve **l'ordre** dans le graphique :
+
+```{python}
+fig, ax = plt.subplots(figsize=(8, 4))
+df["satisfaction"].value_counts().sort_index().plot(
+    kind="bar", ax=ax, color="mediumseagreen", edgecolor="black"
+)
+ax.set_title("Niveau de satisfaction (ordonné)")
+ax.set_ylabel("Nombre")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+Remarque : **ne trie jamais par fréquence** une ordinale, car ça casse la lecture chronologique/logique.
+
+## 📝 Explorer une variable textuelle
+
+```{python}
+# Longueur des commentaires
+df["long_commentaire"] = df["commentaire"].str.len()
+print(df[["commentaire", "long_commentaire"]])
+
+print(f"\nLongueur moyenne : {df['long_commentaire'].mean():.1f} caractères")
+print(f"Longueur max     : {df['long_commentaire'].max()} caractères")
+```
+
+## 📅 Explorer une variable temporelle
+
+```{python}
+print(f"Plage : du {df['date_inscription'].min().date()} au {df['date_inscription'].max().date()}")
+print(f"\nPar année :")
+print(df["date_inscription"].dt.year.value_counts().sort_index())
+```
+
+## ✏️ Exercice 2 — Explorer selon le type
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Reprends le DataFrame `df` défini plus haut.
+
+1. Pour `taille_m` (quantitative continue) : calcule moyenne, médiane, écart-type. Trace un histogramme avec la moyenne en ligne verticale.
+2. Pour `nb_enfants` (quantitative discrète) : fais un `value_counts().sort_index()` et un bar chart.
+3. Pour `niveau_etudes` (qualitative ordinale) : convertis-la en type ordinal (`Bac < Licence < Master < Doctorat`), puis trace un bar chart **dans l'ordre**.
+4. Pour `date_inscription` (temporelle) : compte le nombre d'inscriptions par année et par mois.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# 1. taille_m
+print("=== taille_m ===")
+print(f"Moyenne  : {df['taille_m'].mean():.3f}")
+print(f"Médiane  : {df['taille_m'].median():.3f}")
+print(f"Écart-t. : {df['taille_m'].std():.3f}")
+
+fig, ax = plt.subplots(figsize=(8, 3))
+ax.hist(df["taille_m"], bins=6, color="steelblue", edgecolor="black", alpha=0.7)
+ax.axvline(df["taille_m"].mean(), color="red", linestyle="--", label="Moyenne")
+ax.set_title("Distribution de la taille")
+ax.set_xlabel("Taille (m)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2. nb_enfants
+print("=== nb_enfants ===")
+print(df["nb_enfants"].value_counts().sort_index())
+
+fig, ax = plt.subplots(figsize=(8, 3))
+df["nb_enfants"].value_counts().sort_index().plot(
+    kind="bar", ax=ax, color="coral", edgecolor="black"
+)
+ax.set_title("Nombre d'enfants")
+ax.set_ylabel("Nombre")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. niveau_etudes ordinal
+ordre_etudes = CategoricalDtype(
+    categories=["Bac", "Licence", "Master", "Doctorat"],
+    ordered=True
+)
+df["niveau_etudes"] = df["niveau_etudes"].astype(ordre_etudes)
+
+print("Ordre :", df["niveau_etudes"].cat.categories.tolist())
+
+fig, ax = plt.subplots(figsize=(8, 3))
+df["niveau_etudes"].value_counts().sort_index().plot(
+    kind="bar", ax=ax, color="mediumseagreen", edgecolor="black"
+)
+ax.set_title("Répartition des niveaux d'études")
+ax.tick_params(axis="x", rotation=0)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 4. date_inscription
+print("=== Par année ===")
+print(df["date_inscription"].dt.year.value_counts().sort_index())
+
+print("\n=== Par mois ===")
+print(df["date_inscription"].dt.month.value_counts().sort_index())
+```
+:::
+
+# Pièges classiques d'identification
+
+## 🚨 Piège 1 — Les variables binaires (0/1)
+
+Une variable codée en 0/1 est **qualitative nominale**, pas quantitative !
+
+**Exemples** : `a_enfants` (1 si oui), `est_client_premium`, `fume` (1/0).
+
+La moyenne d'une variable binaire a une **signification particulière** : c'est la **proportion de 1**.
+
+```python
+df["est_client_premium"].mean()  # → 0.23 signifie 23% de clients premium
+```
+
+Donc ce n'est **pas la même chose** qu'une moyenne classique. On la traite comme une qualitative nominale, mais la "moyenne" s'interprète comme une proportion.
+
+## 🚨 Piège 2 — L'âge
+
+**Débat classique** : l'âge est-il continu ou discret ?
+
+- **En années entières** (ex: 25 ans) → **discret**
+- **En années avec décimales** (ex: 25.3 ans) → **continu**
+
+En pratique, on le traite souvent comme **continu** parce que les stats/graphiques sont plus riches.
+
+## 🚨 Piège 3 — Les notes et évaluations
+
+Une note de 0 à 20 est-elle quantitative ou ordinale ?
+
+**Réponse nuancée** :
+
+- Si les écarts **ont du sens** (un étudiant à 16 est 2 points au-dessus d'un à 14) → **quantitative discrète**
+- Si on considère juste que c'est un rang (le 16 est mieux que le 14, mais on ne peut pas dire "de combien") → **ordinale**
+
+En pratique, pour les notes scolaires ou les évaluations numériques à large amplitude, on les traite comme **quantitatives**.  
+Pour les notes à petite amplitude (1 à 5 étoiles), on les traite plutôt comme **ordinales**.
+
+## 🚨 Piège 4 — Les identifiants
+
+**Tout identifiant est qualitatif nominal**, jamais quantitatif, même s'il est numérique.
+
+- `id_client` = 12345
+- `id_produit` = 789
+- `code_postal` = 75015
+- `numero_siret` = 44306184100047
+
+La règle : **si tu ne calculerais jamais la moyenne dans un tableau Excel, c'est une qualitative.**
+
+## ✏️ Exercice 3 — Nettoyer les types d'un dataset
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+On va travailler sur un dataset un peu chaotique. Pandas va inférer de mauvais types — à toi de corriger.
+
+```python
+data = {
+    "id_transaction": [10001, 10002, 10003, 10004, 10005],
+    "montant": [125.50, 89.99, 450.00, 45.30, 199.90],
+    "categorie_age": ["18-25", "26-35", "36-50", "26-35", "51+"],
+    "note_etoiles": [4, 5, 3, 5, 4],
+    "code_iata": ["CDG", "LAX", "CDG", "JFK", "CDG"],
+    "date_achat": ["2024-01-15", "2024-02-20", "2024-03-10", "2024-01-22", "2024-04-05"],
+    "est_premium": [1, 0, 1, 1, 0]
+}
+df_test = pd.DataFrame(data)
+```
+
+1. Affiche les dtypes par défaut.
+2. Identifie les **types incorrects** à corriger.
+3. Applique les bonnes conversions :
+   - `id_transaction` → string (pas une quantité)
+   - `categorie_age` → **ordinale** ordonnée (`"18-25" < "26-35" < "36-50" < "51+"`)
+   - `date_achat` → datetime
+   - `est_premium` → category
+4. Vérifie le nouveau `describe()` : seules les vraies quantitatives doivent apparaître.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Reconstruire le dataset
+data = {
+    "id_transaction": [10001, 10002, 10003, 10004, 10005],
+    "montant": [125.50, 89.99, 450.00, 45.30, 199.90],
+    "categorie_age": ["18-25", "26-35", "36-50", "26-35", "51+"],
+    "note_etoiles": [4, 5, 3, 5, 4],
+    "code_iata": ["CDG", "LAX", "CDG", "JFK", "CDG"],
+    "date_achat": ["2024-01-15", "2024-02-20", "2024-03-10", "2024-01-22", "2024-04-05"],
+    "est_premium": [1, 0, 1, 1, 0]
+}
+df_test = pd.DataFrame(data)
+
+# 1. Dtypes par défaut
+print("=== Dtypes par défaut ===")
+print(df_test.dtypes)
+```
+
+```{python}
+# 3. Corrections
+
+# id_transaction → string
+df_test["id_transaction"] = df_test["id_transaction"].astype(str)
+
+# categorie_age → ordinale
+ordre_age = CategoricalDtype(
+    categories=["18-25", "26-35", "36-50", "51+"],
+    ordered=True
+)
+df_test["categorie_age"] = df_test["categorie_age"].astype(ordre_age)
+
+# date_achat → datetime
+df_test["date_achat"] = pd.to_datetime(df_test["date_achat"])
+
+# est_premium → category (nominale binaire)
+df_test["est_premium"] = df_test["est_premium"].astype("category")
+
+# code_iata → category (nominale)
+df_test["code_iata"] = df_test["code_iata"].astype("category")
+
+print("=== Dtypes corrigés ===")
+print(df_test.dtypes)
+```
+
+```{python}
+# 4. Vérifier describe
+print("=== describe() ===")
+print(df_test.describe())
+```
+
+Maintenant, seules `montant` et `note_etoiles` apparaissent dans `describe()`. C'est normal : ce sont les seules **vraies quantitatives**.
+:::
+
+# 🏁 Exercice bilan — Audit typologique d'un dataset
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Reprends le dataset e-commerce du Module 2. Charge-le d'abord :
+
+```{python}
+#| eval: false
+df_ventes = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+```
+
+**Ta mission** : faire un **audit complet** des types de variables.
+
+1. Pour **chaque colonne**, identifie dans un tableau :
+   - Catégorie (quantitative, qualitative, textuelle, temporelle)
+   - Sous-type
+   - Dtype actuel dans Pandas
+   - Action recommandée (rien à faire, convertir en string, convertir en category, etc.)
+
+2. Applique les **conversions nécessaires**.
+
+3. Affiche le nouveau `df.info()` pour vérifier.
+
+4. Fais un **graphique adapté** à chacun des 4 grands types présents dans ce dataset :
+   - Un histogramme pour une quantitative continue
+   - Un bar chart pour une qualitative nominale
+   - Un bar chart pour une qualitative ordinale (s'il y en a)
+   - Un line plot pour une temporelle (évolution mensuelle par ex.)
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Chargement
+df_ventes = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"])
+
+# 1. Audit typologique
+print("=== Audit typologique ===\n")
+
+audit = pd.DataFrame({
+    "colonne": df_ventes.columns,
+    "dtype_actuel": df_ventes.dtypes.values
+})
+print(audit)
+```
+
+**Tableau d'audit détaillé** :
+
+| Colonne | Catégorie | Sous-type | Dtype actuel | Action |
+|---|---|---|---|---|
+| `id_transaction` | Qualitative | Nominale | object | ✅ Rien à faire |
+| `date` | Temporelle | — | datetime64 | ✅ Rien à faire |
+| `id_client` | Qualitative | Nominale | object | ✅ Rien à faire |
+| `id_produit` | Qualitative | Nominale | object | ✅ Rien à faire |
+| `nom_produit` | Qualitative | Nominale | object | ➡️ Convertir en category |
+| `categorie` | Qualitative | Nominale | object | ➡️ Convertir en category |
+| `quantite` | Quantitative | Discrète | int64 | ✅ Rien à faire |
+| `prix_unitaire` | Quantitative | Continue | float64 | ✅ Rien à faire |
+| `montant_total` | Quantitative | Continue | float64 | ✅ Rien à faire |
+| `region` | Qualitative | Nominale | object | ➡️ Convertir en category |
+| `mode_paiement` | Qualitative | Nominale | object | ➡️ Convertir en category |
+| `statut` | Qualitative | Nominale (ou ordinale selon interprétation) | object | ➡️ Convertir en category |
+
+```{python}
+# 2. Conversions
+for col in ["nom_produit", "categorie", "region", "mode_paiement", "statut"]:
+    df_ventes[col] = df_ventes[col].astype("category")
+
+# 3. Vérification
+print(df_ventes.info())
+```
+
+```{python}
+# 4. Graphiques adaptés
+fig, axes = plt.subplots(2, 2, figsize=(15, 8))
+
+# Quantitative continue : montant_total
+axes[0, 0].hist(df_ventes["montant_total"], bins=40, color="steelblue", 
+                edgecolor="black", alpha=0.7)
+axes[0, 0].set_title("Histogramme : montant_total (quanti continue)")
+axes[0, 0].set_xlabel("Montant (€)")
+
+# Qualitative nominale : categorie
+df_ventes["categorie"].value_counts().plot(
+    kind="bar", ax=axes[0, 1], color="coral", edgecolor="black"
+)
+axes[0, 1].set_title("Bar chart : categorie (quali nominale)")
+axes[0, 1].tick_params(axis="x", rotation=45)
+
+# Qualitative nominale ordonnée (on traite statut comme nominal ici)
+df_ventes["statut"].value_counts().plot(
+    kind="bar", ax=axes[1, 0], color="mediumseagreen", edgecolor="black"
+)
+axes[1, 0].set_title("Bar chart : statut (quali nominale)")
+axes[1, 0].tick_params(axis="x", rotation=45)
+
+# Temporelle : évolution mensuelle
+ca_mensuel = df_ventes.groupby(df_ventes["date"].dt.to_period("M"))["montant_total"].sum()
+axes[1, 1].plot(ca_mensuel.index.astype(str), ca_mensuel.values, 
+                marker="o", color="purple")
+axes[1, 1].set_title("Line plot : CA mensuel (temporelle)")
+axes[1, 1].tick_params(axis="x", rotation=45)
+
+for ax in axes.flat:
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Gain en mémoire après conversion** :
+
+```{python}
+taille_avant = pd.read_csv("ressources_tp/ventes_ecommerce.csv", parse_dates=["date"]).memory_usage(deep=True).sum()
+taille_apres = df_ventes.memory_usage(deep=True).sum()
+
+print(f"Mémoire avant : {taille_avant / 1024:.1f} KB")
+print(f"Mémoire après : {taille_apres / 1024:.1f} KB")
+print(f"Réduction    : {(1 - taille_apres/taille_avant)*100:.1f}%")
+```
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Les 4 grandes catégories
+
+| Catégorie | Sous-types | Dtype Pandas |
+|---|---|---|
+| **Quantitative** | Continue, Discrète | `float64`, `int64` |
+| **Qualitative** | Nominale, Ordinale | `object`, `category` |
+| **Textuelle** | — | `object` |
+| **Temporelle** | — | `datetime64[ns]` |
+
+## 🧠 Les 5 questions à te poser pour chaque variable
+
+1. **Est-ce une quantité mesurable ?** → Si oui : quantitative, sinon qualitative
+2. **Peut-elle prendre des valeurs décimales ?** → Continue si oui, discrète sinon
+3. **Y a-t-il un ordre naturel ?** → Ordinale si oui, nominale sinon
+4. **Est-ce un identifiant ou un code ?** → **Toujours qualitative nominale**, même si c'est un nombre
+5. **Calculer la moyenne aurait-il un sens ?** → Si non, **ce n'est pas une quantitative**
+
+## 🔧 Les conversions à retenir
+
+```python
+df["col"].astype(str)                    # vers string
+df["col"].astype("category")             # vers category (économe en mémoire)
+pd.to_datetime(df["col"])                # vers datetime
+df["col"].astype(
+    pd.CategoricalDtype(categories=[...], ordered=True)
+)                                        # vers ordinale ordonnée
+```
+
+## 🚀 La suite
+
+Dans la **Notion 3.2 — Statistiques descriptives approfondies**, on va approfondir les analyses adaptées à chaque type, notamment les analyses **bivariées** (deux variables ensemble) : quantitative vs quantitative, quantitative vs qualitative, etc.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+Prends un dataset Kaggle au hasard et fais un **audit typologique complet** avant même de commencer à l'analyser. Tu verras, c'est un réflexe extrêmement utile : avant de "foncer" sur les analyses, il faut **comprendre ce qu'on a**.
+:::
