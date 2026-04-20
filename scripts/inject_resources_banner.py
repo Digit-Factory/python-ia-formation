@@ -25,7 +25,7 @@ MODULES_DIR = PROJECT_ROOT / "modules"
 
 # === À ADAPTER SELON TON COMPTE GITHUB ===
 GITHUB_USER = "Digit-Factory"          # Remplace par Loïc PILET d'utilisateur
-GITHUB_REPO = "python-ia-formation"        # Remplace par le nom du repo
+GITHUB_REPO = "python_ia_formation"        # Remplace par le nom du repo
 GITHUB_BRANCH = "main"
 
 # Début et fin du bandeau (marqueurs pour détecter s'il existe déjà)

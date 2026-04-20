@@ -150,7 +150,7 @@ Pour que les boutons « Ouvrir dans Colab » fonctionnent, édite
 
 ```python
 GITHUB_USER = "ton-compte-github"
-GITHUB_REPO = "python-ia-formation"
+GITHUB_REPO = "python_ia_formation"
 GITHUB_BRANCH = "main"
 ```
 

@@ -18,7 +18,7 @@ jupyter: python3
 
 <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
   <a href="../../ressources_eleves/module_01/notion_1_3_statistiques_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
-  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_01/notion_1_3_statistiques_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python_ia_formation/blob/main/ressources_eleves/module_01/notion_1_3_statistiques_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
   <a href="../../ressources_eleves/module_01_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
 </div>
 
