@@ -1,0 +1,80 @@
+---
+title: "Module 4 — Machine Learning supervisé"
+subtitle: "Le cœur du parcours : construire des modèles qui prédisent"
+---
+
+## 🎯 Pourquoi ce module ?
+
+Jusqu'à présent, tu as appris à **manipuler et préparer** des données. Maintenant, tu vas apprendre à construire des **modèles qui apprennent** à partir de ces données pour faire des **prédictions**.
+
+C'est **le cœur du machine learning**. À la fin de ce module, tu seras capable de :
+
+- Choisir le bon type de modèle selon ton problème
+- Entraîner et évaluer un modèle proprement
+- Comparer plusieurs algorithmes
+- Optimiser les hyperparamètres
+- **Comprendre** ce que fait chaque modèle (pas juste l'appeler)
+
+Ce module s'appuie directement sur le pipeline que tu as construit au Module 3. Tu vas juste **brancher** des modèles dessus.
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local (recommandé)
+
+<a href="../../ressources_eleves/module_04_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 4 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Depuis chaque page de notion, le bouton « Ouvrir dans Colab » permet de lancer le notebook sans rien installer.
+:::
+
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Distinguer **classification** et **régression** et choisir la bonne approche
+- Entraîner des modèles **linéaires** (régression linéaire, logistique)
+- Utiliser des modèles à base d'**arbres** (Decision Tree, Random Forest)
+- Maîtriser le **Gradient Boosting** (XGBoost, LightGBM)
+- Évaluer avec les **bonnes métriques** (accuracy, precision/recall, ROC-AUC, RMSE...)
+- Optimiser les **hyperparamètres** avec GridSearch + cross-validation
+- Comprendre l'**interprétabilité** (importance des features, SHAP)
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **4.1** | [Introduction au ML supervisé](notion_4_1_intro_ml.qmd) | 2-3 h |
+| **4.2** | [Régression linéaire et logistique](notion_4_2_regression_lineaire_logistique.qmd) | 4-5 h |
+| **4.3** | Arbres et Random Forest _(à venir)_ | 4-5 h |
+| **4.4** | Gradient Boosting _(à venir)_ | 3-4 h |
+| **4.5** | Métriques d'évaluation _(à venir)_ | 3-4 h |
+| **4.6** | Tuning et cross-validation _(à venir)_ | 3-4 h |
+| **🎓 TP** | Compétition ML _(à venir)_ | 8-10 h |
+
+## 💡 Approche pédagogique
+
+Ce module est **le plus important** de tout le parcours. Voici les principes que je suivrai :
+
+1. **Intuition avant formule** : tu dois d'abord **comprendre** ce que fait chaque algorithme avant de voir les maths
+2. **From scratch + bibliothèque** : pour les modèles simples, on code à la main puis on compare avec scikit-learn
+3. **Évaluation honnête** : on insiste sur les erreurs classiques (accuracy sur dataset déséquilibré, data leakage, overfitting)
+4. **Interprétabilité** : à chaque modèle, on se demande "qu'est-ce qu'il a appris ?"
+
+::: {.callout-tip}
+## 🎯 Un conseil précieux
+Ne te contente pas de faire tourner les algorithmes. Prends le temps de **comprendre les résultats** : quelle feature est importante ? Pourquoi ce modèle rate-t-il sur tel cas ? La vraie valeur d'un data scientist, c'est son aptitude à **expliquer ses modèles** à des non-techniciens.
+:::
+
+---
+
+[**→ Commencer par la Notion 4.1 : Introduction au ML supervisé**](notion_4_1_intro_ml.qmd)

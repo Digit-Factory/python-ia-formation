@@ -1,0 +1,915 @@
+---
+title: "Notion 4.1 — Introduction au ML supervisé"
+subtitle: "Le vocabulaire et les réflexes à maîtriser avant de construire des modèles"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_1_intro_ml_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_1_intro_ml_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 2 à 3 heures  
+**Prérequis** : Module 3 (préparation des données)  
+**Objectif** : comprendre le cadre général du ML supervisé pour avoir les bases conceptuelles des notions suivantes
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Distinguer **apprentissage supervisé** et **non supervisé**
+- Reconnaître un problème de **classification** ou de **régression**
+- Comprendre les concepts clés : **entraînement**, **généralisation**, **overfitting**
+- Savoir ce qu'est une **fonction de perte**, un **hyperparamètre**
+- Interpréter correctement le workflow ML complet
+- Construire ton **tout premier modèle** avec scikit-learn en 5 lignes
+
+## 🎯 Pourquoi c'est essentiel ?
+
+Avant de voir des algorithmes, il faut que tu aies **le bon vocabulaire** et les **bons concepts**. Cette notion est théorique mais **indispensable** — elle te donne le cadre mental dans lequel tous les modèles suivants viendront s'inscrire.
+
+Si tu n'as pas ces bases, tu finiras par copier-coller des lignes de scikit-learn sans comprendre ce qui se passe. Avec ces bases, tu comprendras chaque nouvel algorithme en quelques minutes.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Qu'est-ce que le machine learning ?
+
+## 🧠 L'idée centrale
+
+Le **machine learning** (apprentissage automatique) consiste à **apprendre des patterns** à partir de données, sans programmer explicitement ces patterns.
+
+**Programmation classique** :
+```
+Règles + Données → Résultat
+(ex: Si age > 65 et fumeur → risque élevé)
+```
+
+**Machine learning** :
+```
+Données + Résultat → Règles
+(l'algorithme apprend tout seul)
+```
+
+On **montre des exemples** à l'algorithme, et il **apprend** à généraliser.
+
+## 🎓 Deux grandes familles
+
+### Apprentissage supervisé (le sujet de ce module)
+
+On dispose de **données labellisées** : pour chaque exemple, on connaît la réponse.
+
+- Exemple 1 : photo d'un chat → label `"chat"`
+- Exemple 2 : photo d'un chien → label `"chien"`
+- …
+
+Objectif : apprendre à **prédire le label** de nouvelles photos.
+
+### Apprentissage non supervisé (Module 5)
+
+On n'a **pas de labels**. L'algorithme doit **découvrir** la structure cachée des données.
+
+- Exemple : regrouper 10 000 clients en "segments" similaires sans connaître à l'avance les catégories
+
+## 🎯 Exemples concrets de ML supervisé
+
+Voici quelques applications typiques :
+
+| Problème | Entrée (X) | Sortie (y) | Type |
+|---|---|---|---|
+| Prix immobilier | surface, pièces, ville… | prix en € | **Régression** |
+| Spam ou non | contenu de l'email | spam / pas spam | **Classification** |
+| Prévision météo | historique température | temp. demain | **Régression** |
+| Diagnostic médical | symptômes, analyses | maladie A, B, C… | **Classification** |
+| Score de crédit | revenus, dettes, âge | défaut (0/1) | **Classification** |
+| Attrition client | profil client | va partir (0/1) | **Classification** |
+
+# 2. Classification vs Régression
+
+C'est **la première question** à se poser face à un problème de ML supervisé :
+
+## 🔢 Régression : prédire une valeur **continue**
+
+La sortie `y` est un **nombre** (prix, temps, quantité…).
+
+```{python}
+# Exemple : prédire le prix d'un appartement
+# y peut être 150_000, 234_500.75, 1_200_000, etc.
+```
+
+**Questions typiques** :
+- « Combien vaudra cet appartement ? »
+- « Combien d'articles vendrons-nous la semaine prochaine ? »
+- « Quelle sera la température demain ? »
+
+## 🏷️ Classification : prédire une **catégorie**
+
+La sortie `y` est une **classe discrète** (chat, spam, malade…).
+
+**Sous-types** :
+- **Binaire** : 2 classes possibles (ex: spam/pas spam, partira/restera)
+- **Multi-classes** : 3+ classes (ex: chat/chien/oiseau, fraude/normal/douteux)
+- **Multi-labels** : plusieurs classes possibles **simultanément** (ex: tags d'un article)
+
+**Questions typiques** :
+- « Cet email est-il un spam ? »
+- « Cette transaction est-elle frauduleuse ? »
+- « Quelle espèce est sur cette photo ? »
+
+## ⚠️ Le piège de la cible
+
+**La même variable peut être abordée des deux façons** selon la formulation :
+
+- **Régression** : « Quel est l'âge de cette personne ? » → 42.3 ans
+- **Classification** : « Cette personne est-elle mineure ou majeure ? » → "majeur"
+
+Le **choix dépend de ton besoin**. Les algorithmes seront différents.
+
+## ✏️ Exercice 1 — Classification ou régression ?
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour chacun des problèmes suivants, indique s'il s'agit d'une **classification** (binaire ? multi-classes ?) ou d'une **régression** :
+
+1. Prédire le chiffre d'affaires du mois prochain
+2. Détecter si une image contient un chat
+3. Déterminer si un client va souscrire à un produit bancaire
+4. Identifier la langue d'un texte parmi 100 possibles
+5. Estimer la durée d'un trajet en voiture
+6. Classifier la gravité d'une panne : mineure, moyenne, grave
+7. Prédire le taux de churn d'un client (entre 0 et 1)
+8. Estimer l'âge d'une personne à partir d'une photo
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1 — tes réponses en commentaire ou markdown
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+| # | Problème | Type | Explication |
+|:-:|---|---|---|
+| 1 | CA du mois prochain | **Régression** | Valeur continue (€) |
+| 2 | Image = chat ? | **Classification binaire** | Oui/Non |
+| 3 | Souscription à un produit | **Classification binaire** | Oui/Non |
+| 4 | Langue d'un texte | **Classification multi-classes** | 100 classes |
+| 5 | Durée d'un trajet | **Régression** | Valeur continue (minutes) |
+| 6 | Gravité de panne | **Classification multi-classes ordonnée** | Attention : les 3 classes ont un ordre (ordinal) |
+| 7 | Taux de churn 0-1 | **Piège** : ça peut être **régression** (probabilité) ou **classification binaire** (part / reste) selon la formulation |
+| 8 | Âge | **Régression** (mais peut aussi se faire comme classification par tranche) |
+
+**Point important** : le #6 est une classification ordinale. Les algos standards marchent, mais des modèles ordinaux dédiés existent (on ne les verra pas dans ce module).
+:::
+
+# 3. Le workflow ML supervisé
+
+Voici **le schéma général** de tout projet de ML supervisé :
+
+```
+┌──────────────────────────────────────────┐
+│  1. Charger et nettoyer les données      │  ← Module 3
+│  2. Séparer features (X) et cible (y)    │
+│  3. Train / test split                   │
+│  4. Préparer X (encoding, scaling)       │
+│  5. Entraîner un modèle sur le train     │  ← Module 4
+│  6. Évaluer sur le test                  │
+│  7. Itérer : améliorer, comparer         │
+│  8. Déployer le modèle final             │  ← Module 8
+└──────────────────────────────────────────┘
+```
+
+Tu as vu les étapes 1-4 au Module 3. Ce Module 4 se concentre sur les étapes **5 à 7**.
+
+## 🎨 Schéma : entraînement et prédiction
+
+```{python}
+#| label: fig-workflow
+#| fig-cap: "Le workflow général : entraînement (gauche) et prédiction (droite)"
+
+fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+
+# === Entraînement ===
+ax = axes[0]
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 6)
+ax.axis("off")
+ax.set_title("🎓 Phase 1 : ENTRAÎNEMENT", fontsize=14, fontweight="bold")
+
+# Boîtes
+ax.add_patch(plt.Rectangle((0.5, 3.5), 2, 1.5, facecolor="#a8d5e2", edgecolor="black"))
+ax.text(1.5, 4.25, "Données d'entraînement\n(X_train, y_train)", ha="center", va="center", fontsize=10)
+
+ax.add_patch(plt.Rectangle((4, 3.5), 2, 1.5, facecolor="#f9c74f", edgecolor="black"))
+ax.text(5, 4.25, "Algorithme\nML", ha="center", va="center", fontsize=11, fontweight="bold")
+
+ax.add_patch(plt.Rectangle((7.5, 3.5), 2, 1.5, facecolor="#90be6d", edgecolor="black"))
+ax.text(8.5, 4.25, "MODÈLE\nentraîné", ha="center", va="center", fontsize=11, fontweight="bold")
+
+# Flèches
+ax.annotate("", xy=(4, 4.25), xytext=(2.5, 4.25), arrowprops=dict(arrowstyle="->", lw=2))
+ax.annotate("", xy=(7.5, 4.25), xytext=(6, 4.25), arrowprops=dict(arrowstyle="->", lw=2))
+
+ax.text(5, 2.5, "L'algorithme ajuste ses paramètres\npour prédire y à partir de X",
+        ha="center", style="italic", fontsize=10)
+
+# === Prédiction ===
+ax = axes[1]
+ax.set_xlim(0, 10)
+ax.set_ylim(0, 6)
+ax.axis("off")
+ax.set_title("🔮 Phase 2 : PRÉDICTION", fontsize=14, fontweight="bold")
+
+ax.add_patch(plt.Rectangle((0.5, 3.5), 2, 1.5, facecolor="#a8d5e2", edgecolor="black"))
+ax.text(1.5, 4.25, "Nouvelles données\n(X_test ou production)", ha="center", va="center", fontsize=10)
+
+ax.add_patch(plt.Rectangle((4, 3.5), 2, 1.5, facecolor="#90be6d", edgecolor="black"))
+ax.text(5, 4.25, "MODÈLE\nentraîné", ha="center", va="center", fontsize=11, fontweight="bold")
+
+ax.add_patch(plt.Rectangle((7.5, 3.5), 2, 1.5, facecolor="#f77f00", edgecolor="black"))
+ax.text(8.5, 4.25, "Prédictions\ny_pred", ha="center", va="center", fontsize=11, fontweight="bold", color="white")
+
+ax.annotate("", xy=(4, 4.25), xytext=(2.5, 4.25), arrowprops=dict(arrowstyle="->", lw=2))
+ax.annotate("", xy=(7.5, 4.25), xytext=(6, 4.25), arrowprops=dict(arrowstyle="->", lw=2))
+
+ax.text(5, 2.5, "Le modèle entraîné applique\nles patterns appris à de nouvelles données",
+        ha="center", style="italic", fontsize=10)
+
+plt.tight_layout()
+plt.show()
+```
+
+# 4. Les concepts clés à maîtriser
+
+## 🎯 Features, cible, observations
+
+Vocabulaire fondamental :
+
+```{python}
+# Exemple : dataset immobilier
+exemple = pd.DataFrame({
+    "surface": [50, 75, 100],
+    "nb_pieces": [2, 3, 4],
+    "prix": [200_000, 300_000, 450_000]
+})
+print(exemple)
+```
+
+- **Observations** (ou **instances**, **exemples**, **lignes**) : ici 3 (chaque appartement)
+- **Features** (ou **variables**, **prédicteurs**, **X**) : `surface`, `nb_pieces`
+- **Cible** (ou **label**, **target**, **y**) : `prix`
+
+En ML on cherche la fonction `f` telle que :
+
+$$y = f(X) + \epsilon$$
+
+où `ε` est le bruit (ce qui ne peut pas être expliqué par `X`).
+
+## 📉 La fonction de perte
+
+Pour entraîner un modèle, il faut une manière de **mesurer ses erreurs**. C'est la **fonction de perte** (loss function).
+
+**En régression**, typiquement :
+- **MSE** (Mean Squared Error) : moyenne des carrés des erreurs
+
+$$\text{MSE} = \frac{1}{n} \sum_{i=1}^{n} (y_i - \hat{y}_i)^2$$
+
+- **MAE** (Mean Absolute Error) : moyenne des erreurs absolues
+
+$$\text{MAE} = \frac{1}{n} \sum_{i=1}^{n} |y_i - \hat{y}_i|$$
+
+**En classification**, typiquement :
+- **Cross-entropy** (log loss) : pénalise les prédictions de probabilité trop confiantes quand elles sont fausses
+
+L'algorithme va chercher les paramètres qui **minimisent** cette fonction de perte.
+
+::: {.callout-note}
+Tu as déjà vu tout ça au **Module 1, Notion 1.2** (descente de gradient) ! C'est exactement ce qu'on fait.
+:::
+
+## 🎓 Entraîner vs prédire : deux étapes distinctes
+
+```python
+# Avec scikit-learn, c'est toujours le même schéma
+from sklearn.linear_model import LinearRegression
+
+modele = LinearRegression()
+
+# 1. ENTRAÎNEMENT (fit)
+modele.fit(X_train, y_train)
+
+# 2. PRÉDICTION (predict)
+y_pred = modele.predict(X_test)
+```
+
+**Règle absolue** : `fit` **uniquement** sur les données d'entraînement, **jamais** sur les données de test.
+
+## 🚨 Overfitting et underfitting
+
+C'est **LE concept fondamental** à comprendre en ML.
+
+### Underfitting (sous-apprentissage)
+
+Le modèle est **trop simple** pour les données. Il a de mauvaises performances **partout** (train ET test).
+
+**Exemple** : essayer d'ajuster une droite sur des données très non-linéaires.
+
+### Overfitting (sur-apprentissage)
+
+Le modèle est **trop complexe**. Il apprend "par cœur" les données d'entraînement, y compris leur bruit. Il est excellent sur le train mais **mauvais sur le test**.
+
+**Exemple** : un modèle qui a 99% de réussite sur le train mais 60% sur le test.
+
+### Le bon équilibre
+
+```{python}
+#| label: fig-overfitting
+#| fig-cap: "Illustration visuelle d'underfitting, bon ajustement, overfitting"
+
+np.random.seed(0)
+
+# Générer des données
+x = np.linspace(0, 10, 30)
+y_vrai = np.sin(x) + 0.3*x
+y_observe = y_vrai + np.random.normal(0, 0.5, 30)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 4))
+
+# Points de test pour tracer les prédictions
+x_test = np.linspace(0, 10, 200)
+
+# Underfitting : degré 1 (droite)
+p1 = np.polyfit(x, y_observe, 1)
+axes[0].scatter(x, y_observe, alpha=0.6, label="Données")
+axes[0].plot(x_test, np.polyval(p1, x_test), "r-", lw=2, label="Modèle (degré 1)")
+axes[0].set_title("UNDERFITTING\n(modèle trop simple)", fontsize=12, fontweight="bold")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# Bon équilibre : degré 3
+p3 = np.polyfit(x, y_observe, 3)
+axes[1].scatter(x, y_observe, alpha=0.6, label="Données")
+axes[1].plot(x_test, np.polyval(p3, x_test), "g-", lw=2, label="Modèle (degré 3)")
+axes[1].set_title("BON AJUSTEMENT\n(capture la tendance sans mémoriser)", fontsize=12, fontweight="bold")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+# Overfitting : degré 20
+p20 = np.polyfit(x, y_observe, 20)
+axes[2].scatter(x, y_observe, alpha=0.6, label="Données")
+axes[2].plot(x_test, np.polyval(p20, x_test), "orange", lw=2, label="Modèle (degré 20)")
+axes[2].set_title("OVERFITTING\n(mémorise le bruit)", fontsize=12, fontweight="bold")
+axes[2].legend()
+axes[2].grid(True, alpha=0.3)
+axes[2].set_ylim(-3, 6)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** :
+
+- **Gauche** : le modèle est **trop simple**, il rate la courbure des données (underfitting)
+- **Milieu** : le modèle capture bien la tendance générale, sans trop coller aux points (bon ajustement)
+- **Droite** : le modèle **passe par presque tous les points**, mais oscille n'importe comment entre (overfitting)
+
+## 🎛️ Paramètres vs Hyperparamètres
+
+Distinction importante :
+
+- **Paramètres du modèle** : appris automatiquement pendant l'entraînement (ex: coefficients d'une régression linéaire)
+- **Hyperparamètres** : **choisis par toi** avant l'entraînement (ex: profondeur d'un arbre, nombre d'itérations)
+
+Choisir les bons hyperparamètres = **tuning**. On y reviendra en détail à la Notion 4.6.
+
+## 📊 Train / test / validation
+
+Jusqu'ici, on faisait :
+- Train : pour entraîner
+- Test : pour évaluer
+
+En réalité, les pros utilisent **3 sets** :
+
+- **Train** (~60-80%) : pour entraîner le modèle
+- **Validation** (~10-20%) : pour **choisir les hyperparamètres**
+- **Test** (~10-20%) : pour l'**évaluation finale**, vraie mesure de la généralisation
+
+**Règle d'or** : le test ne doit être utilisé **qu'une seule fois**, à la fin. Si tu ajustes ton modèle en regardant le test, tu fais du "data snooping" → tu te mens à toi-même.
+
+::: {.callout-tip}
+## Alternative : cross-validation
+Au lieu de sacrifier un validation set, on fait de la **k-fold cross-validation** : on découpe le train en `k` morceaux et on entraîne/valide `k` fois. On verra ça à la Notion 4.6.
+:::
+
+## ✏️ Exercice 2 — Diagnostiquer overfitting/underfitting
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Voici 4 modèles évalués sur train et test :
+
+| Modèle | Accuracy train | Accuracy test | Diagnostic |
+|---|---|---|---|
+| A | 60% | 62% | ? |
+| B | 98% | 70% | ? |
+| C | 88% | 86% | ? |
+| D | 55% | 55% | ? |
+
+Pour chacun, indique s'il s'agit d'un cas d'**underfitting**, d'**overfitting**, ou de **bon ajustement**.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+| Modèle | Train | Test | Diagnostic | Explication |
+|---|:-:|:-:|---|---|
+| A | 60% | 62% | **Underfitting** | Mauvais partout, modèle trop simple |
+| B | 98% | 70% | **Overfitting** | Gros gap : il a mémorisé le train |
+| C | 88% | 86% | **Bon ajustement** | Test ≈ Train, petite marge |
+| D | 55% | 55% | **Underfitting** (sévère) | Même sur train c'est mauvais |
+
+**Règles de diagnostic rapides** :
+
+- **Si performance test < performance train de beaucoup** → overfitting
+- **Si performance train est mauvaise déjà** → underfitting
+- **Si les deux sont proches et bonnes** → bon ajustement ✅
+
+**Solutions** :
+- Pour **underfitting** : modèle plus complexe, plus de features, moins de régularisation
+- Pour **overfitting** : modèle plus simple, plus de données, plus de régularisation, dropout
+:::
+
+# 5. Ton premier modèle en 5 lignes
+
+Assez de théorie — **tu vas entraîner ton premier modèle ML**.
+
+## 📊 Un dataset simple
+
+```{python}
+# Générons un problème de régression simple : prédire le prix d'un appartement
+np.random.seed(42)
+n = 200
+
+data = pd.DataFrame({
+    "surface": np.random.uniform(30, 150, n),
+    "nb_pieces": np.random.randint(1, 6, n),
+    "etage": np.random.randint(0, 10, n)
+})
+
+# Vraie relation (que notre modèle va essayer d'apprendre)
+data["prix"] = (
+    2500 * data["surface"]
+    + 15000 * data["nb_pieces"]
+    + 3000 * data["etage"]
+    + np.random.normal(0, 20000, n)  # bruit
+).round().astype(int)
+
+print(data.head())
+```
+
+## 🚀 Les 5 lignes magiques
+
+```{python}
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_absolute_error
+
+# 1. Séparer X et y
+X = data[["surface", "nb_pieces", "etage"]]
+y = data["prix"]
+
+# 2. Train / test split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. Créer et entraîner le modèle
+modele = LinearRegression()
+modele.fit(X_train, y_train)
+
+# 4. Prédire sur le test
+y_pred = modele.predict(X_test)
+
+# 5. Évaluer
+r2 = r2_score(y_test, y_pred)
+mae = mean_absolute_error(y_test, y_pred)
+
+print(f"R² sur test : {r2:.3f}")
+print(f"MAE sur test : {mae:,.0f} €")
+```
+
+**Bravo, tu viens d'entraîner ton premier modèle ML !** 🎉
+
+## 🔍 Que contient le modèle entraîné ?
+
+```{python}
+# Les coefficients appris
+for feature, coef in zip(X.columns, modele.coef_):
+    print(f"  {feature:12s} : {coef:,.2f} €")
+print(f"  {'intercept':12s} : {modele.intercept_:,.2f} €")
+```
+
+On retrouve les **vrais coefficients** (2500, 15000, 3000) à quelques erreurs près. **Le modèle a appris la bonne formule.**
+
+## 🧪 Vérifier l'overfitting
+
+```{python}
+# Score sur train VS test
+r2_train = modele.score(X_train, y_train)
+r2_test = modele.score(X_test, y_test)
+
+print(f"R² sur train : {r2_train:.4f}")
+print(f"R² sur test  : {r2_test:.4f}")
+print(f"Gap          : {r2_train - r2_test:.4f}")
+```
+
+Train ≈ Test → **pas d'overfitting**. Le modèle généralise bien. ✅
+
+## ✏️ Exercice 3 — Ton premier modèle de classification
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Cette fois on va faire un problème de **classification binaire**.
+
+```python
+# Générer un dataset : prédire si un étudiant obtient son diplôme
+np.random.seed(0)
+n = 500
+
+etudiants = pd.DataFrame({
+    "heures_etude": np.random.normal(10, 5, n).clip(0, 30),
+    "nb_absences": np.random.poisson(5, n),
+    "moyenne_precedente": np.random.normal(12, 3, n).clip(0, 20),
+})
+
+# Cible : obtient_diplome = 1 si certaines conditions
+score = (
+    0.3 * etudiants["heures_etude"]
+    - 0.2 * etudiants["nb_absences"]
+    + 0.5 * etudiants["moyenne_precedente"]
+    + np.random.normal(0, 1, n)
+)
+etudiants["obtient_diplome"] = (score > score.median()).astype(int)
+```
+
+1. Sépare `X` et `y` (`obtient_diplome` est la cible)
+2. Fais un `train_test_split` **stratifié** (80/20, `random_state=42`)
+3. Utilise une **`LogisticRegression`** comme modèle (au lieu de `LinearRegression`)
+4. Entraîne-le sur le train
+5. Prédis sur le test
+6. Affiche l'**accuracy** sur train et sur test (méthode `.score()`)
+7. Y a-t-il overfitting ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.linear_model import LogisticRegression
+
+# Recréer le dataset
+np.random.seed(0)
+n = 500
+etudiants = pd.DataFrame({
+    "heures_etude": np.random.normal(10, 5, n).clip(0, 30),
+    "nb_absences": np.random.poisson(5, n),
+    "moyenne_precedente": np.random.normal(12, 3, n).clip(0, 20),
+})
+score = (
+    0.3 * etudiants["heures_etude"]
+    - 0.2 * etudiants["nb_absences"]
+    + 0.5 * etudiants["moyenne_precedente"]
+    + np.random.normal(0, 1, n)
+)
+etudiants["obtient_diplome"] = (score > score.median()).astype(int)
+
+# 1. X et y
+X = etudiants.drop(columns="obtient_diplome")
+y = etudiants["obtient_diplome"]
+
+# 2. Split stratifié
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3 & 4. Modèle + entraînement
+modele = LogisticRegression(max_iter=1000)
+modele.fit(X_train, y_train)
+
+# 5 & 6. Scores
+acc_train = modele.score(X_train, y_train)
+acc_test = modele.score(X_test, y_test)
+
+print(f"Accuracy train : {acc_train:.3f}")
+print(f"Accuracy test  : {acc_test:.3f}")
+print(f"Gap            : {acc_train - acc_test:.3f}")
+```
+
+**Interprétation** : les accuracies sont proches, donc pas d'overfitting. Le modèle généralise bien.
+
+**Note** : on utilise `LogisticRegression` pour la **classification**, alors que `LinearRegression` est pour la **régression**. Le nom est trompeur — malgré le mot "regression", la régression logistique sert à classer !
+:::
+
+# 6. Les erreurs classiques des débutants
+
+## 🚨 Erreur 1 : Oublier le train/test split
+
+```python
+# ❌ INTERDIT
+modele.fit(X, y)
+print(modele.score(X, y))  # va donner un score super bon... mais trompeur
+```
+
+Le modèle est évalué sur les mêmes données qu'il a vues. **Il peut avoir 100% d'accuracy et être nul en production.**
+
+## 🚨 Erreur 2 : Data leakage (fuite d'information)
+
+Cas classique : normaliser **avant** le split.
+
+```python
+# ❌ MAUVAIS (data leakage)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)  # utilise toutes les stats
+X_train, X_test = train_test_split(X_scaled, ...)
+
+# ✅ CORRECT
+X_train, X_test = train_test_split(X, ...)
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)  # stats calculées sur train
+X_test = scaler.transform(X_test)         # transform seulement
+```
+
+Tu as déjà vu ça au Module 3. La règle s'applique pour **tout** pré-traitement (imputation, encoding…).
+
+## 🚨 Erreur 3 : Regarder l'accuracy sur un dataset déséquilibré
+
+Si ta cible est à 99% "classe 0" et 1% "classe 1" :
+
+- Un modèle qui dit toujours "classe 0" a **99% d'accuracy**
+- ... mais il est **complètement inutile**
+
+On verra les bonnes métriques à la Notion 4.5.
+
+## 🚨 Erreur 4 : Optimiser sur le test
+
+```python
+# ❌ INTERDIT
+for hyperparametre in [...]:
+    modele = Modele(hyperparametre)
+    modele.fit(X_train, y_train)
+    score = modele.score(X_test, y_test)  # ❌
+```
+
+À force de tester, tu finis par **surajuster au test**. Le score final n'est plus fiable.  
+**Solution** : validation set ou cross-validation.
+
+## 🚨 Erreur 5 : Ne pas avoir de baseline
+
+Avant d'utiliser un algorithme complexe, **compare-toi à une baseline simple** :
+
+- En classification : **prédire toujours la classe majoritaire**
+- En régression : **prédire toujours la moyenne de y_train**
+
+Si ton modèle ne bat pas cette baseline, il n'a **aucune valeur**.
+
+```{python}
+# Exemple : baseline en régression
+baseline_pred = np.full_like(y_test, y_train.mean(), dtype=float)
+mae_baseline = mean_absolute_error(y_test, baseline_pred)
+
+print(f"MAE baseline (moyenne) : {mae_baseline:,.0f} €")
+print(f"MAE notre modèle       : {mean_absolute_error(y_test, y_pred):,.0f} €")
+print(f"Réduction d'erreur     : {(1 - mean_absolute_error(y_test, y_pred) / mae_baseline) * 100:.1f}%")
+```
+
+Notre modèle fait beaucoup mieux que la baseline → **il a de la valeur**. ✅
+
+# 🏁 Exercice bilan — Workflow ML complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+**Ta mission** : reprendre le dataset RH du TP Module 3 (ou tout autre dataset binaire propre) et faire tourner un workflow ML de bout en bout.
+
+Utilise un dataset simple pour l'exercice :
+
+```python
+np.random.seed(42)
+n = 800
+
+df = pd.DataFrame({
+    "age": np.random.randint(18, 65, n),
+    "anciennete": np.random.exponential(5, n).clip(0, 30),
+    "salaire": np.random.normal(3000, 800, n),
+    "heures_supp": np.random.gamma(2, 2, n),
+})
+
+# Cible déséquilibrée (environ 20% de départs)
+proba = (
+    0.1 
+    + 0.15 * (df["heures_supp"] > 5)
+    + 0.10 * (df["anciennete"] < 2)
+    - 0.05 * (df["salaire"] > 3500)
+).clip(0, 1)
+df["part"] = (np.random.random(n) < proba).astype(int)
+```
+
+**À faire** :
+
+1. Affiche la **répartition** de la cible (équilibrée ou non ?)
+2. Sépare X et y
+3. Train/test split **stratifié** (80/20)
+4. **Baseline** : quelle serait l'accuracy si on prédit toujours "ne part pas" ? (calcul à la main)
+5. Entraîne une **régression logistique**
+6. Accuracy **train ET test** : y a-t-il overfitting ?
+7. Compare l'accuracy du modèle à celle de la baseline. Le modèle est-il utile ?
+8. Bonus : affiche les **coefficients** appris. Quelle variable est la plus associée au départ ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Créer le dataset
+np.random.seed(42)
+n = 800
+df = pd.DataFrame({
+    "age": np.random.randint(18, 65, n),
+    "anciennete": np.random.exponential(5, n).clip(0, 30),
+    "salaire": np.random.normal(3000, 800, n),
+    "heures_supp": np.random.gamma(2, 2, n),
+})
+proba = (
+    0.1 
+    + 0.15 * (df["heures_supp"] > 5)
+    + 0.10 * (df["anciennete"] < 2)
+    - 0.05 * (df["salaire"] > 3500)
+).clip(0, 1)
+df["part"] = (np.random.random(n) < proba).astype(int)
+```
+
+```{python}
+# 1. Répartition cible
+print(df["part"].value_counts(normalize=True).round(3))
+print(f"Taux de départ : {df['part'].mean() * 100:.1f}%")
+```
+
+```{python}
+# 2. X et y
+X = df.drop(columns="part")
+y = df["part"]
+
+# 3. Split stratifié
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+```
+
+```{python}
+# 4. Baseline : classe majoritaire (toujours 0 = ne part pas)
+acc_baseline = (y_test == 0).mean()
+print(f"Baseline (prédire 'ne part pas') : {acc_baseline:.3f}")
+```
+
+```{python}
+# 5-6. Modèle
+modele = LogisticRegression(max_iter=1000)
+modele.fit(X_train, y_train)
+
+acc_train = modele.score(X_train, y_train)
+acc_test = modele.score(X_test, y_test)
+
+print(f"Accuracy train  : {acc_train:.3f}")
+print(f"Accuracy test   : {acc_test:.3f}")
+print(f"Gap             : {acc_train - acc_test:+.3f}")
+```
+
+```{python}
+# 7. Comparaison baseline
+print(f"\nBaseline : {acc_baseline:.3f}")
+print(f"Modèle   : {acc_test:.3f}")
+if acc_test > acc_baseline + 0.02:
+    print("✅ Le modèle apporte de la valeur (bat la baseline de > 2%)")
+else:
+    print("⚠️  Le modèle ne bat pas (ou à peine) la baseline")
+```
+
+```{python}
+# 8. Coefficients
+print("\n=== Coefficients de la régression logistique ===")
+for feature, coef in zip(X.columns, modele.coef_[0]):
+    signe = "+" if coef > 0 else ""
+    print(f"  {feature:12s} : {signe}{coef:.4f}")
+```
+
+**Attention** : sur un dataset déséquilibré comme celui-ci, l'accuracy est **trompeuse**. Si la classe majoritaire est à 80% et ton modèle fait 82%... tu n'as gagné que 2%. La Notion 4.5 va t'apprendre à utiliser des métriques plus adaptées (precision, recall, F1-score).
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | À savoir |
+|---|---|
+| **ML supervisé** | Apprendre à prédire y à partir de X avec des exemples labellisés |
+| **Classification** | Prédire une catégorie (binaire, multi-classes) |
+| **Régression** | Prédire une valeur continue |
+| **Features / Cible** | X = variables explicatives, y = ce qu'on veut prédire |
+| **Fonction de perte** | Mesure l'erreur (MSE, MAE, log-loss...) |
+| **Paramètres vs hyperparamètres** | Appris vs choisis par nous |
+| **Overfitting** | Modèle trop complexe, colle au train, rate sur test |
+| **Underfitting** | Modèle trop simple, rate partout |
+| **Data leakage** | Utiliser les stats du test pour préparer → biais |
+| **Baseline** | Référence simple pour valider l'utilité du modèle |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Classification ou régression ?** Première question à se poser
+2. **Baseline d'abord** : que fait un modèle naïf ?
+3. **Train/test split stratifié** dès le début
+4. **Comparer train vs test** : détecter overfitting/underfitting
+5. **Interpréter les résultats** : coefficients, features importantes, cas ratés
+
+## 🚨 Les erreurs à éviter
+
+1. Fit sur tout → pas de train/test split
+2. Scaling/imputation avant le split → data leakage
+3. Accuracy sur dataset déséquilibré → métrique trompeuse
+4. Optimiser en regardant le test → data snooping
+5. Pas de baseline → impossible de savoir si le modèle vaut quelque chose
+
+## 🚀 La suite
+
+Dans la [**Notion 4.2 — Régression linéaire et logistique**](notion_4_2_regression_lineaire_logistique.qmd), on va **ouvrir le capot** des deux modèles les plus fondamentaux :
+
+- Régression linéaire : comment elle apprend (ça te rappellera le Module 1 !)
+- Régression logistique : la version "classification" de sa cousine
+- Régularisation (L1, L2) pour éviter l'overfitting
+- Modèles linéaires vs modèles non-linéaires
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends le dataset attrition RH du TP Module 3 et fais tourner un workflow complet :
+
+```python
+modele = Pipeline([
+    ("preprocessor", preprocessor),
+    ("classifier", LogisticRegression(max_iter=1000))
+])
+
+modele.fit(X_train, y_train)
+print(f"Accuracy test : {modele.score(X_test, y_test):.3f}")
+```
+
+Calcule aussi la baseline (prédire toujours "ne part pas"). Le modèle bat-il réellement la baseline ? De combien ?
+:::

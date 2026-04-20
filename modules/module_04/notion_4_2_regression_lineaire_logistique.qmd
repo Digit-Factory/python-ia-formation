@@ -1,0 +1,1150 @@
+---
+title: "Notion 4.2 — Régression linéaire et logistique"
+subtitle: "Les deux modèles fondateurs : simples, puissants, interprétables"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_04/notion_4_2_regression_lineaire_logistique_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_04/notion_4_2_regression_lineaire_logistique_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_04_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 4.1 (concepts ML) + Module 1 (calcul différentiel, stats)  
+**Objectif** : maîtriser les deux modèles ML les plus utilisés en entreprise, comprendre leurs limites, savoir utiliser la régularisation
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **en profondeur** la régression linéaire (sans l'utiliser comme une boîte noire)
+- Utiliser la **régression logistique** pour la classification binaire et multi-classes
+- Distinguer **probabilité prédite** et **décision** (seuil de classification)
+- Appliquer la **régularisation L1 (Lasso) et L2 (Ridge)** contre l'overfitting
+- Identifier quand un modèle linéaire **n'est pas adapté** (relations non-linéaires)
+- **Interpréter** les coefficients d'un modèle
+
+## 🎯 Pourquoi ces deux modèles ?
+
+La régression linéaire et la régression logistique sont les **modèles les plus utilisés en entreprise**. Pourquoi ?
+
+- **Simples et rapides** : s'entraînent en quelques millisecondes, même sur millions de lignes
+- **Interprétables** : chaque coefficient a un sens clair — crucial en finance, santé, assurance
+- **Fiables** : pas d'hyperparamètre magique qui change tout
+- **Excellents comme baseline** : toujours ton premier modèle à tester
+
+Quand ils marchent bien, **inutile de chercher plus complexe**. Quand ils ratent, ils te **donnent les bonnes pistes** pour passer à des modèles plus sophistiqués.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import r2_score, mean_absolute_error, accuracy_score
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Régression linéaire : l'intuition
+
+## 🎨 Le concept : une droite (ou un plan) qui passe "au mieux" entre les points
+
+Imagine un nuage de points `(x, y)` : tu veux tracer **la droite qui résume le mieux** la relation.
+
+```{python}
+#| label: fig-lr-intuition
+#| fig-cap: "La régression linéaire cherche la droite qui minimise la somme des carrés des erreurs"
+
+np.random.seed(0)
+x = np.linspace(0, 10, 30)
+y = 2 * x + 5 + np.random.normal(0, 3, 30)
+
+# Ajustement linéaire
+coef = np.polyfit(x, y, 1)
+droite = np.polyval(coef, x)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.scatter(x, y, s=60, color="steelblue", alpha=0.7, label="Données", edgecolor="black")
+ax.plot(x, droite, 'r-', linewidth=2.5, label=f"Droite ajustée : y = {coef[0]:.2f}x + {coef[1]:.2f}")
+
+# Dessiner les "résidus" (erreurs)
+for xi, yi, yd in zip(x, y, droite):
+    ax.plot([xi, xi], [yi, yd], 'g--', alpha=0.4, linewidth=1)
+
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_title("Régression linéaire : la droite et les résidus (erreurs)")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+Les **pointillés verts** sont les **résidus** (écarts entre prédiction et réalité). La régression linéaire **minimise la somme des carrés** de ces résidus.
+
+## 📐 L'équation
+
+Pour **une variable** `x` :
+
+$$\hat{y} = \beta_0 + \beta_1 x$$
+
+- `β₀` : **intercept** (ordonnée à l'origine)
+- `β₁` : **coefficient** (pente)
+
+Pour **plusieurs variables** `x₁, x₂, ..., xₚ` :
+
+$$\hat{y} = \beta_0 + \beta_1 x_1 + \beta_2 x_2 + \dots + \beta_p x_p$$
+
+L'algorithme cherche les valeurs de `β₀, β₁, ..., βₚ` qui **minimisent l'erreur quadratique moyenne** (MSE).
+
+## 🔗 Lien avec le Module 1
+
+**Tu as déjà fait ça à la main !** Au **Module 1 Notion 1.2** (calcul différentiel), tu as implémenté une régression linéaire par descente de gradient.
+
+Scikit-learn fait la même chose, mais plus efficacement (avec l'**équation normale** qui donne la solution exacte sans itération).
+
+## 🚀 Ton premier modèle pas-à-pas
+
+```{python}
+# Données simples (1 variable) pour visualiser
+np.random.seed(0)
+n = 100
+x = np.random.uniform(0, 10, n)
+y = 3 * x + 5 + np.random.normal(0, 2, n)
+
+# Il faut reshape x en matrice 2D (sklearn attend X en 2D)
+X = x.reshape(-1, 1)
+
+# Entraînement
+modele = LinearRegression()
+modele.fit(X, y)
+
+print(f"Pente (β₁)     : {modele.coef_[0]:.3f}")
+print(f"Intercept (β₀) : {modele.intercept_:.3f}")
+print(f"\nLa vraie relation était y = 3x + 5")
+print(f"Le modèle a appris  y = {modele.coef_[0]:.2f}x + {modele.intercept_:.2f}")
+```
+
+Le modèle retrouve **quasiment** les vraies valeurs (3 et 5), à un petit biais près dû au bruit.
+
+```{python}
+#| label: fig-lr-pred
+#| fig-cap: "Visualisation de la droite apprise"
+
+y_pred = modele.predict(X)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.scatter(x, y, s=40, alpha=0.6, label="Données observées")
+ax.plot(np.sort(x), np.sort(y_pred), 'r-', linewidth=2, label="Prédiction")
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_title(f"Régression linéaire : R² = {modele.score(X, y):.3f}")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+## 📊 Régression multivariée
+
+En pratique, on a **plusieurs features**. La "droite" devient un **hyperplan** (impossible à visualiser en 3D+, mais les maths restent les mêmes).
+
+```{python}
+# Exemple : prédiction du prix immobilier
+np.random.seed(42)
+n = 300
+df = pd.DataFrame({
+    "surface": np.random.uniform(30, 150, n),
+    "nb_pieces": np.random.randint(1, 6, n),
+    "etage": np.random.randint(0, 10, n),
+    "annee_construction": np.random.randint(1950, 2020, n),
+})
+
+df["prix"] = (
+    2500 * df["surface"]
+    + 15000 * df["nb_pieces"]
+    + 3000 * df["etage"]
+    + 500 * (df["annee_construction"] - 1950)
+    + np.random.normal(0, 20000, n)
+).round().astype(int)
+
+# Train / test
+X = df.drop(columns="prix")
+y = df["prix"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# Modèle
+modele = LinearRegression()
+modele.fit(X_train, y_train)
+
+# Performances
+r2_test = modele.score(X_test, y_test)
+mae_test = mean_absolute_error(y_test, modele.predict(X_test))
+
+print(f"R² sur test : {r2_test:.3f}")
+print(f"MAE sur test : {mae_test:,.0f} €")
+```
+
+## 🔍 Interpréter les coefficients
+
+**C'est l'énorme avantage des modèles linéaires** : chaque coefficient a un sens.
+
+```{python}
+coefs = pd.DataFrame({
+    "feature": X.columns,
+    "coefficient": modele.coef_
+}).sort_values("coefficient", key=abs, ascending=False)
+
+print("=== Coefficients ===")
+print(coefs.to_string(index=False))
+print(f"\nIntercept : {modele.intercept_:,.2f}")
+```
+
+**Lecture** :
+
+- **`surface`** : chaque m² supplémentaire **ajoute ~2500 €** au prix (toutes choses égales par ailleurs)
+- **`nb_pieces`** : chaque pièce supplémentaire **ajoute ~15000 €**
+- **`annee_construction`** : chaque année de construction plus récente **ajoute ~500 €**
+
+::: {.callout-warning}
+## ⚠️ Le piège : les échelles
+Regarde les coefficients bruts : ils **dépendent des unités** des features ! On ne peut pas comparer `2500` (pour la surface en m²) à `500` (pour l'année) : leurs échelles sont très différentes.
+
+**Pour comparer l'importance**, il faut **standardiser X d'abord** (StandardScaler). Les coefficients deviennent alors comparables.
+:::
+
+```{python}
+# Comparaison avec features standardisées
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+modele_std = LinearRegression()
+modele_std.fit(X_scaled, y)
+
+coefs_std = pd.DataFrame({
+    "feature": X.columns,
+    "coef_brut": modele.coef_,
+    "coef_standardise": modele_std.coef_,
+}).round(2)
+
+print(coefs_std.to_string(index=False))
+```
+
+Avec les coefficients **standardisés**, on voit que `surface` a **de loin** l'impact le plus fort sur le prix.
+
+## ✏️ Exercice 1 — Régression linéaire complète
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+np.random.seed(0)
+n = 500
+ventes = pd.DataFrame({
+    "publicite_tv": np.random.uniform(10, 100, n),
+    "publicite_radio": np.random.uniform(5, 50, n),
+    "publicite_web": np.random.uniform(0, 30, n),
+})
+ventes["chiffre_affaires"] = (
+    3 * ventes["publicite_tv"]
+    + 2 * ventes["publicite_radio"]
+    + 5 * ventes["publicite_web"]
+    + np.random.normal(0, 10, n)
+    + 20
+).round(2)
+```
+
+1. Sépare X (les 3 publicités) et y (CA).
+2. Fais un **train/test split** (80/20, random_state=42).
+3. Entraîne une `LinearRegression`.
+4. Affiche les coefficients appris et compare aux vrais (3, 2, 5).
+5. Évalue le modèle : R² et MAE sur train et test.
+6. **Quel canal publicitaire est le plus rentable** par euro investi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(0)
+n = 500
+ventes = pd.DataFrame({
+    "publicite_tv": np.random.uniform(10, 100, n),
+    "publicite_radio": np.random.uniform(5, 50, n),
+    "publicite_web": np.random.uniform(0, 30, n),
+})
+ventes["chiffre_affaires"] = (
+    3 * ventes["publicite_tv"]
+    + 2 * ventes["publicite_radio"]
+    + 5 * ventes["publicite_web"]
+    + np.random.normal(0, 10, n)
+    + 20
+).round(2)
+
+# 1-2. X, y, split
+X = ventes[["publicite_tv", "publicite_radio", "publicite_web"]]
+y = ventes["chiffre_affaires"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 3. Modèle
+modele = LinearRegression()
+modele.fit(X_train, y_train)
+
+# 4. Coefficients
+print("=== Coefficients appris ===")
+for feature, coef in zip(X.columns, modele.coef_):
+    print(f"  {feature:18s} : {coef:.3f}")
+print(f"  intercept         : {modele.intercept_:.3f}")
+```
+
+```{python}
+# 5. Métriques
+r2_train = modele.score(X_train, y_train)
+r2_test = modele.score(X_test, y_test)
+mae_test = mean_absolute_error(y_test, modele.predict(X_test))
+
+print(f"R² train  : {r2_train:.4f}")
+print(f"R² test   : {r2_test:.4f}")
+print(f"MAE test  : {mae_test:.2f}")
+```
+
+**6. Canal le plus rentable** :
+
+Les coefficients sont les gains par unité dépensée. Les vrais coefficients étaient `tv=3`, `radio=2`, `web=5`.
+
+Donc **publicite_web** rapporte **5 € de CA par 1 € dépensé**, c'est le canal le plus rentable. Mais attention : on ne peut pas investir à l'infini — les budgets publicitaires ont des effets plafonds que ce modèle linéaire ne capture pas.
+:::
+
+# 2. Les limites des modèles linéaires
+
+## 🚨 Piège 1 : relations non-linéaires
+
+La régression linéaire, par définition, ne capture que les relations... **linéaires** !
+
+```{python}
+#| label: fig-nonlinear
+#| fig-cap: "La régression linéaire rate les relations non-linéaires"
+
+np.random.seed(0)
+x = np.linspace(0, 10, 100)
+y_reel = 2 + 3 * x - 0.3 * x**2  # quadratique
+y_observe = y_reel + np.random.normal(0, 1, 100)
+
+# Régression linéaire simple
+X = x.reshape(-1, 1)
+modele_lin = LinearRegression()
+modele_lin.fit(X, y_observe)
+y_pred_lin = modele_lin.predict(X)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+# Sans feature engineering
+axes[0].scatter(x, y_observe, alpha=0.5, label="Données")
+axes[0].plot(x, y_pred_lin, 'r-', linewidth=2, label=f"Linéaire (R²={modele_lin.score(X, y_observe):.2f})")
+axes[0].set_title("Régression linéaire basique\n❌ Rate la courbure")
+axes[0].legend()
+axes[0].grid(True, alpha=0.3)
+
+# Avec feature engineering : ajout de x²
+X_poly = np.column_stack([x, x**2])
+modele_poly = LinearRegression()
+modele_poly.fit(X_poly, y_observe)
+y_pred_poly = modele_poly.predict(X_poly)
+
+axes[1].scatter(x, y_observe, alpha=0.5, label="Données")
+axes[1].plot(x, y_pred_poly, 'g-', linewidth=2, label=f"Linéaire + x² (R²={modele_poly.score(X_poly, y_observe):.2f})")
+axes[1].set_title("Avec feature x² ajoutée\n✅ Capture la courbure")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Solution** : **feature engineering**. On peut ajouter `x²`, `x³`, `x*y`, etc. pour capturer des relations non-linéaires **avec un modèle linéaire**.
+
+Mais ça devient vite **fastidieux**. Les modèles non-linéaires (arbres, boosting) que tu verras bientôt gèrent ça **automatiquement**.
+
+## 🚨 Piège 2 : outliers
+
+La régression linéaire minimise les **carrés** des erreurs. Conséquence : **elle est très sensible aux outliers**.
+
+```{python}
+#| label: fig-outlier-lr
+#| fig-cap: "Un seul outlier peut changer la droite"
+
+np.random.seed(0)
+x = np.linspace(0, 10, 20)
+y = 2 * x + 5 + np.random.normal(0, 1, 20)
+
+# Outlier placé en bout de nuage pour maximiser l'effet de levier
+x_out = np.append(x, 12)
+y_out = np.append(y, 0)  # valeur qui "tire" la droite vers le bas
+
+modele_clean = LinearRegression().fit(x.reshape(-1, 1), y)
+modele_out = LinearRegression().fit(x_out.reshape(-1, 1), y_out)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+axes[0].scatter(x, y, s=40, alpha=0.6)
+axes[0].plot(x, modele_clean.predict(x.reshape(-1, 1)), 'r-', linewidth=2)
+axes[0].set_title(f"Sans outlier (pente = {modele_clean.coef_[0]:.2f})")
+axes[0].grid(True, alpha=0.3)
+axes[0].set_xlim(-1, 13)
+axes[0].set_ylim(-5, 30)
+
+axes[1].scatter(x_out[:-1], y_out[:-1], s=40, alpha=0.6)
+axes[1].scatter([12], [0], s=200, color="red", marker="x", linewidths=3, label="Outlier")
+axes[1].plot(np.linspace(-1, 13, 50), modele_out.predict(np.linspace(-1, 13, 50).reshape(-1, 1)), 
+             'r-', linewidth=2)
+axes[1].set_title(f"Avec un outlier en bout (pente = {modele_out.coef_[0]:.2f})")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+axes[1].set_xlim(-1, 13)
+axes[1].set_ylim(-5, 30)
+
+plt.tight_layout()
+plt.show()
+```
+
+Un **seul** point extrême à l'extrémité change la pente de façon significative (effet de **levier**). **Toujours traiter les outliers avant** une régression linéaire (comme vu au Module 3).
+
+## 🚨 Piège 3 : multicolinéarité
+
+Si deux features sont **très corrélées**, les coefficients deviennent **instables** (gros changements selon les échantillons).
+
+**Exemple** : si tu as `surface_m2` et `surface_pieds2` dans le même modèle, tu auras des problèmes.
+
+**Solution** : vérifier la matrice de corrélation avant d'entraîner, et supprimer les doublons évidents. Ou utiliser la régularisation (vue juste après).
+
+# 3. Régularisation : combattre l'overfitting
+
+## 🎯 Le problème
+
+Plus tu as de features (ou de features créées à la main via feature engineering), plus ton modèle risque d'**overfitter**.
+
+La **régularisation** pénalise les **grands coefficients** pour éviter que le modèle colle trop aux données.
+
+## 📐 Ridge (L2) : pénaliser la somme des carrés
+
+$$\text{Loss}_{\text{Ridge}} = \text{MSE} + \alpha \sum_{i=1}^{p} \beta_i^2$$
+
+- `α` (alpha) : **hyperparamètre** qui contrôle la force de la régularisation
+- `α = 0` : pas de régularisation (régression classique)
+- `α → ∞` : tous les coefficients tirés vers 0
+
+Effet : les coefficients **diminuent**, rendant le modèle moins sensible au bruit.
+
+## 📐 Lasso (L1) : pénaliser la somme des valeurs absolues
+
+$$\text{Loss}_{\text{Lasso}} = \text{MSE} + \alpha \sum_{i=1}^{p} |\beta_i|$$
+
+**Différence majeure** avec Ridge : Lasso peut **mettre certains coefficients exactement à 0**. C'est donc aussi une **technique de sélection de features**.
+
+## 🎨 Comparaison visuelle
+
+```{python}
+#| label: fig-regul
+#| fig-cap: "Ridge vs Lasso : effet sur les coefficients"
+
+# Créer un dataset avec beaucoup de features (dont certaines inutiles)
+np.random.seed(0)
+n, p = 200, 15
+
+X = np.random.randn(n, p)
+# Seulement les 5 premières features comptent vraiment
+vrais_coefs = np.zeros(p)
+vrais_coefs[:5] = [3, 1.5, -2, 2.5, -1]
+y = X @ vrais_coefs + np.random.randn(n) * 2
+
+# Plusieurs modèles
+modeles = {
+    "Sans régul.": LinearRegression(),
+    "Ridge (α=1)": Ridge(alpha=1.0),
+    "Ridge (α=100)": Ridge(alpha=100),
+    "Lasso (α=0.5)": Lasso(alpha=0.5),
+}
+
+# Récupérer les coefficients
+coefs_dict = {}
+for nom, mod in modeles.items():
+    mod.fit(X, y)
+    coefs_dict[nom] = mod.coef_
+
+# Plot
+fig, ax = plt.subplots(figsize=(14, 5))
+x_pos = np.arange(p)
+width = 0.2
+
+for i, (nom, coefs) in enumerate(coefs_dict.items()):
+    ax.bar(x_pos + i * width, coefs, width, label=nom, alpha=0.8)
+
+ax.axhline(0, color="black", linewidth=0.5)
+ax.set_xticks(x_pos + 1.5 * width)
+ax.set_xticklabels([f"x{i+1}" for i in range(p)])
+ax.set_ylabel("Valeur du coefficient")
+ax.set_title("Effet de la régularisation sur les coefficients")
+ax.legend()
+ax.grid(True, alpha=0.3, axis="y")
+plt.tight_layout()
+plt.show()
+```
+
+**Ce qu'on voit** :
+
+- **Sans régul** : coefficients un peu dispersés (bruit sur les features inutiles)
+- **Ridge (α=1)** : coefficients légèrement réduits
+- **Ridge (α=100)** : **tous les coefficients tirés vers 0**
+- **Lasso (α=0.5)** : les features inutiles (6 à 15) **exactement à 0** → sélection automatique !
+
+## 🔧 Quand utiliser quoi ?
+
+| Situation | Modèle recommandé |
+|---|---|
+| Beaucoup de features, pas sûr qu'elles soient toutes utiles | **Lasso** (fait la sélection) |
+| Beaucoup de features, toutes probablement utiles | **Ridge** (garde tout, réduit l'effet) |
+| Entre-deux | **ElasticNet** (combine L1 et L2) |
+| Peu de features, pas d'overfitting | **LinearRegression** basique |
+
+## 🎯 Choisir `α` : la cross-validation
+
+L'hyperparamètre `α` se choisit par **cross-validation** (on le verra en détail Notion 4.6). Scikit-learn a des versions `RidgeCV` et `LassoCV` qui font ça automatiquement.
+
+```{python}
+from sklearn.linear_model import RidgeCV
+
+# Test automatique de plusieurs alphas
+modele_ridge_cv = RidgeCV(alphas=[0.01, 0.1, 1, 10, 100])
+modele_ridge_cv.fit(X, y)
+
+print(f"Meilleur α trouvé : {modele_ridge_cv.alpha_}")
+```
+
+## ✏️ Exercice 2 — Régularisation en action
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Génère un dataset avec **beaucoup de features dont certaines inutiles** :
+
+```python
+np.random.seed(42)
+n = 150  # peu de lignes pour favoriser l'overfitting
+p = 30
+
+X = np.random.randn(n, p)
+# Seulement les 5 premières features sont vraiment importantes
+vrais_coefs = np.zeros(p)
+vrais_coefs[:5] = [2.5, -1.8, 3.2, 1.5, -2.1]
+y = X @ vrais_coefs + np.random.randn(n)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+```
+
+1. Entraîne une `LinearRegression` classique. Affiche R² train et test.
+2. Entraîne une `Ridge(alpha=1.0)`. Compare R² train/test.
+3. Entraîne une `Lasso(alpha=0.5)`. Combien de coefficients sont exactement 0 ? 
+4. Compare les trois modèles : lequel a le **meilleur R² sur test** ? Lequel a le **plus petit gap train-test** (le moins d'overfitting) ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n, p = 150, 30
+X = np.random.randn(n, p)
+vrais_coefs = np.zeros(p)
+vrais_coefs[:5] = [2.5, -1.8, 3.2, 1.5, -2.1]
+y = X @ vrais_coefs + np.random.randn(n)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+```
+
+```{python}
+# Entraîner les 3 modèles
+modeles = {
+    "LinearRegression": LinearRegression(),
+    "Ridge (α=1)": Ridge(alpha=1.0),
+    "Lasso (α=0.5)": Lasso(alpha=0.5),
+}
+
+resultats = []
+for nom, mod in modeles.items():
+    mod.fit(X_train, y_train)
+    r2_tr = mod.score(X_train, y_train)
+    r2_te = mod.score(X_test, y_test)
+    n_zero = np.sum(np.abs(mod.coef_) < 1e-6)
+    resultats.append({
+        "modèle": nom,
+        "R² train": r2_tr,
+        "R² test": r2_te,
+        "Gap": r2_tr - r2_te,
+        "Coefs à 0": n_zero
+    })
+
+resultats_df = pd.DataFrame(resultats)
+print(resultats_df.round(3).to_string(index=False))
+```
+
+**Observations attendues** :
+
+- **LinearRegression** : gap train-test important → overfitting
+- **Ridge** : gap réduit → régularisation aide
+- **Lasso** : plusieurs coefficients à 0 (sélection de features), meilleur gap sur test
+
+**Leçon** : quand tu as plus de features que de données, ou quand tu suspectes de l'overfitting, **la régularisation est ton amie**.
+:::
+
+# 4. Régression logistique : la régression... qui classe
+
+## 🎯 Le problème qu'on veut résoudre
+
+La **régression linéaire** prédit un nombre. Mais pour classer, on veut prédire une **probabilité** (entre 0 et 1).
+
+Le problème : si tu utilises une régression linéaire pour prédire 0 ou 1, tu peux obtenir des **valeurs aberrantes** (ex: -0.4 ou 1.7).
+
+## 🎨 La solution : la fonction sigmoïde
+
+On passe la sortie linéaire dans une fonction qui **écrase tout entre 0 et 1** : la **sigmoïde**.
+
+$$\sigma(z) = \frac{1}{1 + e^{-z}}$$
+
+```{python}
+#| label: fig-sigmoid
+#| fig-cap: "La fonction sigmoïde : écrase toute valeur entre 0 et 1"
+
+z = np.linspace(-8, 8, 200)
+sig = 1 / (1 + np.exp(-z))
+
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.plot(z, sig, 'b-', linewidth=2.5)
+ax.axhline(0.5, color="red", linestyle="--", alpha=0.5, label="Seuil = 0.5")
+ax.axvline(0, color="gray", linestyle="--", alpha=0.5)
+ax.axhline(0, color="black", linewidth=0.5)
+ax.axhline(1, color="black", linewidth=0.5, linestyle=":")
+
+ax.set_xlabel("z (sortie linéaire)")
+ax.set_ylabel("σ(z) (probabilité)")
+ax.set_title("Fonction sigmoïde")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Propriétés clés** :
+- `z = 0` → `σ(z) = 0.5` (frontière de décision)
+- `z → +∞` → `σ(z) → 1`
+- `z → -∞` → `σ(z) → 0`
+
+## 📐 L'équation complète
+
+$$P(y = 1 | X) = \sigma(\beta_0 + \beta_1 x_1 + \dots + \beta_p x_p)$$
+
+**Lecture** : la probabilité que y vaille 1 sachant les features est égale à la sigmoïde de la combinaison linéaire des features.
+
+**Décision finale** :
+- Si `P(y=1) ≥ 0.5` → prédis 1
+- Si `P(y=1) < 0.5` → prédis 0
+
+(Le seuil 0.5 peut être ajusté — on y reviendra !)
+
+## 🚀 Utilisation avec scikit-learn
+
+```{python}
+# Problème de classification : prédire si un étudiant réussit
+np.random.seed(0)
+n = 300
+df = pd.DataFrame({
+    "heures_etude": np.random.uniform(0, 20, n),
+    "note_continu": np.random.uniform(0, 20, n)
+})
+# Réussit si score > médiane
+score = 0.4 * df["heures_etude"] + 0.6 * df["note_continu"] + np.random.normal(0, 2, n)
+df["reussit"] = (score > score.median()).astype(int)
+
+X = df[["heures_etude", "note_continu"]]
+y = df["reussit"]
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Régression logistique
+modele = LogisticRegression()
+modele.fit(X_train, y_train)
+
+# Accuracy
+acc = modele.score(X_test, y_test)
+print(f"Accuracy sur test : {acc:.3f}")
+```
+
+## 🎯 Probabilités vs prédictions
+
+C'est **le concept clé** de la classification :
+
+```{python}
+# Les prédictions : 0 ou 1
+predictions = modele.predict(X_test[:5])
+print("Prédictions (classe) :", predictions)
+
+# Les probabilités : tableau [P(y=0), P(y=1)]
+probas = modele.predict_proba(X_test[:5])
+print("\nProbabilités :")
+for i, (p0, p1) in enumerate(probas):
+    print(f"  Étudiant {i}: P(échec)={p0:.3f}, P(réussite)={p1:.3f}")
+```
+
+::: {.callout-tip}
+## 🧠 Pourquoi utiliser `predict_proba` plutôt que `predict` ?
+
+- **Calibrage des actions** : savoir à 55% vs 95% change la décision
+- **Seuil personnalisé** : peut-être que dans ton cas, tu veux être plus prudent et considérer "suspect" dès 30% de probabilité (ex: fraude bancaire)
+- **Ranking** : classer des clients par risque au lieu de les classifier binairement
+:::
+
+## 🎨 Visualiser la frontière de décision
+
+```{python}
+#| label: fig-decision
+#| fig-cap: "Frontière de décision d'une régression logistique"
+
+# Grille de points pour visualiser
+x_min, x_max = df["heures_etude"].min() - 1, df["heures_etude"].max() + 1
+y_min, y_max = df["note_continu"].min() - 1, df["note_continu"].max() + 1
+xx, yy = np.meshgrid(np.linspace(x_min, x_max, 100), np.linspace(y_min, y_max, 100))
+
+# Probabilité à chaque point de la grille
+Z = modele.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1]
+Z = Z.reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+# Contours de probabilité
+cf = ax.contourf(xx, yy, Z, levels=20, cmap="RdBu", alpha=0.5)
+ax.contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=2)
+
+# Points
+colors = ["red", "blue"]
+for label, color in enumerate(colors):
+    mask = df["reussit"] == label
+    ax.scatter(df.loc[mask, "heures_etude"], df.loc[mask, "note_continu"],
+               c=color, s=40, alpha=0.7, edgecolor="black",
+               label=f"{'Réussite' if label == 1 else 'Échec'}")
+
+ax.set_xlabel("Heures d'étude")
+ax.set_ylabel("Note continu")
+ax.set_title("Frontière de décision (ligne noire : probabilité = 0.5)")
+ax.legend()
+plt.colorbar(cf, label="P(réussite)")
+plt.tight_layout()
+plt.show()
+```
+
+**Observation cruciale** : la frontière de décision d'une régression logistique est **toujours une droite** (ou un hyperplan en dimensions supérieures). C'est **sa limite** : si la vraie frontière est courbe, la régression logistique ne la capturera pas.
+
+## 📊 Classification multi-classes
+
+La régression logistique gère aussi **plus de 2 classes** :
+
+```{python}
+# Exemple : 3 types de fleurs (dataset Iris)
+from sklearn.datasets import load_iris
+
+iris = load_iris()
+X = iris.data
+y = iris.target  # 3 classes : 0, 1, 2
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+
+# Classification multi-classes (automatique avec sklearn)
+modele = LogisticRegression(max_iter=1000)
+modele.fit(X_train, y_train)
+
+print(f"Accuracy sur test : {modele.score(X_test, y_test):.3f}")
+print(f"Classes : {modele.classes_}")
+```
+
+En interne, scikit-learn utilise soit **one-vs-rest** (un modèle binaire par classe) soit **multinomial** (softmax au lieu de sigmoïde). Tu n'as rien à configurer.
+
+## ✏️ Exercice 3 — Régression logistique complète
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+np.random.seed(42)
+n = 500
+
+# Clients bancaires : prédire l'acceptation d'une offre
+clients = pd.DataFrame({
+    "age": np.random.randint(20, 70, n),
+    "salaire_k": np.random.normal(35, 15, n).clip(10, 100),
+    "nb_enfants": np.random.poisson(1.5, n),
+    "proprietaire": np.random.choice([0, 1], n, p=[0.45, 0.55]),
+})
+
+# Probabilité d'accepter
+proba = (
+    0.1
+    + 0.005 * clients["age"]
+    + 0.008 * clients["salaire_k"]
+    - 0.05 * clients["nb_enfants"]
+    + 0.1 * clients["proprietaire"]
+).clip(0, 1)
+clients["accepte_offre"] = (np.random.random(n) < proba).astype(int)
+```
+
+1. Sépare X et y, fais un train/test split (stratify=y).
+2. Entraîne une `LogisticRegression`.
+3. Affiche l'accuracy.
+4. Pour les 10 premiers clients du test : affiche leur **probabilité prédite** d'accepter. Combien ont une proba > 0.7 ?
+5. Affiche les **coefficients** : lesquelles sont les variables les plus importantes ?  
+   *Indice : pour comparer proprement, standardise d'abord X avec StandardScaler.*
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 500
+clients = pd.DataFrame({
+    "age": np.random.randint(20, 70, n),
+    "salaire_k": np.random.normal(35, 15, n).clip(10, 100),
+    "nb_enfants": np.random.poisson(1.5, n),
+    "proprietaire": np.random.choice([0, 1], n, p=[0.45, 0.55]),
+})
+proba = (
+    0.1
+    + 0.005 * clients["age"]
+    + 0.008 * clients["salaire_k"]
+    - 0.05 * clients["nb_enfants"]
+    + 0.1 * clients["proprietaire"]
+).clip(0, 1)
+clients["accepte_offre"] = (np.random.random(n) < proba).astype(int)
+
+# 1. Split
+X = clients.drop(columns="accepte_offre")
+y = clients["accepte_offre"]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# 2-3. Modèle
+modele = LogisticRegression(max_iter=1000)
+modele.fit(X_train, y_train)
+print(f"Accuracy test : {modele.score(X_test, y_test):.3f}")
+```
+
+```{python}
+# 4. Probabilités des 10 premiers
+probas = modele.predict_proba(X_test.head(10))[:, 1]
+print("\n10 premiers clients :")
+for i, p in enumerate(probas):
+    print(f"  Client {i}: P(accepte) = {p:.3f}")
+
+n_high = (probas > 0.7).sum()
+print(f"\nClients à forte probabilité (> 0.7) : {n_high}")
+```
+
+```{python}
+# 5. Coefficients standardisés pour comparer
+from sklearn.preprocessing import StandardScaler
+
+scaler = StandardScaler()
+X_train_std = scaler.fit_transform(X_train)
+
+modele_std = LogisticRegression(max_iter=1000)
+modele_std.fit(X_train_std, y_train)
+
+print("\n=== Coefficients standardisés (classe 1) ===")
+coefs = pd.DataFrame({
+    "feature": X.columns,
+    "coef": modele_std.coef_[0]
+}).sort_values("coef", key=abs, ascending=False)
+print(coefs.to_string(index=False))
+```
+
+**Lecture** : les coefficients standardisés permettent de comparer. Un coefficient **positif** pousse vers la classe 1 (accepte), un coefficient **négatif** pousse vers la classe 0 (refuse).
+:::
+
+# 5. Régularisation en régression logistique
+
+**Bonne nouvelle** : les mêmes principes que pour la régression linéaire s'appliquent.
+
+Dans scikit-learn, `LogisticRegression` a **déjà** une régularisation **par défaut** (L2, Ridge) ! Contrôlée par `C` (inverse de α) :
+
+- `C = 1` : régularisation par défaut
+- `C > 1` : moins de régularisation
+- `C < 1` : plus de régularisation
+- `penalty="l1"` : Lasso à la place de Ridge
+
+```{python}
+# Comparaison C=1 vs C=0.01 (plus forte régularisation)
+np.random.seed(0)
+n, p = 100, 20
+X = np.random.randn(n, p)
+# Seulement les 3 premières features comptent
+y = (X[:, 0] + X[:, 1] - X[:, 2] > 0).astype(int)
+
+X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+for C in [100, 1, 0.01]:
+    mod = LogisticRegression(C=C, max_iter=1000)
+    mod.fit(X_tr, y_tr)
+    acc_tr = mod.score(X_tr, y_tr)
+    acc_te = mod.score(X_te, y_te)
+    print(f"C = {C:>6}: acc_train = {acc_tr:.3f}, acc_test = {acc_te:.3f}, coef_max = {np.abs(mod.coef_).max():.2f}")
+```
+
+Plus `C` est petit, plus les coefficients sont contenus, et moins il y a d'overfitting.
+
+# 🏁 Exercice bilan — Pipeline complet avec régularisation
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Dataset : prédiction du départ d'un client d'un service de streaming.
+
+```python
+np.random.seed(42)
+n = 1000
+
+clients = pd.DataFrame({
+    "age": np.random.randint(18, 75, n),
+    "anciennete_mois": np.random.exponential(20, n).clip(1, 120),
+    "nb_films_vus": np.random.poisson(40, n),
+    "note_moyenne": np.random.uniform(1, 5, n),
+    "prix_forfait": np.random.choice([5, 10, 15, 20], n),
+    "nb_reclamations": np.random.poisson(1, n),
+    "utilise_mobile": np.random.choice([0, 1], n, p=[0.3, 0.7]),
+})
+
+proba_churn = (
+    0.1
+    - 0.05 * (clients["note_moyenne"] > 3)
+    + 0.15 * (clients["nb_reclamations"] > 2)
+    - 0.1 * (clients["anciennete_mois"] > 24)
+    + 0.05 * (clients["prix_forfait"] > 10)
+).clip(0, 1)
+clients["churn"] = (np.random.random(n) < proba_churn).astype(int)
+```
+
+**Mission** :
+
+1. Diagnostique la cible : est-elle équilibrée ?
+2. Split stratifié 80/20, random_state=42.
+3. **Standardise** X (StandardScaler, fit sur train uniquement !).
+4. Compare **3 modèles** sur les mêmes données :
+   - `LogisticRegression(C=1)` (défaut)
+   - `LogisticRegression(C=100)` (peu de régularisation)
+   - `LogisticRegression(C=0.01)` (forte régularisation)
+5. Pour chacun : accuracy train, accuracy test, gap.
+6. Quel modèle garder ? Justifie.
+7. Affiche les **coefficients standardisés** du modèle gagnant. Quelle variable favorise le **plus le churn** ? Quelle variable le **prévient le plus** ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 1000
+
+clients = pd.DataFrame({
+    "age": np.random.randint(18, 75, n),
+    "anciennete_mois": np.random.exponential(20, n).clip(1, 120),
+    "nb_films_vus": np.random.poisson(40, n),
+    "note_moyenne": np.random.uniform(1, 5, n),
+    "prix_forfait": np.random.choice([5, 10, 15, 20], n),
+    "nb_reclamations": np.random.poisson(1, n),
+    "utilise_mobile": np.random.choice([0, 1], n, p=[0.3, 0.7]),
+})
+
+proba_churn = (
+    0.1
+    - 0.05 * (clients["note_moyenne"] > 3)
+    + 0.15 * (clients["nb_reclamations"] > 2)
+    - 0.1 * (clients["anciennete_mois"] > 24)
+    + 0.05 * (clients["prix_forfait"] > 10)
+).clip(0, 1)
+clients["churn"] = (np.random.random(n) < proba_churn).astype(int)
+
+# 1. Cible
+print(f"Taux de churn : {clients['churn'].mean()*100:.1f}%")
+print(clients["churn"].value_counts())
+```
+
+```{python}
+# 2. Split
+X = clients.drop(columns="churn")
+y = clients["churn"]
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42, stratify=y
+)
+
+# 3. Standardisation
+scaler = StandardScaler()
+X_train_std = scaler.fit_transform(X_train)
+X_test_std = scaler.transform(X_test)
+```
+
+```{python}
+# 4-5. Comparaison 3 modèles
+resultats = []
+for C in [1, 100, 0.01]:
+    mod = LogisticRegression(C=C, max_iter=1000)
+    mod.fit(X_train_std, y_train)
+    acc_tr = mod.score(X_train_std, y_train)
+    acc_te = mod.score(X_test_std, y_test)
+    resultats.append({
+        "C": C,
+        "acc_train": acc_tr,
+        "acc_test": acc_te,
+        "gap": acc_tr - acc_te
+    })
+
+print(pd.DataFrame(resultats).round(4).to_string(index=False))
+```
+
+**6. Quel modèle garder ?**
+
+On cherche celui avec :
+- Bon `acc_test`
+- Petit gap (peu d'overfitting)
+
+Les 3 modèles sont probablement proches ici (le dataset est simple et bien équilibré). En cas d'égalité, on prend le **plus régularisé** (C le plus faible) par principe de parcimonie — plus simple, plus robuste en production.
+
+```{python}
+# 7. Coefs du modèle gagnant (on prend C=1 par défaut)
+mod_final = LogisticRegression(C=1, max_iter=1000)
+mod_final.fit(X_train_std, y_train)
+
+coefs = pd.DataFrame({
+    "feature": X.columns,
+    "coef_std": mod_final.coef_[0]
+}).sort_values("coef_std", ascending=False)
+
+print("=== Coefficients standardisés ===")
+print(coefs.round(3).to_string(index=False))
+print(f"\nFavorise le plus le churn : {coefs.iloc[0]['feature']} (coef = +{coefs.iloc[0]['coef_std']:.3f})")
+print(f"Prévient le plus le churn : {coefs.iloc[-1]['feature']} (coef = {coefs.iloc[-1]['coef_std']:.3f})")
+```
+
+**Interprétation attendue** :
+- **Coef positif le plus fort** : probablement `nb_reclamations` — les plaignants partent plus
+- **Coef négatif le plus fort** : probablement `anciennete_mois` ou `note_moyenne` — les fidèles satisfaits restent
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Régression linéaire
+
+| Concept | Résumé |
+|---|---|
+| **But** | Prédire une valeur continue |
+| **Équation** | $\hat{y} = \beta_0 + \sum \beta_i x_i$ |
+| **Fonction de perte** | MSE (erreur quadratique moyenne) |
+| **Avantages** | Simple, rapide, interprétable |
+| **Limites** | Linéaire seulement, sensible aux outliers |
+| **Code** | `LinearRegression().fit(X, y)` |
+
+## 📋 Régression logistique
+
+| Concept | Résumé |
+|---|---|
+| **But** | Classification (binaire ou multi-classes) |
+| **Équation** | $P(y=1 | X) = \sigma(\beta_0 + \sum \beta_i x_i)$ |
+| **Fonction de perte** | Log-loss (cross-entropy) |
+| **Avantages** | Fournit des **probabilités**, interprétable |
+| **Limites** | Frontière linéaire seulement |
+| **Code** | `LogisticRegression().fit(X, y)` |
+
+## 🧠 Les 6 réflexes à prendre
+
+1. **Toujours standardiser** avant une régression quand tu veux comparer des coefficients
+2. **Toujours avoir une baseline** (LinearRegression ou LogisticRegression de base)
+3. **Vérifier l'overfitting** en comparant scores train et test
+4. **Utiliser `predict_proba`** en classification (pas juste `predict`)
+5. **Régulariser** dès que tu as beaucoup de features ou peu de données
+6. **Interpréter les coefficients** : le meilleur modèle est celui que tu peux expliquer
+
+## 🚨 Les pièges à éviter
+
+1. **Comparer coefficients bruts** (sans standardiser) → trompeur
+2. **Ignorer les outliers** → pente faussée
+3. **Multicolinéarité** → coefficients instables
+4. **Assumer une relation linéaire** alors qu'elle est courbe → underfitting
+5. **Oublier `max_iter`** en logistique → warnings et mauvaise convergence
+
+## 🚀 La suite
+
+Dans la [**Notion 4.3 — Arbres de décision et Random Forest**](notion_4_3_arbres_random_forest.qmd), on va voir :
+
+- Les **arbres de décision** : des modèles non-linéaires **par nature**
+- Comment ils gèrent **automatiquement** les features catégorielles et les non-linéarités
+- Pourquoi un seul arbre **overfit toujours** et comment y remédier
+- Les **Random Forests** : plusieurs arbres qui votent ensemble → l'un des modèles les plus robustes en ML
+
+C'est là que tu vas vraiment commencer à avoir des modèles **plus performants** qu'une simple régression.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends le dataset attrition RH du TP Module 3. Entraîne :
+
+1. Une `LogisticRegression` simple
+2. Une `LogisticRegression` avec régularisation forte (`C=0.01`)
+3. Compare les deux sur train et test.
+
+Puis affiche les **5 features les plus importantes** (en valeur absolue, coefficients standardisés). Tu comprendras mieux **pourquoi les employés partent** !
+:::
