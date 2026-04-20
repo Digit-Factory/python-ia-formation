@@ -1,0 +1,16 @@
+id_produit,nom_produit,categorie,prix_catalogue,fournisseur
+P001,T-shirt coton bio,Vêtements,25,Alpha SARL
+P002,Jeans slim,Vêtements,65,Beta Import
+P003,Pull laine merinos,Vêtements,85,Gamma Distribution
+P004,Chaussures running,Sport,120,Alpha SARL
+P005,Ballon de foot,Sport,30,Beta Import
+P006,Tapis de yoga,Sport,40,Gamma Distribution
+P007,Casque Bluetooth,Électronique,150,Beta Import
+P008,Enceinte portable,Électronique,80,Alpha SARL
+P009,Câble USB-C,Électronique,15,Gamma Distribution
+P010,Livre cuisine italienne,Livres,28,Alpha SARL
+P011,Roman policier,Livres,22,Alpha SARL
+P012,BD jeunesse,Livres,18,Beta Import
+P013,Crème hydratante,Beauté,35,Alpha SARL
+P014,Parfum floral,Beauté,75,Gamma Distribution
+P015,Rouge à lèvres,Beauté,22,Alpha SARL
