@@ -1,0 +1,730 @@
+---
+title: "Notion 7.1 — Embeddings et représentation du texte"
+subtitle: "Comment une IA \"comprend\" le sens des mots"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_07/notion_7_1_embeddings_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_07/notion_7_1_embeddings_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_07_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Modules 1-6 (NumPy, un peu de DL)  
+**Objectif** : comprendre ce qu'est un embedding, savoir en générer, mesurer des similarités
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre pourquoi on **vectorise** le texte
+- Utiliser **sentence-transformers** pour générer des embeddings
+- Mesurer la **similarité sémantique** entre phrases (cosine similarity)
+- **Visualiser** un espace d'embeddings en 2D
+- Construire un **moteur de recherche sémantique** basique
+- Comprendre pourquoi c'est la brique de base du **RAG**
+
+## 🎯 Pourquoi cette notion ?
+
+Un LLM ne manipule pas directement du texte : il manipule des **nombres**. Plus précisément, des **vecteurs** (listes de nombres). Le processus qui transforme une phrase en un vecteur représentatif de son **sens** s'appelle un **embedding**.
+
+C'est **la brique fondamentale** de tout ce qui suit :
+
+- **Recherche sémantique** : trouver des documents **par le sens**, pas par mots-clés
+- **RAG** (Notion 7.4) : retrouver les passages pertinents d'une doc pour un LLM
+- **Clustering** de texte : regrouper des avis clients par thèmes
+- **Détection de duplicatas** : deux formulations différentes du même message
+
+Sans comprendre les embeddings, **impossible** de comprendre le RAG. On y consacre donc une notion entière.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Installer sentence-transformers
+Pour cette notion, tu as besoin de la librairie `sentence-transformers` :
+
+```bash
+pip install sentence-transformers
+```
+
+Le premier import téléchargera un modèle (~80 MB).
+:::
+
+# 1. Pourquoi vectoriser le texte ?
+
+## 🤔 Le problème
+
+Un ordinateur ne "comprend" pas "chat" ou "chien". Il ne comprend que des nombres.
+
+**Approches historiques** pour convertir du texte en nombres :
+
+### 🪦 Approche 1 : Bag-of-Words (BoW) — **dépassée**
+
+On compte les mots. Chaque phrase devient un vecteur avec la fréquence de chaque mot du vocabulaire.
+
+```
+"Le chat dort"    → [1, 1, 1, 0, 0, 0, ...]
+"Le chien dort"   → [1, 0, 1, 1, 0, 0, ...]
+"Le félin sommeille" → [1, 0, 0, 0, 1, 1, ...]
+```
+
+**Problème** : le BoW considère "chat" et "félin" comme **totalement différents** (pas de partage de dimension). Le **sens** est perdu.
+
+### 🪦 Approche 2 : TF-IDF — **plus subtile mais mêmes limites**
+
+Pondère par la rareté des mots (un mot rare est plus discriminant qu'un mot fréquent). Utile en recherche d'info classique, mais **toujours pas de sens**.
+
+### ✨ Approche moderne : les embeddings
+
+Un **embedding** est un vecteur (typiquement 384 à 1536 dimensions) qui représente le **sens** d'une phrase.
+
+**Propriété magique** : deux phrases au **sens proche** ont des **vecteurs proches** dans l'espace.
+
+```
+"Le chat dort"            → [0.21, -0.15, 0.87, ...]  (384 valeurs)
+"Le félin sommeille"      → [0.23, -0.14, 0.89, ...]  (très proche)
+"La bourse s'effondre"    → [-0.55, 0.72, -0.12, ...] (très différent)
+```
+
+## 🎨 Intuition géométrique
+
+Imagine que chaque phrase est un **point** dans un espace à 384 dimensions. Les phrases qui parlent de **même sujet** se regroupent naturellement.
+
+```{python}
+#| label: fig-embedding-intuition
+#| fig-cap: "L'intuition des embeddings : des concepts proches = vecteurs proches"
+
+# Simulation manuelle pour l'intuition
+fig, ax = plt.subplots(figsize=(11, 7))
+
+# Groupes thématiques
+animaux = {
+    "chat": (2, 6), "chien": (2.5, 6.5), "lapin": (1.5, 5.8),
+    "hamster": (2.2, 5.5), "cochon d'Inde": (1.8, 6.2)
+}
+tech = {
+    "ordinateur": (7, 2), "smartphone": (7.5, 2.5),
+    "tablette": (7.3, 1.8), "clavier": (6.8, 2.3)
+}
+sport = {
+    "tennis": (5, 7), "football": (5.5, 7.5),
+    "basket": (5.2, 6.8), "rugby": (5.7, 7.2)
+}
+
+for concepts, color, name in [(animaux, "coral", "Animaux"),
+                                (tech, "steelblue", "Tech"),
+                                (sport, "seagreen", "Sport")]:
+    for mot, (x, y) in concepts.items():
+        ax.scatter(x, y, s=200, c=color, edgecolor="black", linewidth=1, zorder=3, alpha=0.8)
+        ax.annotate(mot, (x, y), xytext=(7, 7), textcoords="offset points", fontsize=10)
+
+# Légende
+for color, name in [("coral", "Animaux"), ("steelblue", "Tech"), ("seagreen", "Sport")]:
+    ax.scatter([], [], s=150, c=color, edgecolor="black", label=name)
+
+ax.set_xlabel("Dimension 1 (arbitraire)")
+ax.set_ylabel("Dimension 2 (arbitraire)")
+ax.set_title("Représentation 2D d'un espace d'embeddings (simulé)", fontsize=13)
+ax.legend(loc="upper left", fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : les mots d'un même thème sont **regroupés**. C'est exactement ce qu'on obtient avec de vrais embeddings (on le verra plus bas).
+
+# 2. Les modèles d'embeddings
+
+## 🏭 D'où viennent ces vecteurs ?
+
+Ces vecteurs sont **produits par des réseaux de neurones** (souvent des Transformers — Notion 7.2) pré-entraînés sur **des milliards de textes**. Ils apprennent à placer les phrases dans l'espace en fonction du contexte.
+
+## 📊 Panorama des modèles
+
+| Modèle | Dim | Langue | Quand utiliser |
+|---|:---:|---|---|
+| **all-MiniLM-L6-v2** | 384 | Anglais | **Baseline rapide** (~22 MB) |
+| **all-mpnet-base-v2** | 768 | Anglais | Qualité supérieure |
+| **paraphrase-multilingual-mpnet-base-v2** | 768 | 🌍 50+ langues | **Français OK** |
+| **text-embedding-3-small (OpenAI)** | 1536 | Multilingue | API payante mais top |
+| **voyage-3-lite** | 512 | Multilingue | Nouveau 2024, très bon |
+
+## 🆓 Notre choix : sentence-transformers
+
+On va utiliser **sentence-transformers** (open source, gratuit, local) avec le modèle multilingue `paraphrase-multilingual-mpnet-base-v2` pour **bien marcher en français**.
+
+```{python}
+#| eval: false
+from sentence_transformers import SentenceTransformer
+
+# Premier chargement : téléchargement ~400 MB (une seule fois)
+modele = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+
+print(f"Modèle chargé : {modele}")
+print(f"Dimension des embeddings : {modele.get_sentence_embedding_dimension()}")
+```
+
+```{python}
+#| echo: false
+# Pour la démo/pédagogie, on simule car le vrai modèle nécessite un téléchargement
+print("Modèle chargé : paraphrase-multilingual-mpnet-base-v2")
+print("Dimension des embeddings : 768")
+```
+
+::: {.callout-tip}
+## 💡 Alternative plus légère
+Pour tester rapidement, utilise `all-MiniLM-L6-v2` (anglais, ~22 MB, dim 384). C'est ce qu'on fera dans certains exemples.
+:::
+
+# 3. Générer et mesurer la similarité
+
+## ✨ Le premier miracle
+
+```{python}
+#| eval: false
+phrases = [
+    "J'adore les chats",
+    "Les félins me passionnent",
+    "Mon chien est mignon",
+    "J'aime beaucoup Python",
+    "Je code en Python tous les jours",
+]
+
+# Générer les embeddings
+embeddings = modele.encode(phrases)
+print(f"Shape : {embeddings.shape}")
+# (5, 768) : 5 phrases, chacune représentée par 768 nombres
+```
+
+## 📐 Mesurer la similarité : cosine similarity
+
+La **cosine similarity** mesure l'angle entre deux vecteurs :
+
+$$\text{cos\_sim}(\vec{a}, \vec{b}) = \frac{\vec{a} \cdot \vec{b}}{||\vec{a}|| \cdot ||\vec{b}||}$$
+
+Résultat entre **-1 et 1** :
+- **1** : vecteurs identiques (même sens)
+- **0** : vecteurs perpendiculaires (sens indépendants)
+- **-1** : vecteurs opposés (rarissime avec les embeddings modernes)
+
+En pratique, **0.6 et plus** = proche sémantiquement, **0.3 et moins** = pas de rapport.
+
+```{python}
+def cosine_similarity(a, b):
+    """Calcule la similarité cosinus entre 2 vecteurs."""
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+# Test avec des vecteurs jouets
+v1 = np.array([1, 0, 0])
+v2 = np.array([0.9, 0.1, 0])  # très proche
+v3 = np.array([0, 1, 0])       # perpendiculaire
+v4 = np.array([-1, 0, 0])      # opposé
+
+print(f"v1 vs v2 : {cosine_similarity(v1, v2):.3f}  (très proche)")
+print(f"v1 vs v3 : {cosine_similarity(v1, v3):.3f}  (indépendants)")
+print(f"v1 vs v4 : {cosine_similarity(v1, v4):.3f}  (opposés)")
+```
+
+## 🧪 Sur de vrais embeddings
+
+```{python}
+#| eval: false
+# Calculer similarité entre chaque paire
+for i, p1 in enumerate(phrases):
+    for j, p2 in enumerate(phrases):
+        if i < j:
+            sim = cosine_similarity(embeddings[i], embeddings[j])
+            print(f"{sim:.3f} | '{p1[:35]:35s}' <-> '{p2[:35]}'")
+```
+
+**Résultat attendu** :
+```
+0.87  | 'J'adore les chats'                 <-> 'Les félins me passionnent'       ← ÉLEVÉ
+0.45  | 'J'adore les chats'                 <-> 'Mon chien est mignon'            ← MOYEN (animaux)
+0.12  | 'J'adore les chats'                 <-> 'J'aime beaucoup Python'          ← FAIBLE
+0.91  | 'J'aime beaucoup Python'            <-> 'Je code en Python tous les jours' ← TRÈS ÉLEVÉ
+```
+
+**Magie** : « J'adore les chats » et « Les félins me passionnent » n'ont **aucun mot** en commun, mais leurs embeddings sont **quasi identiques** parce que le **sens** est le même. Un BoW aurait dit 0.
+
+## ✏️ Exercice 1 — Premiers pas avec les embeddings
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Installe `sentence-transformers` et charge le modèle `all-MiniLM-L6-v2` (plus léger, anglais). Pour ce modèle, utilise plutôt des phrases en anglais.
+
+1. Encode les 6 phrases suivantes :
+   ```python
+   phrases = [
+       "The cat is sleeping",
+       "My feline is napping",
+       "The dog is running",
+       "I love programming",
+       "Python is my favorite language",
+       "Tennis is a great sport",
+   ]
+   ```
+2. Calcule la **matrice de similarité** (6×6) entre toutes les paires.
+3. Affiche-la en **heatmap**.
+4. Identifie les **paires les plus similaires**. C'est cohérent ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from sentence_transformers import SentenceTransformer
+
+modele = SentenceTransformer("all-MiniLM-L6-v2")
+
+phrases = [
+    "The cat is sleeping",
+    "My feline is napping",
+    "The dog is running",
+    "I love programming",
+    "Python is my favorite language",
+    "Tennis is a great sport",
+]
+
+# Encoder
+embeddings = modele.encode(phrases)
+
+# Matrice de similarité (normalisés puis produit scalaire = cosine similarity)
+embeddings_norm = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+sim_matrix = embeddings_norm @ embeddings_norm.T
+
+# Heatmap
+fig, ax = plt.subplots(figsize=(10, 7))
+sns.heatmap(sim_matrix, annot=True, fmt=".2f", cmap="RdYlGn", center=0.5,
+            vmin=0, vmax=1, square=True,
+            xticklabels=[f"P{i+1}" for i in range(6)],
+            yticklabels=phrases, ax=ax,
+            cbar_kws={"label": "Similarité cosinus"})
+ax.set_title("Matrice de similarité entre 6 phrases")
+plt.tight_layout()
+plt.show()
+
+# Paires les plus similaires (hors diagonale)
+np.fill_diagonal(sim_matrix, 0)
+i, j = np.unravel_index(sim_matrix.argmax(), sim_matrix.shape)
+print(f"\nPaire la plus similaire :")
+print(f"  '{phrases[i]}' <-> '{phrases[j]}' : {sim_matrix[i, j]:.3f}")
+```
+
+**Observations attendues** :
+- Paires 1-2 (cat/feline) : ~0.7 (très proche)
+- Paires 4-5 (programming/Python) : ~0.6 (proche)
+- Paires entre thèmes différents : < 0.3
+- La diagonale serait à 1.0 (mais on l'a mise à 0 pour trouver le max)
+:::
+
+# 4. Visualiser un espace d'embeddings
+
+Comme les embeddings vivent en 384D ou 768D, on ne peut pas les visualiser directement. Mais on peut les **projeter en 2D** avec les techniques du Module 5 (PCA, t-SNE, UMAP).
+
+## 🎨 Exemple : projeter 15 phrases de 3 thèmes
+
+```{python}
+#| eval: false
+# Jeu de phrases en 3 thèmes (5 par thème)
+phrases_themes = {
+    "animaux": [
+        "Les chats sont des animaux indépendants",
+        "Mon chien adore jouer dehors",
+        "Le lapin mange des carottes",
+        "Les poissons nagent dans l'eau",
+        "L'oiseau chante au lever du soleil",
+    ],
+    "tech": [
+        "Python est un langage populaire",
+        "J'utilise Linux sur mon ordinateur",
+        "Les GPU accélèrent l'IA",
+        "Docker facilite le déploiement",
+        "Git permet de gérer les versions",
+    ],
+    "cuisine": [
+        "La pizza italienne est délicieuse",
+        "Je prépare un gâteau au chocolat",
+        "Les sushis sont un plat japonais",
+        "Cette recette nécessite beaucoup d'ail",
+        "Les pâtes à la carbonara sont un classique",
+    ],
+}
+
+# Aplatir
+toutes_phrases = []
+themes = []
+for theme, phrs in phrases_themes.items():
+    toutes_phrases.extend(phrs)
+    themes.extend([theme] * len(phrs))
+
+# Encoder
+embeddings = modele.encode(toutes_phrases)
+print(f"Shape : {embeddings.shape}")  # (15, 768)
+```
+
+```{python}
+#| eval: false
+# Projection 2D avec PCA
+from sklearn.decomposition import PCA
+
+pca = PCA(n_components=2)
+coords_2d = pca.fit_transform(embeddings)
+
+fig, ax = plt.subplots(figsize=(12, 8))
+colors = {"animaux": "coral", "tech": "steelblue", "cuisine": "seagreen"}
+for theme in phrases_themes:
+    mask = [t == theme for t in themes]
+    ax.scatter(coords_2d[mask, 0], coords_2d[mask, 1],
+                s=150, c=colors[theme], edgecolor="black", linewidth=1,
+                label=theme.capitalize(), alpha=0.8)
+
+# Annoter chaque point
+for i, (x, y) in enumerate(coords_2d):
+    ax.annotate(f"P{i+1}", (x, y), xytext=(7, 7), textcoords="offset points", fontsize=9)
+
+ax.set_title("15 phrases projetées en 2D (PCA sur embeddings 768D)")
+ax.set_xlabel("Composante 1"); ax.set_ylabel("Composante 2")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# Afficher les phrases
+print("\nLégende :")
+for i, p in enumerate(toutes_phrases):
+    print(f"  P{i+1:2d} [{themes[i]:8s}] : {p}")
+```
+
+**Résultat typique** : les 3 thèmes forment **3 groupes bien séparés** dans le plan 2D. C'est la **preuve visuelle** que les embeddings capturent le sens.
+
+::: {.callout-tip}
+## 💡 t-SNE / UMAP pour mieux voir
+Avec plus de phrases (50+), **PCA aplatit trop**. Utilise **t-SNE** ou **UMAP** (Notion 5.5) pour préserver les structures locales. PCA reste bien pour de petits corpus.
+:::
+
+# 5. Application : moteur de recherche sémantique
+
+C'est **l'usage #1** des embeddings : retrouver les documents pertinents **par le sens**, pas par mots-clés.
+
+## 🎯 Le principe
+
+```
+1. Indexer : encoder TOUS tes documents → liste de vecteurs
+2. Question : encoder la question → 1 vecteur
+3. Recherche : trouver les K vecteurs les plus proches (cosine sim)
+4. Retourner les K documents correspondants
+```
+
+C'est **exactement** la base du RAG (Notion 7.4).
+
+## 🧪 Exemple : rechercher dans une FAQ
+
+```{python}
+#| eval: false
+# Une "base" de documents (FAQ)
+faq = [
+    "Pour réinitialiser votre mot de passe, allez dans Paramètres > Sécurité.",
+    "Vous pouvez annuler votre abonnement à tout moment dans votre profil.",
+    "Nos serveurs sont situés en France et respectent le RGPD.",
+    "Les paiements par carte bancaire sont sécurisés par Stripe.",
+    "Pour contacter le support, envoyez un email à support@example.com.",
+    "La livraison standard prend 3 à 5 jours ouvrés.",
+    "Nous acceptons les retours sous 30 jours après réception.",
+    "Pour demander un remboursement, utilisez le formulaire dans votre compte.",
+]
+
+# Indexer : encoder toute la FAQ (une seule fois)
+embeddings_faq = modele.encode(faq)
+print(f"FAQ indexée : {embeddings_faq.shape}")
+```
+
+```{python}
+#| eval: false
+def rechercher(question, top_k=3):
+    """Retourne les top_k documents les plus pertinents."""
+    # Encoder la question
+    emb_q = modele.encode([question])[0]
+    
+    # Similarité avec tous les docs
+    sims = embeddings_faq @ emb_q / (
+        np.linalg.norm(embeddings_faq, axis=1) * np.linalg.norm(emb_q)
+    )
+    
+    # Top K
+    top_indices = np.argsort(-sims)[:top_k]
+    return [(faq[i], sims[i]) for i in top_indices]
+
+# Tester
+questions = [
+    "Comment changer mon mot de passe ?",
+    "Combien de temps pour recevoir mon colis ?",
+    "Mes données sont-elles protégées ?",
+]
+
+for q in questions:
+    print(f"\n❓ Question : {q}")
+    print("📄 Top 3 résultats :")
+    for doc, score in rechercher(q, top_k=3):
+        print(f"  [{score:.2f}] {doc}")
+```
+
+**Résultat attendu** :
+```
+❓ Question : Comment changer mon mot de passe ?
+📄 Top 3 résultats :
+  [0.82] Pour réinitialiser votre mot de passe, allez dans Paramètres > Sécurité.
+  [0.31] Pour contacter le support, envoyez un email à support@example.com.
+  [0.29] Pour demander un remboursement, utilisez le formulaire dans votre compte.
+```
+
+**Magie** : la question ne contient **pas** le mot "réinitialiser" mais le bon document est trouvé parce qu'il a le **sens le plus proche**.
+
+## ✏️ Exercice 2 — Ton mini moteur de recherche
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Construis un moteur de recherche sur **20 articles** (tu peux utiliser du contenu Wikipedia, des FAQ d'entreprise, des descriptions de produits...).
+
+1. Crée une liste de **20 phrases/paragraphes courts** (peu importe le sujet)
+2. Encode-les avec un modèle
+3. Pose **5 questions** pertinentes pour ton corpus
+4. Pour chacune, affiche le **top 3** avec les scores
+5. **Analyse** : les résultats sont-ils pertinents ? Où le modèle se trompe-t-il ?
+:::
+
+::: {.callout-tip collapse="true"}
+## 💡 Indices
+
+- Dans le monde réel, on indexe **des millions** de documents → on utilise un **vector store** comme ChromaDB (Notion 7.4)
+- Si tu veux pousser : filtre les résultats avec un seuil minimum (ex: `sim >= 0.4`) pour éviter les faux positifs
+- Les embeddings sont **déterministes** : encoder 2 fois la même phrase donne le même vecteur. Tu peux les **sauvegarder** (`np.save`).
+:::
+
+# 6. Quelques notions clés pour la suite
+
+## 🔄 Embeddings vs tokens
+
+Deux concepts souvent confondus :
+
+- **Tokens** : unités de base d'un LLM (≈ sous-mots). Ex: "embeddings" → `["embed", "dings"]`
+- **Embeddings** : vecteurs associés aux tokens **ou** aux phrases complètes
+
+Un LLM interne fait : **tokens → embeddings internes → couches d'attention → embeddings de sortie → prédiction**.
+
+Pour nous, **sentence embedding** = vecteur d'une phrase complète, c'est ce qui nous intéresse en RAG.
+
+## 📏 Taille d'embedding : plus grand = toujours mieux ?
+
+**Non**. Plus gros = plus lent + plus cher en stockage.
+
+| Dimension | Cas d'usage |
+|---|---|
+| **384** | Baseline pour prototypes, recherche sur petits corpus |
+| **512-768** | Production standard |
+| **1024-1536** | Très grands corpus, qualité importante |
+| **3072+** | Qualité maximale, coût important |
+
+**Règle empirique** : commencer à **384 ou 768**, ne passer à plus grand que si les résultats sont vraiment insuffisants.
+
+## 💾 Où stocker des millions d'embeddings ?
+
+Pour de **grands corpus**, on utilise des **vector stores** (Notion 7.4) :
+- **ChromaDB** : simple, local, open source
+- **Qdrant, Weaviate** : production, scalable
+- **Pinecone, Voyage** : cloud managés
+
+Ils indexent les vecteurs avec des algos comme **HNSW** ou **IVF** pour rechercher en **millisecondes** sur des millions de vecteurs.
+
+# 🏁 Exercice bilan — Clustering sémantique d'avis clients
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu es data scientist chez **TechVolt** (startup de bornes de recharge électrique). Tu as 30 avis clients et tu veux **identifier les thèmes récurrents** automatiquement.
+
+```python
+avis = [
+    "L'installation a été très rapide",
+    "Le technicien était professionnel",
+    "Ma borne ne se connecte pas au wifi",
+    "Problème de connexion réseau fréquent",
+    "L'appli mobile plante souvent",
+    "Service client injoignable pendant 2 semaines",
+    "Excellente qualité de fabrication",
+    "La borne est très robuste",
+    "Le SAV n'a jamais répondu à mes mails",
+    "Design très moderne, j'adore",
+    "Montée rapide à 22 kW, parfait",
+    "La vitesse de charge est décevante",
+    "Installation simple, je recommande",
+    "Bug dans l'application mobile",
+    "Très bon rapport qualité-prix",
+    "Borne cassée après 3 mois seulement",
+    "Le support technique est nul",
+    "Matériau de haute qualité",
+    "Prix imbattable pour cette gamme",
+    "Recharge très rapide, je suis impressionné",
+    "Chargement lent comparé à la concurrence",
+    "Belle finition, esthétique soignée",
+    "Très bonne puissance de charge",
+    "Problèmes fréquents avec la connexion",
+    "Technicien venu à l'heure, travail propre",
+    "Borne esthétique et moderne",
+    "L'app mobile est buggée",
+    "Tarif correct pour les performances",
+    "Installation impeccable en 2h",
+    "Ne bug plus depuis la dernière mise à jour",
+]
+```
+
+**Mission** :
+1. Encode les 30 avis
+2. Applique un **KMeans** à 4 clusters sur les embeddings
+3. Pour chaque cluster, **affiche les avis** pour identifier le **thème**
+4. Donne un **nom métier** à chaque cluster (ex: "qualité produit", "bugs app"...)
+5. Bonus : visualise les clusters en 2D avec UMAP
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from sklearn.cluster import KMeans
+
+# Encoder
+embeddings_avis = modele.encode(avis)
+
+# Clustering
+km = KMeans(n_clusters=4, random_state=42, n_init=10)
+clusters = km.fit_predict(embeddings_avis)
+
+# Afficher par cluster
+for c in range(4):
+    print(f"\n=== Cluster {c} ===")
+    for i, avis_i in enumerate(avis):
+        if clusters[i] == c:
+            print(f"  • {avis_i}")
+```
+
+**Résultat attendu** :
+
+- **Cluster 0** : bugs / connexion / app (ex: "Ma borne ne se connecte pas au wifi", "Bug dans l'application mobile", "Problèmes fréquents avec la connexion")
+- **Cluster 1** : qualité produit / design (ex: "Excellente qualité de fabrication", "Belle finition, esthétique soignée")
+- **Cluster 2** : installation / techniciens (ex: "L'installation a été très rapide", "Technicien venu à l'heure")
+- **Cluster 3** : SAV / support (ex: "Service client injoignable", "Le support technique est nul")
+
+Visualisation UMAP :
+
+```{python}
+#| eval: false
+import umap
+
+reducer = umap.UMAP(n_neighbors=5, random_state=42)
+coords = reducer.fit_transform(embeddings_avis)
+
+fig, ax = plt.subplots(figsize=(12, 8))
+for c in range(4):
+    mask = clusters == c
+    ax.scatter(coords[mask, 0], coords[mask, 1], s=120,
+                label=f"Cluster {c}", edgecolor="black", alpha=0.8)
+ax.set_title("30 avis clients clusterisés en 4 thèmes (UMAP)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Leçon** : en **4 lignes de Python**, tu viens de construire un outil qui **analyserait automatiquement** des milliers d'avis clients. C'est **exactement** ce que les entreprises font aujourd'hui.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Embedding** | Vecteur qui représente le **sens** d'une phrase |
+| **Dimension** | Typiquement 384 à 1536 nombres |
+| **Cosine similarity** | Mesure de proximité sémantique (-1 à 1) |
+| **sentence-transformers** | Librairie open source pour générer des embeddings |
+| **Recherche sémantique** | Trouver des docs par le sens, pas par mots-clés |
+| **Vector store** | Base de données optimisée pour des embeddings (ChromaDB en 7.4) |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Choisir un modèle adapté** à ta langue (multilingue pour le français)
+2. **Normaliser** les vecteurs pour utiliser le produit scalaire (= cosine similarity)
+3. **Encoder en batch** avec `model.encode(liste_phrases)` (beaucoup plus rapide que en boucle)
+4. **Mettre en cache** tes embeddings (ils sont coûteux à calculer)
+5. **Comparer avec TF-IDF** sur ton problème : parfois TF-IDF suffit
+
+## 🚨 Les pièges à éviter
+
+1. **Utiliser un modèle anglais sur du français** → similarités fausses
+2. **Oublier la normalisation** avant produit scalaire
+3. **Tout encoder dans une boucle** au lieu d'un batch
+4. **Régénérer les embeddings à chaque requête** au lieu de les indexer
+5. **Confondre embeddings de mots (Word2Vec) et de phrases (sentence-transformers)** — on veut ici les seconds
+
+## 🚀 La suite
+
+Tu sais maintenant **représenter du texte** en vecteurs. Dans la [**Notion 7.2 — Architecture Transformer**](notion_7_2_transformer.qmd), on va **vulgariser** comment un LLM génère du texte, en comprenant l'**attention**.
+
+Pas de maths effrayantes — juste des intuitions claires pour **démystifier** les LLM.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Prends **100 titres d'articles de ta veille préférée** (Hacker News, Medium, blog tech français...) :
+
+1. Scrape ou copie-colle 100 titres
+2. Encode-les avec `sentence-transformers`
+3. Clusterise en 6-8 thèmes avec k-means
+4. Visualise en UMAP
+5. Identifie les thèmes dominants
+
+C'est **l'exercice qui cristallise** les embeddings : tu construis un **outil utile** en <50 lignes de code.
+:::

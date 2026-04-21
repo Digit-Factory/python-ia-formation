@@ -1,0 +1,107 @@
+---
+title: "Module 7 — LLM et IA générative"
+subtitle: "Comprendre et utiliser ChatGPT, Claude et leurs frères"
+---
+
+## 🎯 Pourquoi ce module ?
+
+En 2026, ne pas savoir utiliser les **LLM** (Large Language Models), c'est comme ne pas savoir utiliser un tableur il y a 20 ans.
+
+- Les **chatbots** sont partout (support, ventes, recrutement...)
+- Les **LLM** rédigent, traduisent, résument, codent
+- Le **RAG** (Retrieval-Augmented Generation) permet de brancher un LLM sur **ta** documentation privée
+- Les **agents** combinent LLM + outils pour **agir** et pas juste **répondre**
+
+Ce module te fait passer de "utilisateur" de ChatGPT à **ingénieur·e IA générative** — capable de concevoir, construire et déployer des systèmes basés sur des LLM.
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre ce qu'est un **embedding** et savoir en générer
+- Comprendre l'**intuition** des Transformers (sans te noyer dans les maths)
+- **Appeler un LLM via API** proprement (prompts, streaming, structured output)
+- Construire un système **RAG** complet sur ta propre doc
+- Créer un **agent** qui utilise des outils externes (tool-use)
+- Savoir **quand** et **comment** fine-tuner un modèle (LoRA)
+- Livrer un **chatbot professionnel** de bout en bout
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **7.1** | [Embeddings et représentation du texte](notion_7_1_embeddings.qmd) | 3-4 h |
+| **7.2** | Architecture Transformer (vulgarisation) _(à venir)_ | 3 h |
+| **7.3** | Utiliser un LLM via API _(à venir)_ | 3-4 h |
+| **7.4** | RAG : brancher un LLM sur ses docs _(à venir)_ | 4-5 h |
+| **7.5** | Agents et tool-use _(à venir)_ | 3-4 h |
+| **7.6** | Fine-tuning & LoRA _(à venir)_ | 3 h |
+| **🎓 TP** | Chatbot RAG pour TechVolt _(à venir)_ | 10-12 h |
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local
+
+<a href="../../ressources_eleves/module_07_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 7 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Chaque notion a son bouton **Ouvrir dans Colab**.
+:::
+
+:::
+
+## 🆓 LLM gratuit pour tout le module : Groq
+
+::: {.callout-important}
+## 🎁 Pour ce module, tu as besoin d'une clé API
+
+Nous utilisons **Groq** comme provider LLM :
+- ✅ **100% gratuit** (free tier très généreux : 14 400 requêtes/jour)
+- ⚡ **Ultra rapide** (Groq est connu pour son inférence éclair)
+- 🚀 **Llama 3.3 70B** : comparable à GPT-4 de 2023
+- 🔧 **Compatible SDK OpenAI** : tu pourras passer à OpenAI/Anthropic en changeant 2 lignes
+
+### Comment obtenir ta clé ?
+
+1. Va sur [https://console.groq.com](https://console.groq.com)
+2. Crée un compte (gratuit, GitHub ou email)
+3. Dans **API Keys** → **Create API Key**
+4. Copie la clé (elle commence par `gsk_...`) et **garde-la précieusement**
+5. Stocke-la dans une variable d'environnement `GROQ_API_KEY`
+:::
+
+::: {.callout-tip}
+## 🔒 Alternative 100% locale : Ollama
+Si tu préfères **tout faire en local** (pas d'API, pas de cloud) :
+- Installe [Ollama](https://ollama.com)
+- Télécharge un modèle : `ollama pull llama3.2`
+- Le code Python sera **quasi identique**, je te montre comment en 7.3
+
+Inconvénient : plus lent que Groq et nécessite un PC correct (8+ GB de RAM).
+:::
+
+## 💡 Approche pédagogique
+
+Les LLM ont mauvaise réputation de "boîte noire magique". On va **démystifier** avec :
+
+1. **Intuitions visuelles** des embeddings (on va voir des vecteurs qui se regroupent par sens)
+2. **Transformer vulgarisé** (juste l'intuition d'attention, pas 40 équations)
+3. **Code simple** avec le SDK officiel (pas de 10 couches d'abstraction LangChain pour commencer)
+4. **Projet réel** : un chatbot qui marche et qu'on peut déployer
+
+::: {.callout-tip}
+## 🎯 Conseil important
+Le domaine des LLM **évolue chaque mois**. Ce module t'apprend les **fondamentaux stables** (embeddings, RAG, tool-use) — tu pourras après suivre n'importe quelle nouveauté (GPT-5, Claude 5, Gemini 3...) sans problème.
+:::
+
+---
+
+[**→ Commencer par la Notion 7.1 : Embeddings**](notion_7_1_embeddings.qmd)

@@ -619,7 +619,11 @@ Les **learning curves** répondent à ces questions en traçant la performance *
 ```{python}
 from sklearn.model_selection import learning_curve
 
-modele_lc = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
+# X contient des colonnes catégorielles → on réutilise le pipeline (preprocess + modèle)
+modele_lc = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42))
+])
 
 # learning_curve : découpe le train en sous-ensembles de tailles croissantes
 train_sizes, train_scores, val_scores = learning_curve(
@@ -703,8 +707,11 @@ niveau élevé
 #| label: fig-lc-overfit
 #| fig-cap: "Exemple d'overfitting sur learning curve"
 
-# Modèle volontairement sur-complexe
-modele_over = RandomForestClassifier(n_estimators=500, max_depth=None, min_samples_leaf=1, random_state=42)
+# Modèle volontairement sur-complexe (toujours dans un pipeline pour gérer les catégorielles)
+modele_over = Pipeline([
+    ("preprocess", preprocessor),
+    ("clf", RandomForestClassifier(n_estimators=500, max_depth=None, min_samples_leaf=1, random_state=42))
+])
 
 train_sizes2, train_scores2, val_scores2 = learning_curve(
     modele_over, X, y, train_sizes=np.linspace(0.1, 1.0, 10), cv=5,

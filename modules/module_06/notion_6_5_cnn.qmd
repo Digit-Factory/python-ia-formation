@@ -77,6 +77,10 @@ from torch.utils.data import DataLoader, TensorDataset
 import torchvision
 import torchvision.transforms as transforms
 
+import tempfile, os
+# Répertoire temporaire cross-platform (Windows/Linux/Mac) pour télécharger les datasets
+DATA_ROOT = tempfile.gettempdir()
+
 sns.set_theme(style="whitegrid")
 plt.rcParams['figure.figsize'] = (10, 5)
 np.random.seed(42)
@@ -397,10 +401,10 @@ transform = transforms.Compose([
 
 # Datasets (téléchargement auto la 1ère fois)
 train_set = torchvision.datasets.MNIST(
-    root="/tmp/mnist", train=True, download=True, transform=transform
+    root=os.path.join(DATA_ROOT, "mnist"), train=True, download=True, transform=transform
 )
 test_set = torchvision.datasets.MNIST(
-    root="/tmp/mnist", train=False, download=True, transform=transform
+    root=os.path.join(DATA_ROOT, "mnist"), train=False, download=True, transform=transform
 )
 
 print(f"Train : {len(train_set)} images")
@@ -624,10 +628,10 @@ transform_fmnist = transforms.Compose([
 ])
 
 f_train = torchvision.datasets.FashionMNIST(
-    root="/tmp/fmnist", train=True, download=True, transform=transform_fmnist
+    root=os.path.join(DATA_ROOT, "fmnist"), train=True, download=True, transform=transform_fmnist
 )
 f_test = torchvision.datasets.FashionMNIST(
-    root="/tmp/fmnist", train=False, download=True, transform=transform_fmnist
+    root=os.path.join(DATA_ROOT, "fmnist"), train=False, download=True, transform=transform_fmnist
 )
 
 print(f"Classes Fashion-MNIST : {f_train.classes}")
@@ -696,7 +700,7 @@ transform_test = transforms.Compose([
 
 # Train avec augmentation, test sans
 train_aug = torchvision.datasets.MNIST(
-    root="/tmp/mnist", train=True, download=True, transform=transform_augment
+    root=os.path.join(DATA_ROOT, "mnist"), train=True, download=True, transform=transform_augment
 )
 
 print(f"✅ Dataset avec augmentation créé")
@@ -868,10 +872,10 @@ transform_fmnist_test = transforms.Compose([
 ])
 
 f_train_aug = torchvision.datasets.FashionMNIST(
-    root="/tmp/fmnist", train=True, download=True, transform=transform_fmnist_aug
+    root=os.path.join(DATA_ROOT, "fmnist"), train=True, download=True, transform=transform_fmnist_aug
 )
 f_test_t = torchvision.datasets.FashionMNIST(
-    root="/tmp/fmnist", train=False, download=True, transform=transform_fmnist_test
+    root=os.path.join(DATA_ROOT, "fmnist"), train=False, download=True, transform=transform_fmnist_test
 )
 
 f_train_loader = DataLoader(f_train_aug, batch_size=128, shuffle=True)
@@ -997,7 +1001,7 @@ Entraîne un **CNN sur CIFAR-10** (10 classes d'objets en couleur, 32×32 RGB) :
 
 ```python
 train_cifar = torchvision.datasets.CIFAR10(
-    root="/tmp/cifar", train=True, download=True,
+    root=os.path.join(DATA_ROOT, "cifar"), train=True, download=True,
     transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))

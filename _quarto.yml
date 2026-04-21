@@ -66,6 +66,16 @@ book:
         - modules/module_06/notion_6_5_cnn.qmd
         - modules/module_06/notion_6_6_transfer.qmd
         - modules/module_06/tp_sommatif.qmd
+    - part: "Axe 3 — Industrialisation"
+      chapters:
+        - modules/module_07/index.qmd
+        - modules/module_07/notion_7_1_embeddings.qmd
+        # - modules/module_07/notion_7_2_transformer.qmd
+        # - modules/module_07/notion_7_3_api_llm.qmd
+        # - modules/module_07/notion_7_4_rag.qmd
+        # - modules/module_07/notion_7_5_agents.qmd
+        # - modules/module_07/notion_7_6_finetuning.qmd
+        # - modules/module_07/tp_sommatif.qmd
   # Bas de page
   page-footer:
     left: "© 2026 — Loïc PILET"

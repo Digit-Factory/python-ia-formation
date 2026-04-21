@@ -3,6 +3,12 @@ _build/
 _freeze/
 .quarto/
 
+# Ressources élèves : regénérées par build
+ressources_eleves/*.zip
+
+# Datasets volumineux du Module 6 : regénérables par script
+modules/module_06/ressources_tp/pieces/
+
 # Python
 __pycache__/
 *.pyc

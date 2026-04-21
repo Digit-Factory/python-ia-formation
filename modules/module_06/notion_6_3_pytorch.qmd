@@ -560,8 +560,13 @@ print(f"\nAccuracy test : {all_correct / total:.3f}")
 ## 💾 Sauvegarder les poids
 
 ```{python}
+import tempfile, os
+
+# Chemin cross-platform (Windows/Linux/Mac)
+chemin_modele = os.path.join(tempfile.gettempdir(), "mon_mlp.pth")
+
 # Sauvegarde (seulement les poids, pas l'architecture)
-torch.save(modele.state_dict(), "/tmp/mon_mlp.pth")
+torch.save(modele.state_dict(), chemin_modele)
 print("Modèle sauvegardé ✅")
 ```
 
@@ -571,7 +576,7 @@ print("Modèle sauvegardé ✅")
 # Recréer l'architecture identique
 modele_charge = MLP(n_input=2, n_hidden=8, n_output=1)
 # Charger les poids
-modele_charge.load_state_dict(torch.load("/tmp/mon_mlp.pth"))
+modele_charge.load_state_dict(torch.load(chemin_modele))
 modele_charge.eval()  # important !
 
 # Vérifier que c'est le même
@@ -912,9 +917,10 @@ with torch.no_grad():
 print(f"Accuracy test : {acc_test:.3f}")
 
 # 8. Sauvegarder et recharger
-torch.save(modele.state_dict(), "/tmp/mlp3.pth")
+chemin_mlp3 = os.path.join(tempfile.gettempdir(), "mlp3.pth")
+torch.save(modele.state_dict(), chemin_mlp3)
 modele2 = MLP3(n_input=10, n_classes=3)
-modele2.load_state_dict(torch.load("/tmp/mlp3.pth"))
+modele2.load_state_dict(torch.load(chemin_mlp3))
 modele2.eval()
 with torch.no_grad():
     acc_check = (modele2(X_te_t).argmax(dim=1) == y_te_t).float().mean().item()
