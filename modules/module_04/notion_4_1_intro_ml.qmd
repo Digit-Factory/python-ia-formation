@@ -718,12 +718,35 @@ Si ton modèle ne bat pas cette baseline, il n'a **aucune valeur**.
 
 ```{python}
 # Exemple : baseline en régression
-baseline_pred = np.full_like(y_test, y_train.mean(), dtype=float)
-mae_baseline = mean_absolute_error(y_test, baseline_pred)
+# On reprend ici le dataset appartements du début de la notion pour une démonstration autonome
+np.random.seed(42)
+n = 200
+data_demo = pd.DataFrame({
+    "surface": np.random.normal(60, 20, n).clip(20, 150),
+    "nb_pieces": np.random.randint(1, 6, n),
+    "etage": np.random.randint(0, 10, n)
+})
+data_demo["prix"] = (
+    2500 * data_demo["surface"] + 15000 * data_demo["nb_pieces"]
+    + 3000 * data_demo["etage"] + np.random.normal(0, 20000, n)
+).round().astype(int)
+
+X_demo = data_demo[["surface", "nb_pieces", "etage"]]
+y_demo = data_demo["prix"]
+X_tr_d, X_te_d, y_tr_d, y_te_d = train_test_split(X_demo, y_demo, test_size=0.2, random_state=42)
+
+modele_demo = LinearRegression()
+modele_demo.fit(X_tr_d, y_tr_d)
+y_pred_demo = modele_demo.predict(X_te_d)
+
+# Baseline : prédire toujours la moyenne de y_train
+baseline_pred = np.full_like(y_te_d, y_tr_d.mean(), dtype=float)
+mae_baseline = mean_absolute_error(y_te_d, baseline_pred)
+mae_modele = mean_absolute_error(y_te_d, y_pred_demo)
 
 print(f"MAE baseline (moyenne) : {mae_baseline:,.0f} €")
-print(f"MAE notre modèle       : {mean_absolute_error(y_test, y_pred):,.0f} €")
-print(f"Réduction d'erreur     : {(1 - mean_absolute_error(y_test, y_pred) / mae_baseline) * 100:.1f}%")
+print(f"MAE notre modèle       : {mae_modele:,.0f} €")
+print(f"Réduction d'erreur     : {(1 - mae_modele / mae_baseline) * 100:.1f}%")
 ```
 
 Notre modèle fait beaucoup mieux que la baseline → **il a de la valeur**. ✅
