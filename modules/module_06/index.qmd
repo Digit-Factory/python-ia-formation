@@ -35,8 +35,9 @@ C'est la technologie derrière : ChatGPT, la reconnaissance faciale, la traducti
 | **6.3** | [PyTorch : le framework](notion_6_3_pytorch.qmd) | 4-5 h |
 | **6.4** | [Techniques d'entraînement](notion_6_4_entrainement.qmd) | 3-4 h |
 | **6.5** | [CNN pour la vision](notion_6_5_cnn.qmd) | 4-5 h |
-| **6.6** | Transfer learning _(à venir)_ | 3 h |
-| **🎓 TP** | Classification d'images _(à venir)_ | 10-12 h |
+| **6.6** | [Transfer learning](notion_6_6_transfer.qmd) | 3 h |
+| **🎓 TP** | [Classification d'images industrielles](tp_sommatif.qmd) | 10-12 h |
+
 
 ## 📦 Récupère tes ressources pratiques
 

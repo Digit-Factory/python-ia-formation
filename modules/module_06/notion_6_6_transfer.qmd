@@ -1,0 +1,908 @@
+---
+title: "Notion 6.6 — Transfer Learning"
+subtitle: "Réutiliser des modèles pré-entraînés : 95% d'accuracy avec 100 images"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_6_transfer_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_6_transfer_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notion 6.5 (CNN)  
+**Objectif** : maîtriser le transfer learning, la technique la plus utilisée en vision par ordinateur en entreprise
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Charger des **modèles pré-entraînés** depuis torchvision
+- **Geler** ou **dégelér** des couches pour entraîner seulement ce qu'on veut
+- Faire du **feature extraction** : remplacer uniquement la tête du modèle
+- Faire du **fine-tuning** : ré-entraîner légèrement le modèle complet
+- Obtenir **95%+ d'accuracy** avec **100-500 images seulement**
+- Choisir entre feature extraction et fine-tuning selon ton cas
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as construit des CNN from scratch en 6.5. Excellent pour comprendre. **Mais en vrai projet** :
+
+- Tu as souvent **quelques centaines d'images**, pas des millions
+- Tu n'as **ni le temps ni la machine** pour entraîner un ResNet-50 (1 semaine sur 8 GPUs)
+- Le modèle from scratch **overfit** terriblement avec peu de données
+
+**La solution** : réutiliser un modèle **déjà entraîné** sur un gros dataset (ImageNet = 14 millions d'images, 1000 classes) et **l'adapter** à ton problème.
+
+C'est le **transfer learning**. **80% des projets vision en production** l'utilisent.
+
+**Exemple concret** : une startup veut classifier 5 types de défauts sur des pièces métalliques. Elle a 300 photos. Avec transfer learning → modèle à 97% en 30 minutes. Sans → galère à 75% après des semaines.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, Subset
+import torchvision
+import torchvision.transforms as transforms
+from torchvision import models
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+torch.manual_seed(42)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"✅ PyTorch {torch.__version__}, device : {device}")
+```
+
+# 1. L'intuition du transfer learning
+
+## 🧠 Comment un CNN voit le monde
+
+Dans un CNN entraîné sur ImageNet, les couches apprennent **hiérarchiquement** :
+
+- **Couches basses** (conv1, conv2) : **contours, textures, couleurs**
+- **Couches moyennes** (conv3, conv4) : **formes, parties d'objets** (roues, yeux)
+- **Couches hautes** (conv5) : **objets complets, concepts**
+- **Tête FC** : mapping vers les classes spécifiques (ImageNet a 1000 classes)
+
+**Observation clé** : les **couches basses et moyennes** apprennent des **features universelles**, utiles pour **n'importe quelle tâche vision**.
+
+## 💡 L'idée
+
+On prend un modèle pré-entraîné et on **garde les features** qu'il a apprises. On **change juste la tête** pour nos classes.
+
+```{python}
+#| label: fig-transfer-idea
+#| fig-cap: "Transfer learning : garder les features, remplacer la tête"
+
+fig, ax = plt.subplots(figsize=(14, 5))
+ax.set_xlim(-0.5, 10.5); ax.set_ylim(-1, 4.5)
+ax.axis("off")
+
+# Box pour le modèle pré-entraîné
+ax.add_patch(plt.Rectangle((0.5, 0.5), 5, 3, facecolor="lightblue", 
+                             edgecolor="black", linewidth=2))
+ax.text(3, 3.2, "Modèle pré-entraîné (ResNet)", ha="center", fontsize=12, fontweight="bold")
+ax.text(3, 2.5, "conv1 : contours", ha="center", fontsize=10)
+ax.text(3, 1.9, "conv2 : textures", ha="center", fontsize=10)
+ax.text(3, 1.3, "conv3 : formes", ha="center", fontsize=10)
+ax.text(3, 0.8, "conv4 : objets", ha="center", fontsize=10)
+
+# Flèche
+ax.annotate("", xy=(6.3, 2), xytext=(5.7, 2),
+             arrowprops=dict(arrowstyle="->", color="black", lw=2))
+
+# Nouvelle tête
+ax.add_patch(plt.Rectangle((6.5, 1.0), 3, 2, facecolor="lightyellow",
+                             edgecolor="black", linewidth=2))
+ax.text(8, 2.5, "Nouvelle tête", ha="center", fontsize=12, fontweight="bold")
+ax.text(8, 1.9, "TA tâche spécifique", ha="center", fontsize=10)
+ax.text(8, 1.4, "(ex: chiens vs chats)", ha="center", fontsize=10)
+
+# Annotations
+ax.text(3, -0.2, "🧊 GELÉ\n(features universelles)", ha="center", fontsize=10, color="steelblue", fontweight="bold")
+ax.text(8, -0.2, "🔥 ENTRAÎNÉ\n(tête remplacée)", ha="center", fontsize=10, color="crimson", fontweight="bold")
+
+ax.set_title("Principe du feature extraction", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🎯 Deux stratégies principales
+
+| Stratégie | Description | Quand utiliser |
+|---|---|---|
+| **Feature extraction** | Geler le modèle entier, remplacer la tête | **Peu de données** (< 1000), vite |
+| **Fine-tuning** | Geler les premières couches, ré-entraîner la fin | Plus de données (> 1000), besoin de précision |
+
+# 2. Les modèles pré-entraînés disponibles
+
+## 🏪 Le catalogue torchvision
+
+```{python}
+# Liste partielle des modèles disponibles
+print("Quelques modèles célèbres disponibles dans torchvision.models :")
+print("  - resnet18, resnet50, resnet101 : CNN résiduel, très populaire")
+print("  - vgg16, vgg19 : architectures plus anciennes mais solides")
+print("  - efficientnet_b0...b7 : optimal perf/paramètres (2019)")
+print("  - mobilenet_v2, v3 : léger pour mobile")
+print("  - vit_b_16 : Vision Transformer (2020)")
+```
+
+## 📊 Comparer quelques modèles
+
+| Modèle | Paramètres | Top-1 ImageNet | Usage typique |
+|---|---:|:---:|---|
+| **MobileNetV3-small** | 2.5M | 67% | Mobile, edge |
+| **ResNet-18** | 11M | 70% | Baseline rapide |
+| **ResNet-50** | 25M | 76% | **Par défaut industriel** |
+| **EfficientNet-B0** | 5M | 77% | Bon compromis |
+| **ViT-B/16** | 86M | 84% | Top performance |
+
+**Recommandation** : commence par **ResNet-18** (rapide) ou **ResNet-50** (meilleur).
+
+## 🧪 Charger un ResNet-18 pré-entraîné
+
+```{python}
+# Charger ResNet-18 avec ses poids pré-entraînés sur ImageNet
+weights = models.ResNet18_Weights.IMAGENET1K_V1
+modele = models.resnet18(weights=weights)
+
+# Résumé
+total = sum(p.numel() for p in modele.parameters())
+print(f"ResNet-18 : {total:,} paramètres")
+print(f"\nArchitecture résumée :")
+print(f"  - conv1 + bn1 + pool")
+print(f"  - layer1 : 2 blocs résiduels")
+print(f"  - layer2 : 2 blocs résiduels")
+print(f"  - layer3 : 2 blocs résiduels")
+print(f"  - layer4 : 2 blocs résiduels")
+print(f"  - avgpool + fc (1000 classes ImageNet)")
+```
+
+::: {.callout-note}
+## 💡 Première fois : téléchargement
+Charger un modèle pré-entraîné télécharge ses poids (44 MB pour ResNet-18) depuis internet. **Une seule fois**, ensuite c'est en cache local.
+:::
+
+# 3. Stratégie 1 : Feature Extraction
+
+## 🧊 Geler le modèle
+
+**Geler** = empêcher les poids de bouger pendant l'entraînement. On fait `requires_grad=False` sur tous les paramètres.
+
+```{python}
+# Recharger le modèle (pour partir de zéro)
+modele = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+
+# Tout geler
+for param in modele.parameters():
+    param.requires_grad = False
+
+# Vérifier qu'aucun paramètre n'est entraîné
+n_params_entraines = sum(p.numel() for p in modele.parameters() if p.requires_grad)
+print(f"Paramètres entraînables après gel : {n_params_entraines}")
+```
+
+## 🔁 Remplacer la tête (fc)
+
+Le ResNet a une couche `fc` (Fully Connected) finale pour 1000 classes ImageNet. On la **remplace** par une adaptée à **nos classes** :
+
+```{python}
+# Récupérer la taille d'entrée de fc
+n_features_in = modele.fc.in_features
+print(f"Features en entrée de fc : {n_features_in}")
+
+# Remplacer fc pour 10 classes (exemple : CIFAR-10)
+modele.fc = nn.Linear(n_features_in, 10)
+
+# Maintenant, SEULE fc est entraînable
+n_params_entraines = sum(p.numel() for p in modele.parameters() if p.requires_grad)
+print(f"Paramètres entraînables : {n_params_entraines}")
+print(f"   = {n_features_in} × 10 + 10 = 5130")
+```
+
+**Énorme simplification** : on n'entraîne **que 5000 paramètres** au lieu de 11 millions. Beaucoup plus rapide et moins gourmand en données.
+
+## 🧪 Préparer des données (CIFAR-10)
+
+```{python}
+# Transformations IMPORTANTES : il faut les MÊMES qu'à l'entraînement ImageNet
+# (sinon le modèle "voit" des choses différentes)
+transform_train = transforms.Compose([
+    transforms.Resize(224),              # ResNet veut 224×224
+    transforms.RandomHorizontalFlip(),    # data augmentation
+    transforms.RandomRotation(10),
+    transforms.ToTensor(),
+    transforms.Normalize(                 # stats ImageNet (OBLIGATOIRE)
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+
+transform_test = transforms.Compose([
+    transforms.Resize(224),
+    transforms.ToTensor(),
+    transforms.Normalize(
+        mean=[0.485, 0.456, 0.406],
+        std=[0.229, 0.224, 0.225]
+    )
+])
+
+# CIFAR-10 : 10 classes d'objets en couleur (32×32 → resize en 224×224)
+# avion, auto, oiseau, chat, cerf, chien, grenouille, cheval, bateau, camion
+print("✅ Transforms définis (224×224, stats ImageNet)")
+```
+
+::: {.callout-important}
+## 💡 La normalisation ImageNet est OBLIGATOIRE
+Le modèle pré-entraîné a **appris sur des images normalisées** avec les stats d'ImageNet. Si tu lui donnes des images sans cette normalisation, il ne reconnaîtra **rien**.
+
+Les valeurs `[0.485, 0.456, 0.406]` et `[0.229, 0.224, 0.225]` sont **standardisées** pour tout transfer learning.
+:::
+
+## 📥 Charger CIFAR-10
+
+```{python}
+#| eval: false
+# Téléchargement CIFAR-10 (~170 MB, une seule fois)
+train_full = torchvision.datasets.CIFAR10(
+    root="/tmp/cifar", train=True, download=True, transform=transform_train
+)
+test_set = torchvision.datasets.CIFAR10(
+    root="/tmp/cifar", train=False, download=True, transform=transform_test
+)
+
+# Sous-échantillonnage : seulement 500 images train pour démontrer l'efficacité
+indices = np.random.choice(len(train_full), 500, replace=False).tolist()
+train_small = Subset(train_full, indices)
+
+train_loader = DataLoader(train_small, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_set, batch_size=64, shuffle=False)
+
+print(f"Train : {len(train_small)} (sous-échantillon de {len(train_full)})")
+print(f"Test  : {len(test_set)}")
+```
+
+## 🚀 Entraînement (tête seulement)
+
+```{python}
+#| eval: false
+modele = modele.to(device)
+# Seuls les paramètres de fc sont entraînés
+optimizer = optim.Adam(modele.fc.parameters(), lr=1e-3)
+loss_fn = nn.CrossEntropyLoss()
+
+# Boucle d'entraînement rapide
+import time
+t0 = time.time()
+for epoch in range(3):
+    modele.train()
+    # IMPORTANT : même en train(), les couches gelées restent gelées
+    # Mais on doit garder les BN en eval pour éviter les fluctuations
+    for module in modele.modules():
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+    
+    losses = []
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        logits = modele(Xb)
+        loss = loss_fn(logits, yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        losses.append(loss.item())
+    
+    # Eval
+    modele.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (modele(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    acc = correct / total
+    print(f"Époque {epoch+1} | Loss {np.mean(losses):.4f} | Test acc {acc:.4f}")
+
+print(f"\nTemps total : {time.time()-t0:.0f}s")
+```
+
+**Résultat attendu** : **~85-90% d'accuracy sur CIFAR-10 avec 500 images seulement**.
+
+**Comparaison** : un CNN from scratch sur CIFAR-10 avec 500 images plafonnerait à **~40-50%**.
+
+**C'est la magie du transfer learning.**
+
+## ✏️ Exercice 1 — Tester avec encore moins d'images
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Reproduis l'entraînement avec différentes tailles de dataset :
+- 100 images train
+- 500 images train  
+- 2000 images train
+- 10000 images train
+
+Trace l'accuracy test en fonction du nombre d'images train.
+
+**Question** : à partir de combien d'images a-t-on des résultats "utilisables" en production (> 80%) ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+def entrainer_transfer(n_images, n_epochs=3):
+    """Reproduit l'entraînement avec n_images."""
+    # Modèle
+    m = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    for p in m.parameters():
+        p.requires_grad = False
+    m.fc = nn.Linear(m.fc.in_features, 10)
+    m = m.to(device)
+    
+    # Sous-échantillon
+    indices = np.random.choice(len(train_full), n_images, replace=False).tolist()
+    loader = DataLoader(Subset(train_full, indices), batch_size=32, shuffle=True)
+    
+    # Training
+    opt = optim.Adam(m.fc.parameters(), lr=1e-3)
+    lf = nn.CrossEntropyLoss()
+    
+    for epoch in range(n_epochs):
+        m.train()
+        for module in m.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.eval()
+        for Xb, yb in loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            loss = lf(m(Xb), yb)
+            opt.zero_grad(); loss.backward(); opt.step()
+    
+    # Eval
+    m.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (m(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    return correct / total
+
+# Tester
+tailles = [100, 500, 2000, 10000]
+accs = []
+for n in tailles:
+    acc = entrainer_transfer(n)
+    accs.append(acc)
+    print(f"n={n:5d} images : accuracy test = {acc:.4f}")
+
+# Graphique
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(tailles, accs, "o-", linewidth=2, markersize=10)
+ax.set_xlabel("Nombre d'images train"); ax.set_ylabel("Accuracy test")
+ax.set_xscale("log")
+ax.axhline(0.8, color="red", linestyle="--", alpha=0.5, label="80% (utilisable)")
+ax.set_title("Transfer learning : plus d'images = mieux, mais ça sature")
+ax.legend(); ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations typiques** :
+- **100 images** : ~75-80% (déjà respectable !)
+- **500 images** : ~85-88%
+- **2000 images** : ~90-92%
+- **10000 images** : ~93-94%
+
+**Leçon** : en transfer learning, **même 100 images** donnent des résultats viables. C'est **l'outil parfait** quand on n'a pas de gros dataset.
+:::
+
+# 4. Stratégie 2 : Fine-tuning
+
+## 🎯 Principe
+
+Au lieu de **tout geler**, on dégèle les **dernières couches** du modèle pour les ré-entraîner avec un **petit learning rate**.
+
+**Pourquoi** ? Les couches basses apprennent des features génériques (contours). Les couches hautes apprennent des features spécifiques à ImageNet. On les adapte à **notre domaine**.
+
+## 🧪 Dégéler les dernières couches
+
+```{python}
+#| eval: false
+# Recharger le modèle
+modele = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+
+# Tout geler d'abord
+for param in modele.parameters():
+    param.requires_grad = False
+
+# Dégeler seulement layer4 (dernier bloc) ET la fc
+for param in modele.layer4.parameters():
+    param.requires_grad = True
+
+# Nouvelle fc
+modele.fc = nn.Linear(modele.fc.in_features, 10)
+
+# Compter les paramètres entraînables
+n_entraines = sum(p.numel() for p in modele.parameters() if p.requires_grad)
+total = sum(p.numel() for p in modele.parameters())
+print(f"Entraînables : {n_entraines:,} / {total:,} ({100*n_entraines/total:.1f}%)")
+```
+
+**Résultat** : on entraîne ~**9M paramètres** (vs 11M pour tout, vs 5k pour feature extraction).
+
+## 🎛️ Learning rate plus petit
+
+En fine-tuning, on utilise un **lr plus petit** pour ne pas "casser" les features déjà apprises :
+
+```{python}
+#| eval: false
+# Deux learning rates différents :
+# - fc : lr normal (nouveau)
+# - layer4 : lr petit (ajustement fin)
+optimizer = optim.Adam([
+    {"params": modele.layer4.parameters(), "lr": 1e-4},
+    {"params": modele.fc.parameters(), "lr": 1e-3},
+])
+
+print("✅ Optimizer avec 2 learning rates")
+```
+
+**Règle générale** : 
+- Nouvelles couches (fc) : `lr = 1e-3`
+- Couches fine-tunées : `lr = 1e-4` à `1e-5`
+
+## 🚀 Entraînement fine-tuning
+
+```{python}
+#| eval: false
+modele = modele.to(device)
+loss_fn = nn.CrossEntropyLoss()
+
+for epoch in range(5):
+    modele.train()
+    losses = []
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(modele(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        losses.append(loss.item())
+    
+    # Eval
+    modele.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (modele(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    acc = correct / total
+    print(f"Époque {epoch+1} | Loss {np.mean(losses):.4f} | Test acc {acc:.4f}")
+```
+
+Avec fine-tuning, on peut gagner **2-5 points** par rapport au feature extraction.
+
+# 5. Feature extraction vs Fine-tuning : que choisir ?
+
+## 📊 Arbre de décision
+
+```
+Combien d'images as-tu ?
+│
+├── < 500 → Feature extraction (geler tout sauf fc)
+│   - Plus rapide
+│   - Moins de risque d'overfit
+│
+├── 500 - 5000 → Fine-tuning léger (dégeler les 1-2 dernières couches)
+│   - Meilleur compromis
+│   - Ajuste les features au domaine
+│
+└── > 5000 → Fine-tuning complet (dégeler tout)
+    - Meilleures performances
+    - Peut même battre un modèle from scratch
+```
+
+## 💡 Règles pratiques
+
+1. **Commencer par feature extraction** (rapide, souvent suffisant)
+2. Si insuffisant → **dégeler layer4** (fine-tuning léger)
+3. Si encore insuffisant → **dégeler layer3+4** (fine-tuning medium)
+4. Toujours **lr plus petit** sur les couches dégelées
+
+## ✏️ Exercice 2 — Comparer feature extraction vs fine-tuning
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur CIFAR-10 avec **2000 images** d'entraînement, compare :
+
+1. **Feature extraction** : tout gelé sauf fc (5 époques)
+2. **Fine-tuning** : layer4 + fc dégelés (5 époques, lr=1e-4 pour layer4)
+
+Compare :
+- Accuracy finale
+- Temps d'entraînement
+
+Le fine-tuning vaut-il le coût supplémentaire ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+import time
+
+def train_feature_extraction(n_epochs=5):
+    m = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    for p in m.parameters():
+        p.requires_grad = False
+    m.fc = nn.Linear(m.fc.in_features, 10)
+    m = m.to(device)
+    opt = optim.Adam(m.fc.parameters(), lr=1e-3)
+    lf = nn.CrossEntropyLoss()
+    
+    t0 = time.time()
+    for epoch in range(n_epochs):
+        m.train()
+        for module in m.modules():
+            if isinstance(module, nn.BatchNorm2d):
+                module.eval()
+        for Xb, yb in train_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            loss = lf(m(Xb), yb)
+            opt.zero_grad(); loss.backward(); opt.step()
+    temps = time.time() - t0
+    
+    m.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (m(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    return correct / total, temps
+
+def train_fine_tune(n_epochs=5):
+    m = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+    for p in m.parameters():
+        p.requires_grad = False
+    for p in m.layer4.parameters():
+        p.requires_grad = True
+    m.fc = nn.Linear(m.fc.in_features, 10)
+    m = m.to(device)
+    opt = optim.Adam([
+        {"params": m.layer4.parameters(), "lr": 1e-4},
+        {"params": m.fc.parameters(), "lr": 1e-3},
+    ])
+    lf = nn.CrossEntropyLoss()
+    
+    t0 = time.time()
+    for epoch in range(n_epochs):
+        m.train()
+        for Xb, yb in train_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            loss = lf(m(Xb), yb)
+            opt.zero_grad(); loss.backward(); opt.step()
+    temps = time.time() - t0
+    
+    m.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (m(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    return correct / total, temps
+
+# Tester
+print("Feature extraction :")
+acc_fe, t_fe = train_feature_extraction()
+print(f"  Acc {acc_fe:.4f} | Temps {t_fe:.0f}s")
+
+print("\nFine-tuning :")
+acc_ft, t_ft = train_fine_tune()
+print(f"  Acc {acc_ft:.4f} | Temps {t_ft:.0f}s")
+```
+
+**Observations typiques avec 2000 images** :
+- Feature extraction : ~88%, rapide
+- Fine-tuning : ~91%, 1.5-2× plus lent
+- **Gain de 3 points** pour un temps un peu supérieur
+- Le choix dépend de l'importance des 3 points vs le coût supplémentaire
+:::
+
+# 6. Utiliser un modèle pré-entraîné en inférence
+
+Le transfer learning sert surtout pour **entraîner ton modèle**. Mais parfois, **le modèle ImageNet standard** suffit si tes classes sont dans les 1000 d'ImageNet.
+
+## 🧪 Classifier une image avec ResNet "tel quel"
+
+```{python}
+#| eval: false
+from PIL import Image
+import requests
+from io import BytesIO
+
+# Modèle pré-entraîné sans modification
+modele = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1).to(device)
+modele.eval()
+
+# Récupérer les labels ImageNet
+weights = models.ResNet18_Weights.IMAGENET1K_V1
+classes = weights.meta["categories"]
+print(f"Exemple de classes ImageNet : {classes[:5]}...")
+
+# Télécharger une image d'exemple (un golden retriever)
+url = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Golden_retriever_liar.jpg/640px-Golden_retriever_liar.jpg"
+response = requests.get(url)
+img = Image.open(BytesIO(response.content))
+
+# Prétraiter
+img_tensor = transform_test(img).unsqueeze(0).to(device)
+
+# Prédire
+with torch.no_grad():
+    logits = modele(img_tensor)
+    probas = torch.softmax(logits, dim=1)[0]
+    top5 = torch.topk(probas, 5)
+
+print(f"\nTop 5 prédictions :")
+for p, idx in zip(top5.values.cpu(), top5.indices.cpu()):
+    print(f"  {classes[idx]:30s} : {p.item()*100:.1f}%")
+```
+
+## 💡 Quand ça suffit
+
+Si ton problème est **"qu'est-ce qu'il y a sur cette image ?"** parmi des objets **courants** (animaux, véhicules, objets du quotidien), un ResNet ImageNet **tel quel** peut être une solution rapide sans aucun entraînement.
+
+# 7. Les autres modèles à essayer
+
+Pour aller plus loin :
+
+```{python}
+# Modèles plus récents disponibles dans torchvision
+print("Alternatives intéressantes :")
+print("  EfficientNet-B0 : bon rapport perf/taille")
+print("  MobileNet-V3 : rapide, pour mobile")
+print("  ViT-B/16 : Vision Transformer, top performances")
+print("  ConvNeXt : SOTA CNN 2022")
+
+# Utilisation identique :
+# m = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+# m = models.vit_b_16(weights=models.ViT_B_16_Weights.DEFAULT)
+```
+
+Chacun a ses compromis **taille / vitesse / précision**. Le workflow reste **identique** : charger pré-entraîné + geler + remplacer la tête + entraîner.
+
+# 🏁 Exercice bilan — Transfer learning complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Imagine que tu es **data scientist dans une startup** qui veut détecter **3 types de pommes** (Fuji, Granny, Gala) sur des photos. Tu n'as que **150 photos total** (50 par classe).
+
+**Mission** : simuler ce cas avec CIFAR-10 restreint à **3 classes** (ex: oiseau, chat, chien) et **150 images train**.
+
+Construis le **pipeline complet** :
+
+1. Charger CIFAR-10 train + filtrer **150 images des classes 2, 3, 5** (bird, cat, dog)
+2. **Transfer learning** avec ResNet-18 :
+   - Geler le backbone
+   - Remplacer fc par une couche à 3 classes
+3. **Data augmentation** (flip, rotation, color jitter)
+4. Entraîner 10 époques avec **early stopping**
+5. Évaluer sur le test set (filtré aux mêmes 3 classes)
+
+**Target** : > 85% accuracy sur test.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+# Classes CIFAR-10 : 0=airplane, 1=auto, 2=bird, 3=cat, 4=deer, 5=dog, 6=frog, 7=horse, 8=ship, 9=truck
+CLASSES_CIBLE = [2, 3, 5]  # bird, cat, dog
+NOMS = ["bird", "cat", "dog"]
+
+# Charger CIFAR-10 avec augmentation forte
+transform_train_strong = transforms.Compose([
+    transforms.Resize(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(15),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+])
+
+train_full = torchvision.datasets.CIFAR10(
+    root="/tmp/cifar", train=True, download=True, transform=transform_train_strong
+)
+test_full = torchvision.datasets.CIFAR10(
+    root="/tmp/cifar", train=False, download=True, transform=transform_test
+)
+
+# Filtrer aux 3 classes
+def filtrer_et_remaper(dataset, classes_cibles, n_par_classe=None):
+    indices_par_classe = {c: [] for c in classes_cibles}
+    for i, (_, y) in enumerate(dataset):
+        if y in classes_cibles:
+            indices_par_classe[y].append(i)
+    
+    # Sous-échantillonnage si demandé
+    if n_par_classe:
+        for c in classes_cibles:
+            indices_par_classe[c] = indices_par_classe[c][:n_par_classe]
+    
+    tous = [i for inds in indices_par_classe.values() for i in inds]
+    return tous
+
+# Mapper classes 2,3,5 → 0,1,2
+class RemappedDataset:
+    def __init__(self, subset, classes_cibles):
+        self.subset = subset
+        self.mapping = {c: i for i, c in enumerate(classes_cibles)}
+    def __len__(self):
+        return len(self.subset)
+    def __getitem__(self, idx):
+        X, y = self.subset[idx]
+        return X, self.mapping[y]
+
+# Note : Cette implémentation peut nécessiter un ajustement selon version PyTorch
+# L'important est de comprendre la démarche
+
+# Train : 150 images (50/classe)
+train_indices = filtrer_et_remaper(train_full, CLASSES_CIBLE, n_par_classe=50)
+train_subset = Subset(train_full, train_indices)
+
+# Test : toutes les images des 3 classes
+test_indices = filtrer_et_remaper(test_full, CLASSES_CIBLE)
+test_subset = Subset(test_full, test_indices)
+
+print(f"Train : {len(train_subset)} images")
+print(f"Test  : {len(test_subset)} images")
+
+# DataLoaders (attention : classes originales, il faut remapper dans la loss)
+train_loader = DataLoader(train_subset, batch_size=16, shuffle=True)
+test_loader = DataLoader(test_subset, batch_size=32)
+
+# Modèle : ResNet-18 avec tête à 3 classes
+modele = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+for p in modele.parameters():
+    p.requires_grad = False
+modele.fc = nn.Linear(modele.fc.in_features, 3)  # 3 classes
+modele = modele.to(device)
+
+# Training avec remap des labels en place
+optimizer = optim.Adam(modele.fc.parameters(), lr=1e-3)
+loss_fn = nn.CrossEntropyLoss()
+
+label_to_idx = {c: i for i, c in enumerate(CLASSES_CIBLE)}
+
+best_acc = 0
+for epoch in range(10):
+    modele.train()
+    for m in modele.modules():
+        if isinstance(m, nn.BatchNorm2d):
+            m.eval()
+    
+    for Xb, yb in train_loader:
+        # Remapper yb (2,3,5) → (0,1,2)
+        yb_remap = torch.tensor([label_to_idx[int(y)] for y in yb], device=device)
+        Xb = Xb.to(device)
+        logits = modele(Xb)
+        loss = loss_fn(logits, yb_remap)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+    
+    # Eval
+    modele.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            yb_remap = torch.tensor([label_to_idx[int(y)] for y in yb], device=device)
+            Xb = Xb.to(device)
+            correct += (modele(Xb).argmax(dim=1) == yb_remap).sum().item()
+            total += yb.size(0)
+    acc = correct / total
+    best_acc = max(best_acc, acc)
+    print(f"Époque {epoch+1}: accuracy {acc:.4f}")
+
+print(f"\n🎯 Meilleure accuracy : {best_acc:.4f}")
+```
+
+**Résultat attendu** : ~85-92% d'accuracy sur 3 classes avec **seulement 150 images d'entraînement**.
+
+**Pour un modèle from scratch** avec 150 images : ~50-60% au mieux.
+
+**Le transfer learning est LA technique** pour les projets avec peu de données.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Transfer learning** | Réutiliser un modèle pré-entraîné |
+| **Feature extraction** | Tout geler sauf la tête (fc) |
+| **Fine-tuning** | Dégeler les dernières couches |
+| **`requires_grad=False`** | Geler un paramètre |
+| **Normalisation ImageNet** | Mean/std OBLIGATOIRES |
+| **lr différencié** | Petit pour fine-tuning, normal pour nouvelles couches |
+| **torchvision.models** | Catalogue de modèles prêts |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Commencer par feature extraction** (simple et souvent suffisant)
+2. **Toujours normaliser** avec les stats ImageNet quand on utilise un modèle pré-entraîné
+3. **Resize à 224×224** (taille standard des modèles ImageNet)
+4. **Data augmentation** pour compenser le petit dataset
+5. **ResNet-18 en baseline**, puis essayer des plus gros si besoin
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier la normalisation** → résultats catastrophiques
+2. **Ré-entraîner tout avec un gros lr** → on casse les features pré-apprises
+3. **Oublier `module.eval()` pour BatchNorm** → fluctuations en feature extraction
+4. **Mettre la tête originale** → toujours la remplacer pour tes classes
+5. **Trop peu de data augmentation** → overfit rapide avec peu de données
+
+## 🎉 Module 6 : tu as terminé !
+
+Tu maîtrises maintenant :
+- ✅ Le perceptron et ses limites (6.1)
+- ✅ Le MLP et la backprop from scratch (6.2)
+- ✅ PyTorch et ses outils (6.3)
+- ✅ Les techniques d'entraînement pro (6.4)
+- ✅ Les CNN pour la vision (6.5)
+- ✅ Le transfer learning (6.6)
+
+## 🚀 La suite : le TP sommatif
+
+Dans le [**TP sommatif Module 6**](tp_sommatif.qmd), tu vas construire un **classifier d'images complet** combinant toutes ces notions sur un cas métier réel.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Utilise le transfer learning sur **TES photos** :
+
+1. Prends 3 objets courants chez toi (mug, livre, stylo...)
+2. Prends 20-30 photos de chaque sous différents angles
+3. Utilise le transfer learning pour entraîner un classifieur
+4. Teste-le sur de **nouvelles photos**
+
+C'est l'exercice qui **cristallise** tout : tu vois combien le transfer learning est puissant avec **TES données**, dans **TON environnement**.
+:::

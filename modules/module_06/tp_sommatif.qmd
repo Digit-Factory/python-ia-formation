@@ -1,0 +1,954 @@
+---
+title: "TP sommatif Module 6 — Classification d'images de pièces industrielles"
+subtitle: "Un projet Deep Learning complet : de la donnée au modèle en production"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 10 à 12 heures  
+**Prérequis** : toutes les notions du Module 6 (6.1 à 6.6)  
+**Objectif** : construire un classifieur d'images professionnel combinant CNN from scratch, transfer learning, data augmentation et gestion de classes déséquilibrées
+:::
+
+::: {.callout-tip}
+## 💻 Ressources
+- **GPU recommandé** : l'entraînement sera 20-50× plus rapide. Utilise **Google Colab** (GPU T4 gratuit).
+- **Sans GPU** : c'est faisable, mais prévois des temps d'entraînement plus longs (~30 min par modèle).
+:::
+
+# 🎯 Contexte
+
+Tu es **data scientist** dans une startup, **MetalCheck**, qui développe une solution de **contrôle qualité automatisé** pour l'industrie métallurgique. 
+
+> *« On a des opérateurs qui passent leur journée à inspecter des pièces à l'œil. C'est fatiguant, répétitif, et on rate des défauts. On veut un modèle qui prenne une photo et dise : **OK**, **rayure**, ou **fissure** (critique). Voilà les 520 photos qu'on a pu étiqueter — vas-y ! »*
+
+## 💼 Les objectifs business
+
+1. **Classifier automatiquement** les pièces en 3 catégories : `ok`, `rayure`, `fissure`
+2. **Haute précision** sur les fissures (critique pour la sécurité)
+3. **Modèle industrialisable** : rapide, robuste, reproductible
+4. **Rapport clair** pour l'équipe production
+
+## 📊 Le dataset
+
+520 images au total, déjà split en train/test :
+
+| Classe | Train | Test | Total | Description |
+|---|---:|---:|---:|---|
+| `ok` | 320 | 80 | 400 | Pièce saine |
+| `rayure` | 64 | 16 | 80 | Défaut mineur |
+| `fissure` | 30 | 10 | 40 | Défaut critique |
+| **Total** | **414** | **106** | **520** | |
+
+::: {.callout-warning}
+## ⚠️ Particularités importantes
+- Dataset **fortement déséquilibré** : 77% de `ok`, 15% de `rayure`, 8% de `fissure`
+- **Peu de fissures** : risque de les manquer si on ne fait rien
+- Images **224×224 RGB** : parfait pour transfer learning
+- Split train/test **déjà fait** (pas touche au test set avant la fin !)
+:::
+
+## 🗺️ Plan du TP
+
+Le TP se structure en **7 parties** qui suivent le workflow DL professionnel :
+
+1. **Exploration** — comprendre les données
+2. **Pipeline de données** — DataLoaders + data augmentation
+3. **Baseline CNN from scratch** — voir où on part
+4. **Transfer learning** — feature extraction
+5. **Fine-tuning** — améliorer encore
+6. **Gestion du déséquilibre** — améliorer les prédictions sur fissure
+7. **Évaluation finale et rapport**
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from pathlib import Path
+from PIL import Image
+import time
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader, WeightedRandomSampler
+import torchvision
+import torchvision.transforms as transforms
+from torchvision import models
+from torchvision.datasets import ImageFolder
+
+from sklearn.metrics import classification_report, confusion_matrix
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+torch.manual_seed(42)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"✅ PyTorch {torch.__version__}, device : {device}")
+```
+
+```{python}
+#| echo: false
+DATA_DIR = Path("ressources_tp/pieces")
+```
+
+```{python}
+#| eval: false
+DATA_DIR = Path("ressources_tp/pieces")
+```
+
+---
+
+# Partie 1 — Exploration
+
+## ✏️ Étape 1.1 — Structure du dataset
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche l'**arborescence** du dataset (`train/ok/`, `train/rayure/`, etc.)
+2. Compte le **nombre d'images** par classe et par split
+3. Affiche le déséquilibre en pourcentages
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Structure
+print("=== Arborescence ===")
+for split in ["train", "test"]:
+    for classe in ["ok", "rayure", "fissure"]:
+        dir_ = DATA_DIR / split / classe
+        n = len(list(dir_.glob("*.jpg")))
+        print(f"  {split}/{classe:10s} : {n} images")
+
+# Table résumée
+print("\n=== Répartition ===")
+donnees = {}
+for split in ["train", "test"]:
+    donnees[split] = {
+        c: len(list((DATA_DIR / split / c).glob("*.jpg")))
+        for c in ["ok", "rayure", "fissure"]
+    }
+df_counts = pd.DataFrame(donnees)
+df_counts["total"] = df_counts.sum(axis=1)
+df_counts.loc["total"] = df_counts.sum()
+print(df_counts)
+
+# Déséquilibre
+print("\n=== % par classe (train) ===")
+train_total = df_counts.loc[["ok", "rayure", "fissure"], "train"].sum()
+for c in ["ok", "rayure", "fissure"]:
+    pct = df_counts.loc[c, "train"] / train_total * 100
+    print(f"  {c:10s} : {pct:.1f}%")
+```
+
+**Observation** : 77% `ok`, 15% `rayure`, 8% `fissure` → **fort déséquilibre**. Un modèle naïf qui prédit toujours `ok` aurait 77% d'accuracy mais serait **inutile** (il manquerait tous les défauts).
+:::
+
+## ✏️ Étape 1.2 — Visualiser quelques images
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche une **grille 3×4** avec 4 images de chaque classe
+2. Observations : qu'est-ce qui distingue visuellement les classes ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fig, axes = plt.subplots(3, 4, figsize=(12, 9))
+for i, classe in enumerate(["ok", "rayure", "fissure"]):
+    imgs_paths = sorted((DATA_DIR / "train" / classe).glob("*.jpg"))[:4]
+    for j, img_path in enumerate(imgs_paths):
+        img = Image.open(img_path)
+        axes[i, j].imshow(img)
+        axes[i, j].axis("off")
+        if j == 0:
+            axes[i, j].set_ylabel(classe.upper(), fontsize=13, fontweight="bold", rotation=0, labelpad=40)
+            axes[i, j].axis("on")
+            axes[i, j].set_xticks([])
+            axes[i, j].set_yticks([])
+
+plt.suptitle("Exemples par classe", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- **OK** : cercle métallique uniforme, pas de motifs
+- **Rayure** : lignes droites sombres (2-4 rayures)
+- **Fissure** : motif **branchu** (structure dendritique, plus complexe)
+
+Les classes sont **visuellement distinctes** — un CNN devrait s'en sortir.
+:::
+
+---
+
+# Partie 2 — Pipeline de données
+
+## ✏️ Étape 2.1 — Transformations
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée **deux pipelines** de transformations :
+
+1. **`transform_train`** : avec data augmentation
+   - Resize 224
+   - RandomHorizontalFlip (OK pour les pièces, symétriques)
+   - RandomRotation ±15°
+   - ColorJitter légère (brightness, contrast)
+   - ToTensor + Normalize avec stats ImageNet
+
+2. **`transform_test`** : sans augmentation
+   - Resize 224 + ToTensor + Normalize
+
+Pourquoi différents pipelines ? Parce que la data augmentation ne doit **pas** s'appliquer au test (on veut évaluer sur des images "telles quelles").
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Stats ImageNet : OBLIGATOIRE pour transfer learning
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
+IMAGENET_STD = [0.229, 0.224, 0.225]
+
+transform_train = transforms.Compose([
+    transforms.Resize(224),
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(15),
+    transforms.ColorJitter(brightness=0.15, contrast=0.15),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
+])
+
+transform_test = transforms.Compose([
+    transforms.Resize(224),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD)
+])
+
+print("✅ Transforms définis")
+```
+:::
+
+## ✏️ Étape 2.2 — DataLoaders
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Charge les datasets avec **`ImageFolder`** (très pratique : il découvre les classes depuis les dossiers)
+2. Crée 2 DataLoaders : `train_loader` (batch=32, shuffle=True) et `test_loader` (batch=32)
+3. Affiche les **classes découvertes** et leur **mapping** (classe → index)
+4. Affiche la shape d'un batch
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+train_ds = ImageFolder(DATA_DIR / "train", transform=transform_train)
+test_ds = ImageFolder(DATA_DIR / "test", transform=transform_test)
+
+print(f"Train : {len(train_ds)} images")
+print(f"Test  : {len(test_ds)} images")
+print(f"Classes : {train_ds.classes}")
+print(f"Mapping : {train_ds.class_to_idx}")
+
+# DataLoaders
+train_loader = DataLoader(train_ds, batch_size=32, shuffle=True, num_workers=0)
+test_loader = DataLoader(test_ds, batch_size=32, shuffle=False, num_workers=0)
+
+# Shape d'un batch
+for Xb, yb in train_loader:
+    print(f"\nBatch : X {Xb.shape} | y {yb.shape}")
+    print(f"Valeurs y : {yb.tolist()[:10]}...")
+    break
+```
+
+**Note** : `ImageFolder` associe les classes à des indices **par ordre alphabétique** : `fissure=0, ok=1, rayure=2`. Garde ce mapping en tête pour la suite.
+:::
+
+---
+
+# Partie 3 — Baseline : CNN from scratch
+
+Avant de sortir l'artillerie lourde (transfer learning), essayons **un CNN from scratch** pour voir où on part.
+
+## ✏️ Étape 3.1 — Définir et entraîner un petit CNN
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Définis un **CNN simple** :
+- 3 blocs `Conv → BN → ReLU → MaxPool`
+- Canaux : 32 → 64 → 128
+- Puis flatten + FC(256) + FC(3)
+- Dropout 0.3 dans la tête
+
+Entraîne **10 époques** avec Adam (lr=1e-3). Affiche l'accuracy test à chaque époque.
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+class SimpleCNN(nn.Module):
+    def __init__(self, n_classes=3):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 32, 3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.pool = nn.MaxPool2d(2, 2)
+        
+        # Après 3 pools : 224 → 112 → 56 → 28
+        self.fc1 = nn.Linear(128 * 28 * 28, 256)
+        self.drop = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(256, n_classes)
+    
+    def forward(self, x):
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))
+        x = self.pool(F.relu(self.bn3(self.conv3(x))))
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = self.drop(x)
+        return self.fc2(x)
+
+def train_evaluer(modele, n_epochs=10, lr=1e-3):
+    """Entraîne un modèle et renvoie accs + loss."""
+    modele = modele.to(device)
+    optimizer = optim.Adam(modele.parameters(), lr=lr)
+    loss_fn = nn.CrossEntropyLoss()
+    
+    losses, accs = [], []
+    for epoch in range(n_epochs):
+        modele.train()
+        epoch_losses = []
+        for Xb, yb in train_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            loss = loss_fn(modele(Xb), yb)
+            optimizer.zero_grad(); loss.backward(); optimizer.step()
+            epoch_losses.append(loss.item())
+        losses.append(np.mean(epoch_losses))
+        
+        modele.eval()
+        correct, total = 0, 0
+        with torch.no_grad():
+            for Xb, yb in test_loader:
+                Xb, yb = Xb.to(device), yb.to(device)
+                correct += (modele(Xb).argmax(dim=1) == yb).sum().item()
+                total += yb.size(0)
+        accs.append(correct / total)
+        print(f"Époque {epoch+1:2d}: loss {losses[-1]:.3f} | test acc {accs[-1]:.3f}")
+    
+    return modele, losses, accs
+
+print("Training CNN from scratch...")
+torch.manual_seed(42)
+cnn_scratch = SimpleCNN()
+cnn_scratch, losses_scratch, accs_scratch = train_evaluer(cnn_scratch, n_epochs=10)
+print(f"\n🎯 Meilleure accuracy CNN from scratch : {max(accs_scratch):.3f}")
+```
+
+**Résultat attendu** : **~80-85%**. C'est notre baseline. Le modèle a du mal : trop peu de données pour **apprendre des features** depuis zéro.
+:::
+
+## ✏️ Étape 3.2 — Analyser les erreurs (matrice de confusion)
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Calcule la **matrice de confusion** sur le test set
+2. Affiche-la en heatmap
+3. **Question critique** : le modèle rate-t-il des `fissure` ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+def evaluer_details(modele, data_loader, classes):
+    """Renvoie les prédictions + vrais labels."""
+    modele.eval()
+    tous_preds, tous_vrais = [], []
+    with torch.no_grad():
+        for Xb, yb in data_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            preds = modele(Xb).argmax(dim=1)
+            tous_preds.extend(preds.cpu().tolist())
+            tous_vrais.extend(yb.cpu().tolist())
+    return np.array(tous_vrais), np.array(tous_preds)
+
+classes = train_ds.classes
+y_true_scratch, y_pred_scratch = evaluer_details(cnn_scratch, test_loader, classes)
+
+# Matrice de confusion
+cm = confusion_matrix(y_true_scratch, y_pred_scratch)
+
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=classes, yticklabels=classes, ax=ax)
+ax.set_xlabel("Prédit"); ax.set_ylabel("Vrai")
+ax.set_title("Matrice de confusion — CNN from scratch")
+plt.tight_layout()
+plt.show()
+
+# Rapport détaillé
+print(classification_report(y_true_scratch, y_pred_scratch,
+                             target_names=classes, digits=3))
+```
+
+**Observations typiques** :
+- Bonne précision sur `ok` (classe majoritaire)
+- **Pire sur `fissure`** (peu d'exemples vus pendant l'entraînement)
+- Recall sur `fissure` souvent < 0.7 → on rate beaucoup de fissures !
+
+**Problème business critique** : une fissure ratée = **pièce défectueuse en production** = risque sécurité.
+:::
+
+---
+
+# Partie 4 — Transfer learning (feature extraction)
+
+Passons à la **technique pro** : un modèle pré-entraîné sur ImageNet.
+
+## ✏️ Étape 4.1 — ResNet-18 avec feature extraction
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Charge `resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)`
+2. **Gèle tous les paramètres**
+3. Remplace `fc` par un `Linear` vers 3 classes
+4. Vérifie combien de paramètres sont **entraînables** (devrait être ~1500 = 512×3 + 3)
+5. Entraîne 10 époques
+6. Compare à la baseline from scratch
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+torch.manual_seed(42)
+
+# Charger ResNet-18 pré-entraîné
+weights = models.ResNet18_Weights.IMAGENET1K_V1
+modele_tl = models.resnet18(weights=weights)
+
+# Geler tout
+for param in modele_tl.parameters():
+    param.requires_grad = False
+
+# Remplacer la tête
+n_features = modele_tl.fc.in_features
+modele_tl.fc = nn.Linear(n_features, 3)
+
+# Vérifier
+n_entraines = sum(p.numel() for p in modele_tl.parameters() if p.requires_grad)
+total = sum(p.numel() for p in modele_tl.parameters())
+print(f"Paramètres entraînables : {n_entraines:,} / {total:,} ({100*n_entraines/total:.2f}%)")
+
+# Entraîner avec BN en eval (convention pour feature extraction)
+modele_tl = modele_tl.to(device)
+optimizer = optim.Adam(modele_tl.fc.parameters(), lr=1e-3)
+loss_fn = nn.CrossEntropyLoss()
+
+accs_tl = []
+for epoch in range(10):
+    modele_tl.train()
+    # BN en eval même en train
+    for module in modele_tl.modules():
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+    
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(modele_tl(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+    
+    # Eval
+    modele_tl.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (modele_tl(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    accs_tl.append(correct / total)
+    print(f"Époque {epoch+1:2d}: test acc {accs_tl[-1]:.3f}")
+
+print(f"\n🎯 Meilleure accuracy transfer learning : {max(accs_tl):.3f}")
+print(f"   vs CNN from scratch : {max(accs_scratch):.3f}")
+```
+
+**Résultat attendu** : **~92-96%** avec transfer learning vs ~80-85% from scratch.
+
+**Gain magique** : +10-15 points pour **quelques lignes** de code. 🎯
+:::
+
+## ✏️ Étape 4.2 — Matrice de confusion du modèle TL
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Refais la matrice de confusion avec le modèle transfer learning. Est-ce mieux sur `fissure` ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+y_true_tl, y_pred_tl = evaluer_details(modele_tl, test_loader, classes)
+cm_tl = confusion_matrix(y_true_tl, y_pred_tl)
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues",
+            xticklabels=classes, yticklabels=classes, ax=axes[0])
+axes[0].set_title(f"CNN from scratch — {max(accs_scratch):.2%}")
+axes[0].set_xlabel("Prédit"); axes[0].set_ylabel("Vrai")
+
+sns.heatmap(cm_tl, annot=True, fmt="d", cmap="Greens",
+            xticklabels=classes, yticklabels=classes, ax=axes[1])
+axes[1].set_title(f"Transfer learning — {max(accs_tl):.2%}")
+axes[1].set_xlabel("Prédit"); axes[1].set_ylabel("Vrai")
+
+plt.tight_layout()
+plt.show()
+
+print(classification_report(y_true_tl, y_pred_tl, target_names=classes, digits=3))
+```
+
+**Observations** : les erreurs sont souvent **divisées par 3-5**. Le transfer learning a **apporté les features universelles** (contours, textures) qui manquaient au CNN from scratch.
+:::
+
+---
+
+# Partie 5 — Fine-tuning
+
+Feature extraction = gel total. **Fine-tuning** = on dégèle les dernières couches pour **adapter** au domaine.
+
+## ✏️ Étape 5.1 — Fine-tuning de layer4
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Recharge un ResNet-18 pré-entraîné
+2. Gèle tout SAUF **`layer4`** et **`fc`**
+3. Utilise un optimizer avec **2 learning rates** :
+   - `layer4` : lr = 1e-4 (petit, pour affiner)
+   - `fc` : lr = 1e-3 (normal, pour la nouvelle tête)
+4. Entraîne 10 époques
+5. Compare à feature extraction
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+torch.manual_seed(42)
+
+# Recharger et préparer
+modele_ft = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+
+# Geler tout
+for param in modele_ft.parameters():
+    param.requires_grad = False
+
+# Dégeler layer4
+for param in modele_ft.layer4.parameters():
+    param.requires_grad = True
+
+# Remplacer fc
+modele_ft.fc = nn.Linear(modele_ft.fc.in_features, 3)
+
+# Compter
+n_entraines = sum(p.numel() for p in modele_ft.parameters() if p.requires_grad)
+total = sum(p.numel() for p in modele_ft.parameters())
+print(f"Entraînables : {n_entraines:,} / {total:,} ({100*n_entraines/total:.1f}%)")
+
+# Optimizer avec 2 lr
+modele_ft = modele_ft.to(device)
+optimizer = optim.Adam([
+    {"params": modele_ft.layer4.parameters(), "lr": 1e-4},
+    {"params": modele_ft.fc.parameters(), "lr": 1e-3},
+])
+loss_fn = nn.CrossEntropyLoss()
+
+accs_ft = []
+for epoch in range(10):
+    modele_ft.train()
+    # On laisse les BN en train ici (elles peuvent s'adapter)
+    # ou on peut les figer - au choix selon les résultats
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(modele_ft(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+    
+    modele_ft.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (modele_ft(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    accs_ft.append(correct / total)
+    print(f"Époque {epoch+1:2d}: test acc {accs_ft[-1]:.3f}")
+
+print(f"\n🎯 Comparaison finale :")
+print(f"  CNN from scratch    : {max(accs_scratch):.3f}")
+print(f"  Feature extraction  : {max(accs_tl):.3f}")
+print(f"  Fine-tuning         : {max(accs_ft):.3f}")
+```
+
+**Résultat attendu** : **~95-98%** avec fine-tuning. On récupère encore 1-3 points par rapport au feature extraction.
+:::
+
+---
+
+# Partie 6 — Gérer le déséquilibre des classes
+
+Problème : **8% de fissures** seulement. Le modèle peut être "tenté" de négliger cette classe.
+
+## 🎯 Deux techniques
+
+1. **Weighted loss** : pondérer plus fort les erreurs sur les classes rares
+2. **WeightedRandomSampler** : dans le DataLoader, piocher plus souvent les classes rares
+
+## ✏️ Étape 6.1 — Weighted loss
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Calcule les **poids** pour chaque classe : inversement proportionnels à leur fréquence
+2. Refais l'entraînement **feature extraction** avec `nn.CrossEntropyLoss(weight=poids)`
+3. Compare le **recall sur `fissure`** avant/après
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 6.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Calculer les poids : inverse de la fréquence, normalisés
+n_par_classe = np.array([30, 320, 64])  # fissure, ok, rayure (ordre ImageFolder)
+freq = n_par_classe / n_par_classe.sum()
+poids = 1.0 / freq
+poids = poids / poids.sum() * len(poids)  # normaliser pour moyenne = 1
+poids_t = torch.FloatTensor(poids).to(device)
+print(f"Poids par classe : {dict(zip(classes, poids.round(3)))}")
+
+# Entraînement avec loss pondérée
+torch.manual_seed(42)
+modele_w = models.resnet18(weights=models.ResNet18_Weights.IMAGENET1K_V1)
+for p in modele_w.parameters():
+    p.requires_grad = False
+modele_w.fc = nn.Linear(modele_w.fc.in_features, 3)
+modele_w = modele_w.to(device)
+
+optimizer = optim.Adam(modele_w.fc.parameters(), lr=1e-3)
+loss_fn_w = nn.CrossEntropyLoss(weight=poids_t)
+
+for epoch in range(10):
+    modele_w.train()
+    for module in modele_w.modules():
+        if isinstance(module, nn.BatchNorm2d):
+            module.eval()
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn_w(modele_w(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+
+# Évaluation détaillée
+y_true_w, y_pred_w = evaluer_details(modele_w, test_loader, classes)
+
+# Comparaison des rapports
+print("=== Sans pondération (feature extraction) ===")
+print(classification_report(y_true_tl, y_pred_tl, target_names=classes, digits=3))
+
+print("\n=== Avec pondération ===")
+print(classification_report(y_true_w, y_pred_w, target_names=classes, digits=3))
+```
+
+**Observation typique** :
+- Recall sur `fissure` améliore (ex : 0.70 → 0.90)
+- Petit coût : légère baisse de precision ailleurs
+- **Pour un problème de sécurité**, c'est un **excellent compromis** !
+:::
+
+---
+
+# Partie 7 — Évaluation finale et rapport
+
+## ✏️ Étape 7.1 — Choisir et évaluer le modèle final
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Choisis ton **meilleur modèle** (probablement fine-tuning + weighted loss)
+2. Calcule **toutes les métriques** détaillées
+3. Trace la **matrice de confusion** finale
+4. Affiche **les 6 erreurs les plus "sûres"** (le modèle se trompait avec haute confiance)
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Utilisons le fine-tuning comme meilleur modèle
+modele_final = modele_ft  # ou celui qui a la meilleure perf chez toi
+
+# Métriques finales
+y_true, y_pred = evaluer_details(modele_final, test_loader, classes)
+
+print("=== RAPPORT FINAL ===")
+print(classification_report(y_true, y_pred, target_names=classes, digits=3))
+
+cm_final = confusion_matrix(y_true, y_pred)
+
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(cm_final, annot=True, fmt="d", cmap="Greens",
+            xticklabels=classes, yticklabels=classes, ax=ax,
+            cbar_kws={"label": "Nb images"})
+ax.set_xlabel("Prédit"); ax.set_ylabel("Vrai")
+ax.set_title(f"Matrice de confusion finale\nAccuracy : {(y_true == y_pred).mean():.3%}")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Analyse des erreurs : les plus "sûres"
+modele_final.eval()
+erreurs = []
+with torch.no_grad():
+    for Xb, yb in test_loader:
+        Xb_gpu = Xb.to(device)
+        probas = torch.softmax(modele_final(Xb_gpu), dim=1)
+        preds = probas.argmax(dim=1)
+        max_proba = probas.max(dim=1).values
+        
+        for i in range(Xb.size(0)):
+            if preds[i].item() != yb[i].item():
+                erreurs.append({
+                    "img": Xb[i],
+                    "vrai": classes[yb[i].item()],
+                    "pred": classes[preds[i].item()],
+                    "proba": max_proba[i].item()
+                })
+
+# Trier par confiance décroissante (erreurs les plus "confiantes")
+erreurs.sort(key=lambda e: -e["proba"])
+
+if erreurs:
+    print(f"\nTotal erreurs : {len(erreurs)}")
+    n_show = min(6, len(erreurs))
+    fig, axes = plt.subplots(1, n_show, figsize=(3*n_show, 4))
+    if n_show == 1:
+        axes = [axes]
+    for ax, err in zip(axes, erreurs[:n_show]):
+        # Dénormaliser pour affichage
+        img = err["img"].clone()
+        for c in range(3):
+            img[c] = img[c] * IMAGENET_STD[c] + IMAGENET_MEAN[c]
+        img = img.clamp(0, 1).permute(1, 2, 0).numpy()
+        ax.imshow(img)
+        ax.set_title(f"Vrai: {err['vrai']}\nPréd: {err['pred']} ({err['proba']:.2%})",
+                      fontsize=10, color="red" if err["pred"] != err["vrai"] else "green")
+        ax.axis("off")
+    plt.suptitle("Erreurs les plus confiantes (pistes d'amélioration)", y=1.02)
+    plt.tight_layout()
+    plt.show()
+else:
+    print("Aucune erreur ! 🎉")
+```
+
+**Intérêt d'analyser les erreurs** :
+- **Ont-elles quelque chose de particulier ?** (flou, angle bizarre, défaut à la limite)
+- Peut guider des **améliorations ciblées** : meilleur dataset, nouvelle augmentation, etc.
+:::
+
+## ✏️ Étape 7.2 — Sauvegarder le modèle
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sauvegarde le modèle final + la config (classes, stats de normalisation) pour qu'il puisse être **rechargé en production**.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Sauvegarde complète
+checkpoint = {
+    "model_state_dict": modele_final.state_dict(),
+    "classes": classes,
+    "normalization": {"mean": IMAGENET_MEAN, "std": IMAGENET_STD},
+    "input_size": 224,
+    "architecture": "resnet18",
+}
+torch.save(checkpoint, "metalcheck_v1.pth")
+print("✅ Modèle sauvegardé : metalcheck_v1.pth")
+
+# Test de rechargement
+ckpt = torch.load("metalcheck_v1.pth")
+modele_reload = models.resnet18(weights=None)
+modele_reload.fc = nn.Linear(modele_reload.fc.in_features, 3)
+modele_reload.load_state_dict(ckpt["model_state_dict"])
+modele_reload = modele_reload.to(device)
+modele_reload.eval()
+
+# Vérif
+with torch.no_grad():
+    Xb, yb = next(iter(test_loader))
+    pred_orig = modele_final(Xb.to(device)).argmax(dim=1)
+    pred_reload = modele_reload(Xb.to(device)).argmax(dim=1)
+    assert (pred_orig == pred_reload).all()
+print("✅ Rechargement vérifié — prédictions identiques")
+```
+:::
+
+# 🎓 Bilan du TP
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as mené un **projet Deep Learning complet** :
+
+- ✅ Exploration et compréhension des données
+- ✅ Pipeline de données avec data augmentation
+- ✅ Baseline CNN from scratch (pour comparer)
+- ✅ Transfer learning (feature extraction)
+- ✅ Fine-tuning (ajustement plus fin)
+- ✅ Gestion du déséquilibre (weighted loss)
+- ✅ Évaluation détaillée avec matrice de confusion
+- ✅ Sauvegarde pour production
+
+C'est **exactement** le workflow d'un projet vision en entreprise.
+
+## 📊 Résumé des performances
+
+Tableau à remplir avec **tes** résultats :
+
+| Approche | Accuracy | Recall fissure | Temps train |
+|---|:---:|:---:|:---:|
+| CNN from scratch | ~82% | ~70% | ~1 min |
+| Transfer learning (FE) | ~95% | ~85% | ~1 min |
+| Fine-tuning | ~97% | ~90% | ~2 min |
+| + Weighted loss | ~96% | ~95% | ~1 min |
+
+## 💡 Pistes pour aller plus loin
+
+1. **Modèles plus gros** : ResNet-50, EfficientNet-B3, ViT-B/16
+2. **Augmentation plus agressive** : CutMix, MixUp, AutoAugment
+3. **Ensemble de modèles** : moyenne des prédictions de 3 modèles différents
+4. **Test Time Augmentation** : prédire sur 5 versions augmentées et moyenner
+5. **Learning rate scheduling** + **Early stopping**
+6. **Explicabilité** : Grad-CAM pour visualiser où le modèle regarde
+
+## 🎯 Ce qu'il faut retenir
+
+> **En vision par ordinateur, le transfer learning est incontournable.**
+> 
+> Avec 400 images et 1 heure de code, on atteint des performances **inaccessibles** à un modèle from scratch en 10 fois plus de données.
+
+## 🚀 La suite du parcours
+
+Tu as complété le **Module 6 — Deep Learning** ! 🎉
+
+Les prochains modules abordent :
+
+- **Module 7** — LLM et IA générative (embeddings, RAG, agents)
+- **Module 8** — MLOps (déploiement, monitoring, MLflow)
+
+Tu as maintenant **toutes les briques** d'un data scientist moderne :
+- ✅ Fondations (M1-3)
+- ✅ ML supervisé + non supervisé (M4-5)
+- ✅ Deep Learning (M6) ← **Tu es ici**
+- ⏳ LLM + RAG (M7)
+- ⏳ MLOps (M8)
+
+Bravo pour ce TP exigeant, tu peux être fier·ère de toi ! 👏
