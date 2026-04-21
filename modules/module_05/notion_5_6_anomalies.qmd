@@ -1,0 +1,880 @@
+---
+title: "Notion 5.6 — Détection d'anomalies"
+subtitle: "Trouver les transactions suspectes, les pannes, les intrusions"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_6_anomalies_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_6_anomalies_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notions 5.1-5.5  
+**Objectif** : maîtriser les 3 algorithmes majeurs de détection d'anomalies et savoir les intégrer dans un workflow métier
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **intuitivement** Isolation Forest, LOF et One-class SVM
+- Choisir **le bon algo** selon le contexte (taille du dataset, densité, forme)
+- Régler le paramètre clé **`contamination`** (taux d'anomalies attendu)
+- **Combiner** détection non-supervisée avec modèles supervisés
+- Évaluer un détecteur d'anomalies **quand on a** (ou pas) quelques labels
+
+## 🎯 Pourquoi cette notion ?
+
+La **détection d'anomalies** (ou *outlier detection*) est l'un des cas d'usage les **plus valorisés** en entreprise :
+
+- **Banque** : transactions frauduleuses
+- **Cybersécurité** : intrusions, comportements suspects
+- **Industrie** : pannes prédictives (capteurs IoT)
+- **E-commerce** : retours abusifs, faux comptes
+- **Santé** : examens anormaux
+
+Pourquoi en **non-supervisé** ? Parce que les anomalies sont **rares** et **nouvelles** :
+- Tu n'as souvent **pas assez** d'exemples labellisés pour faire du supervisé classique
+- Les **nouveaux types** de fraudes ne ressemblent pas aux anciens
+- Tu veux un système qui **s'adapte** sans re-labellisation
+
+## 🧠 La philosophie
+
+Trois approches possibles :
+
+1. **Basée sur l'isolement** : une anomalie est **facile à séparer** du reste (Isolation Forest)
+2. **Basée sur la densité** : une anomalie est dans une **zone peu dense** (LOF, DBSCAN)
+3. **Basée sur la frontière** : une anomalie est **hors** de la zone "normale" (One-class SVM)
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.ensemble import IsolationForest
+from sklearn.neighbors import LocalOutlierFactor
+from sklearn.svm import OneClassSVM
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import make_blobs
+from sklearn.metrics import classification_report, roc_auc_score
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Créer un dataset avec des anomalies
+
+Pour comparer les algos, on va utiliser un dataset simple : **points normaux en 2D + quelques anomalies**.
+
+```{python}
+# Dataset de base
+np.random.seed(42)
+
+# 500 points "normaux" : 2 clusters
+X_normal, _ = make_blobs(n_samples=500, centers=[[-2, -2], [2, 2]],
+                          cluster_std=0.8, random_state=42)
+
+# 30 "anomalies" : points éparpillés
+X_anomalies = np.random.uniform(-6, 6, (30, 2))
+
+# Assemblage
+X = np.vstack([X_normal, X_anomalies])
+y_true = np.concatenate([np.zeros(500), np.ones(30)])  # 1 = anomalie
+
+# On ne dira pas aux algos qui est anomalie !
+print(f"Total : {len(X)} points")
+print(f"Dont anomalies (pour évaluation) : {int(y_true.sum())}")
+
+fig, ax = plt.subplots(figsize=(9, 6))
+ax.scatter(X[y_true == 0, 0], X[y_true == 0, 1], s=30, alpha=0.6, 
+           c="steelblue", edgecolor="black", label="Normal")
+ax.scatter(X[y_true == 1, 0], X[y_true == 1, 1], s=100, marker="x",
+           c="red", linewidth=2, label="Anomalie (à identifier)")
+ax.set_title("Dataset : 2 clusters + anomalies éparpillées")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Rappel** : les algos **ne voient pas** les labels. Ils doivent trouver les croix rouges **tout seuls** à partir des coordonnées.
+
+# 2. Isolation Forest : l'algorithme champion
+
+## 🎨 L'intuition
+
+**Idée géniale** : une anomalie est **facile à isoler** d'un coup.
+
+Imagine un jeu où tu dois isoler un point du reste en traçant des droites aléatoires :
+- Un point **normal** (au milieu d'un cluster) nécessite **beaucoup** de coupes pour être isolé
+- Un point **anomalie** (éloigné) peut être isolé en **1 ou 2 coupes**
+
+**Isolation Forest** fait ça : il construit des arbres qui coupent l'espace aléatoirement, et mesure **combien de coupes** il faut pour isoler chaque point. **Peu de coupes = anomalie**.
+
+```{python}
+#| label: fig-isolation
+#| fig-cap: "Isolation Forest : anomalies isolables en peu de coupes"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Scénario 1 : isoler un point normal
+ax = axes[0]
+points_norm = np.random.randn(50, 2)
+ax.scatter(points_norm[:, 0], points_norm[:, 1], s=30, alpha=0.5, color="steelblue")
+# Le point normal à isoler
+px, py = 0.2, -0.3
+ax.scatter(px, py, s=200, c="yellow", edgecolor="black", linewidth=2, zorder=10,
+           label="Point à isoler")
+# Plusieurs coupes nécessaires (on en dessine qques-unes)
+for coupe in [-1.2, 0.6, -0.5, 0.9, -0.8]:
+    if coupe < 0:
+        ax.axvline(coupe, color="red", linestyle="--", alpha=0.5)
+    else:
+        ax.axhline(coupe, color="red", linestyle="--", alpha=0.5)
+ax.set_title("Point NORMAL\n→ Beaucoup de coupes nécessaires")
+ax.legend()
+
+# Scénario 2 : isoler une anomalie
+ax = axes[1]
+ax.scatter(points_norm[:, 0], points_norm[:, 1], s=30, alpha=0.5, color="steelblue")
+# Anomalie éloignée
+ax.scatter(4, 4, s=200, c="red", marker="X", edgecolor="black", linewidth=2, zorder=10,
+           label="Anomalie à isoler")
+# 1-2 coupes suffisent
+ax.axvline(2.5, color="red", linestyle="--", alpha=0.8, linewidth=2)
+ax.set_title("ANOMALIE\n→ 1 coupe suffit !")
+ax.legend()
+
+for a in axes:
+    a.set_xlim(-3.5, 5)
+    a.set_ylim(-3.5, 5)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Résumé** : **moins de coupes = plus suspect**.
+
+## 🔧 Le paramètre clé : `contamination`
+
+`contamination` = **taux d'anomalies attendu** dans le dataset.
+
+- Si tu sais que ~5% de tes données sont des anomalies → `contamination=0.05`
+- Sinon, **estimer** avec ton métier ou commencer à 0.1 (10%)
+- Valeur `"auto"` disponible mais pas toujours fiable
+
+```{python}
+# Isolation Forest
+iso = IsolationForest(contamination=0.05, random_state=42)
+
+# fit_predict retourne -1 pour anomalie, 1 pour normal
+predictions = iso.fit_predict(X)
+
+# On convertit en {0: normal, 1: anomalie} pour cohérence
+y_pred_iso = (predictions == -1).astype(int)
+
+# Scores (plus négatif = plus anormal)
+scores = iso.decision_function(X)
+
+print(f"Nombre d'anomalies prédites : {y_pred_iso.sum()}")
+print(f"Vraies anomalies            : {int(y_true.sum())}")
+```
+
+## 🎨 Visualisation des résultats
+
+```{python}
+#| label: fig-iso-results
+#| fig-cap: "Isolation Forest : vérité vs prédiction"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Vérité terrain
+axes[0].scatter(X[y_true == 0, 0], X[y_true == 0, 1], s=30, alpha=0.6, 
+                c="steelblue", edgecolor="black", label="Normal")
+axes[0].scatter(X[y_true == 1, 0], X[y_true == 1, 1], s=100, marker="x",
+                c="red", linewidth=2, label="Vraie anomalie")
+axes[0].set_title("Vérité terrain (ce qu'on cherche)")
+axes[0].legend()
+
+# Prédictions
+axes[1].scatter(X[y_pred_iso == 0, 0], X[y_pred_iso == 0, 1], s=30, alpha=0.6,
+                c="steelblue", edgecolor="black", label="Prédit normal")
+axes[1].scatter(X[y_pred_iso == 1, 0], X[y_pred_iso == 1, 1], s=100, marker="x",
+                c="red", linewidth=2, label="Prédit anomalie")
+axes[1].set_title("Prédictions Isolation Forest")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+## 📊 Évaluer sans labels : le score de décision
+
+**Sans labels**, on peut quand même se donner une idée :
+- `decision_function(X)` retourne un score par point
+- **Score négatif → anomalie probable**
+- **Score positif → point normal**
+
+```{python}
+#| label: fig-iso-scores
+#| fig-cap: "Distribution des scores d'anomalie"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+
+# Distribution des scores
+axes[0].hist(scores[y_true == 0], bins=30, alpha=0.6, color="steelblue", label="Normaux")
+axes[0].hist(scores[y_true == 1], bins=30, alpha=0.6, color="red", label="Anomalies")
+axes[0].axvline(0, color="black", linestyle="--", alpha=0.5, label="Seuil 0")
+axes[0].set_xlabel("Score Isolation Forest")
+axes[0].set_ylabel("Nombre de points")
+axes[0].set_title("Distribution des scores")
+axes[0].legend()
+
+# Heatmap du score sur la zone
+xx, yy = np.meshgrid(np.linspace(-6, 6, 100), np.linspace(-6, 6, 100))
+Z = iso.decision_function(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+contour = axes[1].contourf(xx, yy, Z, levels=20, cmap="RdYlBu")
+axes[1].scatter(X[y_true == 0, 0], X[y_true == 0, 1], s=10, c="white", 
+                edgecolor="black", linewidth=0.3)
+axes[1].scatter(X[y_true == 1, 0], X[y_true == 1, 1], s=80, c="red", 
+                marker="x", linewidth=2, label="Anomalies")
+plt.colorbar(contour, ax=axes[1], label="Score")
+axes[1].set_title("Zones de score (blanc = normal, rouge = anormal)")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : les scores sont **clairement séparés** entre normaux (bleu) et anomalies (rouge). Les **anomalies ont des scores très négatifs**.
+
+## ⚡ Avantages d'Isolation Forest
+
+- **Rapide** : O(n log n) en complexité
+- **Scalable** sur de très gros datasets
+- Gère **haute dimensionnalité** sans souci
+- **Peu d'hyperparamètres** à tuner
+- Pas besoin de **distance** (pas de standardisation critique, mais recommandée)
+
+**→ L'algo par défaut** pour la plupart des cas de détection d'anomalies en entreprise.
+
+## ✏️ Exercice 1 — Isolation Forest avec contamination
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu as un dataset déjà généré (`X`, `y_true`). Teste **3 valeurs** de `contamination` :
+
+- `0.01` (peu d'anomalies attendues)
+- `0.05` (valeur correcte, ~5.7%)
+- `0.2` (beaucoup d'anomalies attendues)
+
+Pour chacune :
+1. Entraîne `IsolationForest`
+2. Compte les **vrais positifs** (anomalies correctement détectées) et **faux positifs** (normaux flaggés)
+3. Commente : que se passe-t-il si on surestime / sous-estime la contamination ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.metrics import confusion_matrix
+
+resultats = []
+for contam in [0.01, 0.05, 0.2]:
+    iso = IsolationForest(contamination=contam, random_state=42)
+    pred = (iso.fit_predict(X) == -1).astype(int)
+    
+    # Confusion matrix
+    tn, fp, fn, tp = confusion_matrix(y_true, pred).ravel()
+    
+    resultats.append({
+        "contamination": contam,
+        "TP (vraies anom. détectées)": tp,
+        "FN (anomalies ratées)": fn,
+        "FP (normaux faux-positifs)": fp,
+        "Precision": tp / max(tp + fp, 1),
+        "Recall": tp / max(tp + fn, 1)
+    })
+
+pd.DataFrame(resultats).round(3)
+```
+
+**Analyse** :
+
+- **contamination=0.01** : l'algo ne flag que 1% → rate beaucoup d'anomalies (faible recall) mais celles détectées sont souvent correctes (bonne precision)
+- **contamination=0.05** : bien calibré → bon compromis
+- **contamination=0.2** : surestime → flag beaucoup de normaux (precision qui chute)
+
+**Règle** : essayer de **bien estimer** le taux d'anomalies via le métier. En cas de doute, commencer par 0.1 puis ajuster.
+:::
+
+# 3. Local Outlier Factor (LOF)
+
+## 🎨 L'intuition
+
+**LOF** regarde la **densité locale** :
+- Chaque point a une **densité** basée sur la distance à ses **k plus proches voisins**
+- On compare la densité d'un point à celle de ses voisins
+- Si un point est **beaucoup moins dense** que ses voisins → anomalie
+
+**Différence avec Isolation Forest** : LOF est plus adapté aux **anomalies locales** (un point isolé au milieu d'un cluster dense, même si globalement il est dans la "zone normale").
+
+## 🧪 LOF sur nos données
+
+```{python}
+# LOF a une API un peu différente
+# Par défaut, il n'est utilisé que pour fit_predict (pas transform séparé)
+lof = LocalOutlierFactor(n_neighbors=20, contamination=0.05)
+y_pred_lof_raw = lof.fit_predict(X)  # retourne -1 ou 1
+y_pred_lof = (y_pred_lof_raw == -1).astype(int)
+
+# Scores (negative_outlier_factor_ : plus négatif = plus anormal)
+scores_lof = lof.negative_outlier_factor_
+
+print(f"Anomalies détectées par LOF : {y_pred_lof.sum()}")
+```
+
+## 🎨 Visualisation
+
+```{python}
+#| label: fig-lof-results
+#| fig-cap: "LOF : prédictions et scores"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Prédictions
+axes[0].scatter(X[y_pred_lof == 0, 0], X[y_pred_lof == 0, 1], s=30, alpha=0.6,
+                c="steelblue", edgecolor="black", label="Normal")
+axes[0].scatter(X[y_pred_lof == 1, 0], X[y_pred_lof == 1, 1], s=100, marker="x",
+                c="red", linewidth=2, label="Anomalie prédite")
+axes[0].set_title("Prédictions LOF")
+axes[0].legend()
+
+# Scores
+axes[1].scatter(X[:, 0], X[:, 1], c=-scores_lof, cmap="YlOrRd",
+                s=30, edgecolor="black", linewidth=0.3)
+plt.colorbar(axes[1].collections[0], ax=axes[1], label="-score LOF\n(plus clair = plus anormal)")
+axes[1].set_title("Scores LOF (magnitude)")
+
+plt.tight_layout()
+plt.show()
+```
+
+## ⚠️ La particularité de LOF : pas de `transform()`
+
+**Piège** : par défaut, LOF **n'a pas** de méthode `predict()` pour de nouveaux points. Il ne fonctionne qu'en `fit_predict()`.
+
+Pour prédire sur de **nouveaux points** :
+
+```python
+lof = LocalOutlierFactor(n_neighbors=20, contamination=0.05, novelty=True)
+lof.fit(X_train)              # fit seulement (sans predict)
+y_pred = lof.predict(X_test)   # maintenant on peut predict
+```
+
+Avec `novelty=True`, LOF apprend une "notion de normal" et peut évaluer de nouveaux points. Mais attention : il **ne faut pas** mélanger les 2 modes.
+
+## 🎯 Quand utiliser LOF ?
+
+- ✅ Quand les anomalies sont **locales** (pas forcément éloignées globalement)
+- ✅ Sur **petits à moyens datasets** (< 50 000 points)
+- ❌ Éviter sur très gros datasets (O(n²) par défaut)
+- ❌ Sensible au **scaling** — standardiser toujours
+
+# 4. One-class SVM
+
+## 🎨 L'intuition
+
+**One-class SVM** apprend une **frontière** qui englobe la zone "normale". Tout ce qui est **en dehors** est anomalie.
+
+Comme une régression logistique inversée : au lieu d'apprendre à séparer 2 classes, on apprend à **décrire 1 classe** (la normale).
+
+## 🧪 Utilisation
+
+```{python}
+from sklearn.svm import OneClassSVM
+
+# Important : standardiser !
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# One-class SVM avec noyau RBF (gère le non-linéaire)
+ocsvm = OneClassSVM(kernel="rbf", gamma="auto", nu=0.05)  # nu ≈ contamination
+pred_ocsvm = ocsvm.fit_predict(X_scaled)
+y_pred_svm = (pred_ocsvm == -1).astype(int)
+
+print(f"Anomalies détectées par One-class SVM : {y_pred_svm.sum()}")
+```
+
+## 🎨 Visualisation de la frontière
+
+```{python}
+#| label: fig-ocsvm
+#| fig-cap: "One-class SVM : frontière de décision"
+
+# Grille pour contour
+xx, yy = np.meshgrid(np.linspace(-4, 4, 100), np.linspace(-4, 4, 100))
+Z = ocsvm.decision_function(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(9, 7))
+contour = ax.contourf(xx, yy, Z, levels=20, cmap="RdYlBu")
+ax.contour(xx, yy, Z, levels=[0], colors="black", linewidths=2)
+
+ax.scatter(X_scaled[y_true == 0, 0], X_scaled[y_true == 0, 1], 
+           s=25, c="white", edgecolor="black", linewidth=0.3)
+ax.scatter(X_scaled[y_true == 1, 0], X_scaled[y_true == 1, 1], 
+           s=100, c="red", marker="x", linewidth=2, label="Vraies anomalies")
+
+plt.colorbar(contour, label="Score (>0 = normal)")
+ax.set_title("One-class SVM : la frontière noire délimite la zone 'normale'")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : la frontière noire englobe les zones denses (**les vrais clusters**). Tout ce qui est en dehors → anomalie.
+
+## 🎛️ Les paramètres clés
+
+| Paramètre | Rôle |
+|---|---|
+| **`nu`** | Entre 0 et 1, proche de la contamination (mais pas identique) |
+| **`kernel`** | `"rbf"` par défaut (non-linéaire), `"linear"` pour zone linéaire |
+| **`gamma`** | Contrôle la complexité de la frontière (`"auto"` ou `"scale"`) |
+
+## ⚠️ Limites
+
+- **Plus lent** que Isolation Forest sur gros datasets
+- **Sensible au scaling** (toujours standardiser)
+- Le tuning de `nu` et `gamma` peut être **délicat**
+
+# 5. Comparaison des 3 algorithmes
+
+```{python}
+#| label: fig-comparaison
+#| fig-cap: "Comparaison des 3 algorithmes sur le même dataset"
+
+from sklearn.metrics import precision_score, recall_score, f1_score
+
+# Standardiser pour LOF et One-class SVM
+X_scaled_cmp = StandardScaler().fit_transform(X)
+
+# Les 3 modèles
+modeles = {
+    "Isolation Forest": IsolationForest(contamination=0.05, random_state=42),
+    "LOF (k=20)": LocalOutlierFactor(n_neighbors=20, contamination=0.05),
+    "One-class SVM": OneClassSVM(kernel="rbf", gamma="auto", nu=0.05),
+}
+
+# Calculer les prédictions
+preds = {}
+for nom, mod in modeles.items():
+    if "LOF" in nom:
+        # LOF : pas besoin de scaling strict mais on le fait
+        pred = mod.fit_predict(X_scaled_cmp)
+    elif "SVM" in nom:
+        pred = mod.fit_predict(X_scaled_cmp)
+    else:
+        pred = mod.fit_predict(X)  # Isolation Forest n'a pas besoin de standardisation
+    preds[nom] = (pred == -1).astype(int)
+
+# Visualisation
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+for ax, (nom, pred) in zip(axes, preds.items()):
+    ax.scatter(X[pred == 0, 0], X[pred == 0, 1], s=25, alpha=0.6,
+               c="steelblue", edgecolor="black", label="Prédit normal")
+    ax.scatter(X[pred == 1, 0], X[pred == 1, 1], s=80, marker="x",
+               c="red", linewidth=2, label="Prédit anomalie")
+    
+    prec = precision_score(y_true, pred, zero_division=0)
+    rec = recall_score(y_true, pred)
+    ax.set_title(f"{nom}\nPrecision={prec:.2f}, Recall={rec:.2f}")
+    ax.legend(fontsize=9)
+
+plt.tight_layout()
+plt.show()
+```
+
+## 📊 Tableau comparatif final
+
+| Critère | Isolation Forest | LOF | One-class SVM |
+|---|:---:|:---:|:---:|
+| **Vitesse** | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐ |
+| **Gros datasets (>100k)** | ✅ | ❌ | ❌ |
+| **Haute dimension** | ✅ | ⚠️ | ✅ |
+| **Anomalies locales** | ⚠️ | ✅ | ⚠️ |
+| **Anomalies globales** | ✅ | ⚠️ | ✅ |
+| **Scaling requis** | Recommandé | Obligatoire | Obligatoire |
+| **Interprétabilité** | ⭐⭐ | ⭐⭐⭐ | ⭐⭐ |
+| **Hyperparamètres faciles** | ✅ | ⚠️ | ❌ |
+
+**Recommandation pratique** :
+1. **Commence par Isolation Forest** — robuste, rapide, excellent défaut
+2. Si tu suspectes des **anomalies locales** → essaie LOF
+3. Si tu veux une **frontière de décision** visualisable → One-class SVM
+
+## ✏️ Exercice 2 — Comparer 3 algos sur un cas difficile
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Génère un dataset avec **anomalies dans une zone peu dense** entre 2 clusters :
+
+```python
+np.random.seed(0)
+
+# Deux clusters denses
+X_normal = np.vstack([
+    np.random.normal(loc=[-3, 0], scale=0.8, size=(200, 2)),
+    np.random.normal(loc=[3, 0], scale=0.8, size=(200, 2))
+])
+
+# 15 anomalies dans la zone peu dense entre les deux clusters
+X_anom = np.random.uniform([-1.5, -2], [1.5, 2], size=(15, 2))
+
+X = np.vstack([X_normal, X_anom])
+y_true = np.concatenate([np.zeros(400), np.ones(15)])
+```
+
+1. Visualise le dataset
+2. Applique les 3 algos (Isolation Forest, LOF, One-class SVM) avec `contamination=0.037`
+3. Calcule precision, recall, F1 pour chacun
+4. Commente : ce type d'anomalies (entre clusters) est **difficile** pour tous. Lequel s'en sort le mieux ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(0)
+
+X_normal = np.vstack([
+    np.random.normal(loc=[-3, 0], scale=0.8, size=(200, 2)),
+    np.random.normal(loc=[3, 0], scale=0.8, size=(200, 2))
+])
+X_anom = np.random.uniform([-1.5, -2], [1.5, 2], size=(15, 2))
+X_ex = np.vstack([X_normal, X_anom])
+y_true_ex = np.concatenate([np.zeros(400), np.ones(15)])
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+axes[0].scatter(X_ex[y_true_ex == 0, 0], X_ex[y_true_ex == 0, 1], s=20, alpha=0.5, c="steelblue")
+axes[0].scatter(X_ex[y_true_ex == 1, 0], X_ex[y_true_ex == 1, 1], s=80, marker="x", c="red", linewidth=2)
+axes[0].set_title("Vérité : anomalies dans la zone intermédiaire")
+
+# Appliquer les 3 algos
+X_sc_ex = StandardScaler().fit_transform(X_ex)
+modeles = {
+    "Isolation Forest": IsolationForest(contamination=0.037, random_state=42),
+    "LOF": LocalOutlierFactor(n_neighbors=20, contamination=0.037),
+    "One-class SVM": OneClassSVM(kernel="rbf", gamma="auto", nu=0.037),
+}
+
+resultats = []
+for ax, (nom, mod) in zip(axes[1:], modeles.items()):
+    if "Isolation" in nom:
+        pred = (mod.fit_predict(X_ex) == -1).astype(int)
+    else:
+        pred = (mod.fit_predict(X_sc_ex) == -1).astype(int)
+    
+    prec = precision_score(y_true_ex, pred, zero_division=0)
+    rec = recall_score(y_true_ex, pred)
+    f1 = f1_score(y_true_ex, pred, zero_division=0)
+    resultats.append({"modèle": nom, "precision": prec, "recall": rec, "f1": f1})
+    
+    ax.scatter(X_ex[pred == 0, 0], X_ex[pred == 0, 1], s=20, alpha=0.5, c="steelblue")
+    ax.scatter(X_ex[pred == 1, 0], X_ex[pred == 1, 1], s=80, marker="x", c="red", linewidth=2)
+    ax.set_title(f"{nom}\nF1={f1:.2f}")
+
+plt.tight_layout()
+plt.show()
+
+print(pd.DataFrame(resultats).round(3).to_string(index=False))
+```
+
+**Observation** :
+- Tous les algos **peinent** sur ce cas difficile (les anomalies sont "diluées")
+- **LOF** s'en sort généralement mieux parce qu'il détecte la **faible densité locale** de la zone intermédiaire
+- **Isolation Forest** a du mal : les anomalies ne sont pas "extrêmes" sur un axe donné
+- **One-class SVM** : résultat variable selon le tuning
+
+**Leçon importante** : la détection d'anomalies **locales** est **difficile**. Le choix de l'algo **dépend** de la nature de tes anomalies. En production, on combine souvent **plusieurs algos** et on utilise le **consensus**.
+:::
+
+# 6. Combiner avec le ML supervisé
+
+**Workflow hybride très efficace en production** :
+
+1. **Détection d'anomalies** (non-supervisé) sur toutes les données
+2. Les anomalies détectées sont **envoyées à des experts** pour labellisation
+3. Une fois suffisamment de labels → **modèle supervisé** (ex: XGBoost)
+4. Le détecteur non-supervisé reste en **sentinelle** pour les nouveaux types d'anomalies
+
+## 🧪 Exemple : feature engineering via Isolation Forest
+
+On peut utiliser le **score d'anomalie** comme **nouvelle feature** dans un modèle supervisé :
+
+```{python}
+# Créer un dataset supervisé
+from sklearn.datasets import make_classification
+X_sup, y_sup = make_classification(n_samples=1000, n_features=10, 
+                                    n_informative=5, random_state=42)
+
+# Injecter des outliers artificiels dans une partie
+outliers = np.random.uniform(-5, 5, (50, 10))
+X_with_outliers = np.vstack([X_sup, outliers])
+y_with = np.concatenate([y_sup, np.random.choice([0, 1], 50)])
+
+# Calculer un score d'anomalie comme feature
+iso = IsolationForest(contamination=0.05, random_state=42)
+iso.fit(X_with_outliers)
+score_anomalie = iso.decision_function(X_with_outliers)
+
+# Ajouter comme feature
+X_augmente = np.column_stack([X_with_outliers, score_anomalie])
+print(f"Shape avant : {X_with_outliers.shape}")
+print(f"Shape avec score anomalie : {X_augmente.shape}")
+
+# On pourrait maintenant entraîner un modèle supervisé sur X_augmente
+# et potentiellement gagner en performance
+```
+
+**Cas d'usage** : dans un modèle de fraude supervisé, ajouter le **score Isolation Forest** comme feature aide souvent le modèle à mieux gérer les cas atypiques.
+
+# 🏁 Exercice bilan — Détecteur de fraude
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu es data scientist chez une fintech. Tu dois construire un système de **détection d'anomalies** sur des transactions.
+
+```python
+np.random.seed(42)
+
+# 2000 transactions "normales"
+n = 2000
+X_normal = pd.DataFrame({
+    "montant": np.random.gamma(2, 30, n).clip(1, 500),
+    "heure": np.random.normal(14, 3, n).clip(0, 23),
+    "distance_domicile_km": np.random.exponential(5, n).clip(0, 50),
+    "nb_transactions_24h": np.random.poisson(3, n),
+})
+
+# 60 transactions "suspectes"
+X_fraude = pd.DataFrame({
+    "montant": np.random.uniform(500, 2000, 60),  # montants élevés
+    "heure": np.random.choice([1, 2, 3, 4, 23], 60),  # horaires nocturnes
+    "distance_domicile_km": np.random.uniform(50, 500, 60),  # très loin
+    "nb_transactions_24h": np.random.randint(5, 20, 60),  # rafale
+})
+
+X = pd.concat([X_normal, X_fraude]).reset_index(drop=True)
+y_true = np.concatenate([np.zeros(n), np.ones(60)])
+```
+
+**Mission** :
+
+1. **Explore** : stats de X, distribution des variables
+2. **Standardise** les données
+3. Applique les 3 algos avec `contamination=0.03` (≈60/2060)
+4. Calcule pour chaque : **precision, recall, F1**
+5. **Bonus** : utilise le score d'anomalie comme feature + XGBoost supervisé. Meilleur que le non-supervisé seul ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 2000
+X_normal = pd.DataFrame({
+    "montant": np.random.gamma(2, 30, n).clip(1, 500),
+    "heure": np.random.normal(14, 3, n).clip(0, 23),
+    "distance_domicile_km": np.random.exponential(5, n).clip(0, 50),
+    "nb_transactions_24h": np.random.poisson(3, n),
+})
+X_fraude = pd.DataFrame({
+    "montant": np.random.uniform(500, 2000, 60),
+    "heure": np.random.choice([1, 2, 3, 4, 23], 60),
+    "distance_domicile_km": np.random.uniform(50, 500, 60),
+    "nb_transactions_24h": np.random.randint(5, 20, 60),
+})
+
+X = pd.concat([X_normal, X_fraude]).reset_index(drop=True)
+y_true = np.concatenate([np.zeros(n), np.ones(60)])
+
+# 1. Exploration
+print("Stats descriptives :")
+print(X.describe().round(2))
+print(f"\nTaux d'anomalies : {y_true.mean() * 100:.2f}%")
+```
+
+```{python}
+# 2. Standardisation
+X_sc = StandardScaler().fit_transform(X)
+
+# 3-4. Les 3 algos
+contam = 60 / 2060  # ratio réel
+resultats = []
+
+modeles = {
+    "Isolation Forest": IsolationForest(contamination=contam, random_state=42),
+    "LOF (k=20)": LocalOutlierFactor(n_neighbors=20, contamination=contam),
+    "One-class SVM": OneClassSVM(kernel="rbf", gamma="auto", nu=contam),
+}
+
+for nom, mod in modeles.items():
+    if "Isolation" in nom:
+        pred = (mod.fit_predict(X.values) == -1).astype(int)
+    else:
+        pred = (mod.fit_predict(X_sc) == -1).astype(int)
+    
+    resultats.append({
+        "modèle": nom,
+        "precision": precision_score(y_true, pred, zero_division=0),
+        "recall": recall_score(y_true, pred),
+        "f1": f1_score(y_true, pred, zero_division=0)
+    })
+
+print("\n=== Résultats non-supervisés ===")
+print(pd.DataFrame(resultats).round(3).to_string(index=False))
+```
+
+```{python}
+# 5. Bonus : score anomalie + XGBoost supervisé
+import xgboost as xgb
+from sklearn.model_selection import train_test_split
+
+iso = IsolationForest(contamination=contam, random_state=42)
+iso.fit(X.values)
+score_anom = iso.decision_function(X.values)
+
+X_augmente = np.column_stack([X.values, score_anom])
+
+X_tr, X_te, y_tr, y_te = train_test_split(X_augmente, y_true, test_size=0.3, 
+                                            stratify=y_true, random_state=42)
+
+ratio = (y_tr == 0).sum() / (y_tr == 1).sum()
+clf = xgb.XGBClassifier(n_estimators=100, max_depth=4, learning_rate=0.1,
+                         scale_pos_weight=ratio, random_state=42, eval_metric="logloss")
+clf.fit(X_tr, y_tr)
+y_pred_sup = clf.predict(X_te)
+
+print("\n=== Modèle supervisé (XGBoost + score IF) ===")
+print(f"Precision : {precision_score(y_te, y_pred_sup):.3f}")
+print(f"Recall    : {recall_score(y_te, y_pred_sup):.3f}")
+print(f"F1        : {f1_score(y_te, y_pred_sup):.3f}")
+```
+
+**Observation typique** :
+- Les 3 algos non-supervisés atteignent ~0.7-0.9 de F1
+- Le modèle **supervisé avec score IF** peut **encore améliorer** → F1 > 0.9 si on a les labels
+
+**Workflow idéal** :
+1. Démarrage : **non-supervisé** pendant qu'on collecte des labels
+2. Une fois les labels disponibles : **supervisé + score non-supervisé en feature**
+3. Monitoring continu pour détecter les **nouveaux patterns**
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Isolation Forest** | Isolation rapide, défaut industriel |
+| **LOF** | Densité locale, repère anomalies "au milieu" |
+| **One-class SVM** | Apprend une frontière autour du normal |
+| **`contamination`** | Taux d'anomalies attendu — à bien calibrer |
+| **Score d'anomalie** | Utilisable comme feature pour ML supervisé |
+| **Workflow hybride** | Non-supervisé + supervisé = le meilleur des deux |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Isolation Forest en premier** : défaut robuste et rapide
+2. **Standardiser** pour LOF et One-class SVM (pas obligatoire pour IF mais recommandé)
+3. **Calibrer `contamination`** selon le métier
+4. **Regarder les scores**, pas juste les labels {-1, 1}
+5. **Combiner non-supervisé + supervisé** pour le meilleur résultat
+
+## 🚨 Les pièges à éviter
+
+1. **contamination à "auto"** → résultats imprévisibles
+2. **LOF avec novelty=False** sur de nouveaux points → erreur
+3. **Négliger le scaling** → LOF et OCSVM biaisés
+4. **Évaluer sans labels et conclure** → toujours chercher à valider avec quelques cas experts
+5. **Utiliser non-supervisé quand on a plein de labels** → supervisé sera meilleur
+
+## 🚀 La suite : le TP sommatif
+
+Tu as maintenant toutes les briques du ML non-supervisé :
+
+- ✅ Introduction (5.1)
+- ✅ k-means (5.2)
+- ✅ DBSCAN + hiérarchique (5.3)
+- ✅ PCA (5.4)
+- ✅ t-SNE + UMAP (5.5)
+- ✅ Détection d'anomalies (5.6)
+
+Le [**TP sommatif Module 5**](tp_sommatif.qmd) te fera mettre **tout ça** en œuvre sur un vrai cas métier : **segmentation client d'un e-commerce** avec :
+- Nettoyage et preprocessing
+- Visualisation UMAP/t-SNE
+- Clustering comparé (k-means, DBSCAN, hiérarchique)
+- Détection d'anomalies (clients atypiques)
+- Caractérisation et recommandations business
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Applique **Isolation Forest** sur ton dataset de fraude du **TP Module 4** :
+
+1. Utilise-le en **mode purement non-supervisé** (sans les labels)
+2. Compare avec ton meilleur XGBoost supervisé
+3. Utilise le score Isolation Forest comme **feature additionnelle** dans XGBoost
+4. Gain en performance ?
+
+C'est un test classique : en pratique, l'ajout d'un score non-supervisé **améliore souvent** les modèles supervisés de **1-3% de F1**. Pas énorme mais gratuit !
+:::
