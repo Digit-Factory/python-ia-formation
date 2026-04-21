@@ -1,0 +1,1096 @@
+---
+title: "Notion 6.4 — Techniques d'entraînement"
+subtitle: "Régularisation, optimizers, scheduling : ce qui fait la différence"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_4_entrainement_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_4_entrainement_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notion 6.3 (PyTorch)  
+**Objectif** : maîtriser les techniques modernes d'entraînement : régularisation, optimizers, scheduling, normalisation
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Diagnostiquer **underfitting** vs **overfitting** sur les courbes de loss
+- Appliquer les techniques de **régularisation** : dropout, weight decay, early stopping
+- Choisir et configurer le **bon optimizer** (SGD, Adam, AdamW)
+- Utiliser un **learning rate scheduler**
+- Ajouter une **Batch Normalization** pour stabiliser l'entraînement
+- Initialiser correctement les poids d'un réseau profond
+
+## 🎯 Pourquoi cette notion ?
+
+Un modèle DL mal entraîné **reste bloqué à 85%**. Un bien entraîné atteint **95%+** sur le même problème.
+
+La différence ? **Pas l'architecture**, mais un **ensemble de techniques** qui corrigent les problèmes pratiques :
+- Le modèle **overfit** → régularisation
+- L'apprentissage **stagne** → scheduling, optimizer
+- Les gradients **explosent ou s'évanouissent** → normalisation, init
+
+Cette notion te donne la **boîte à outils** complète du praticien.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+
+from sklearn.datasets import make_moons, make_classification
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+torch.manual_seed(42)
+
+print(f"✅ PyTorch {torch.__version__}")
+```
+
+# 1. Diagnostiquer : underfitting vs overfitting
+
+## 🎯 Les deux problèmes clés
+
+**Underfitting** : le modèle est **trop simple**, il ne capture pas le signal.
+- Loss train **élevée**
+- Loss val **élevée**
+- Les deux **plafonnent ensemble**
+
+**Overfitting** : le modèle **apprend par cœur** les données d'entraînement.
+- Loss train **très basse**
+- Loss val **qui remonte**
+- **Écart croissant** entre les deux
+
+Le bon modèle est **entre les deux**.
+
+```{python}
+#| label: fig-under-over-right
+#| fig-cap: "Les 3 régimes : underfit, bien fit, overfit"
+
+# Simulation des 3 régimes
+epochs = np.arange(50)
+
+# Underfit : loss élevée qui ne bouge pas
+train_under = 0.8 - 0.05 * np.tanh(epochs / 20)
+val_under = 0.82 - 0.04 * np.tanh(epochs / 20)
+
+# Bien fit : les deux descendent ensemble
+train_fit = 0.7 * np.exp(-epochs / 15) + 0.15
+val_fit = 0.7 * np.exp(-epochs / 15) + 0.18
+
+# Overfit : train descend, val remonte
+train_over = 0.7 * np.exp(-epochs / 10) + 0.05
+val_over = 0.7 * np.exp(-epochs / 15) + 0.15 + 0.003 * epochs
+
+fig, axes = plt.subplots(1, 3, figsize=(16, 4))
+
+for ax, tr, va, titre, couleur in zip(
+    axes,
+    [train_under, train_fit, train_over],
+    [val_under, val_fit, val_over],
+    ["Underfitting", "Bien équilibré ✅", "Overfitting"],
+    ["crimson", "green", "crimson"]
+):
+    ax.plot(epochs, tr, linewidth=2.5, label="Train", color="steelblue")
+    ax.plot(epochs, va, linewidth=2.5, label="Validation", color="coral")
+    ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+    ax.set_title(titre, color=couleur, fontweight="bold")
+    ax.legend()
+    ax.set_ylim(0, 1)
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🔍 Solutions en un coup d'œil
+
+| Problème | Symptôme | Solutions |
+|---|---|---|
+| **Underfitting** | Loss train élevée | Modèle plus gros, features, réduire régularisation |
+| **Bien équilibré** | 🎯 | Rien, tu as gagné |
+| **Overfitting** | Train ≪ Val | **Régularisation**, plus de données, early stopping |
+
+Le reste de la notion traite principalement l'**overfitting** (le plus fréquent en DL).
+
+# 2. La régularisation
+
+## 🎯 Principe général
+
+La **régularisation** est tout ce qui **limite la capacité** du modèle à sur-apprendre :
+- **Dropout** : désactiver des neurones aléatoirement pendant l'entraînement
+- **Weight decay** : pénaliser les gros poids
+- **Early stopping** : arrêter avant que ça overfit
+- **Data augmentation** : créer plus de données artificiellement (images)
+
+On va voir les 3 premières.
+
+## 🎲 Dropout : le plus populaire
+
+**Idée** : à chaque itération, on **désactive aléatoirement** un pourcentage de neurones.
+
+**Effet** : le réseau ne peut pas "compter" sur un neurone spécifique → il apprend des **représentations robustes**.
+
+```{python}
+#| label: fig-dropout
+#| fig-cap: "Dropout : désactiver des neurones aléatoirement"
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Sans dropout : tous actifs
+ax = axes[0]
+ax.set_xlim(-0.5, 5); ax.set_ylim(-0.5, 4.5)
+ax.axis("off")
+for y in [3.5, 2.5, 1.5, 0.5]:
+    ax.scatter(1, y, s=1000, c="lightblue", edgecolor="black", linewidth=2, zorder=5)
+    ax.scatter(4, y, s=1000, c="lightyellow", edgecolor="black", linewidth=2, zorder=5)
+for y1 in [3.5, 2.5, 1.5, 0.5]:
+    for y2 in [3.5, 2.5, 1.5, 0.5]:
+        ax.plot([1.3, 3.7], [y1, y2], "k-", alpha=0.2)
+ax.set_title("Sans dropout\n(tous les neurones actifs)", fontweight="bold", fontsize=12)
+
+# Avec dropout : certains désactivés
+ax = axes[1]
+ax.set_xlim(-0.5, 5); ax.set_ylim(-0.5, 4.5)
+ax.axis("off")
+np.random.seed(42)
+actifs_l1 = [True, True, True, True]
+actifs_l2 = [True, False, True, False]  # 2/4 désactivés
+for y, actif in zip([3.5, 2.5, 1.5, 0.5], actifs_l1):
+    color = "lightblue" if actif else "lightgray"
+    edge = "black" if actif else "gray"
+    ax.scatter(1, y, s=1000, c=color, edgecolor=edge, linewidth=2, zorder=5)
+for y, actif in zip([3.5, 2.5, 1.5, 0.5], actifs_l2):
+    color = "lightyellow" if actif else "lightgray"
+    edge = "black" if actif else "gray"
+    alpha_ = 1.0 if actif else 0.3
+    ax.scatter(4, y, s=1000, c=color, edgecolor=edge, linewidth=2, zorder=5, alpha=alpha_)
+    if not actif:
+        ax.plot([3.7, 4.3], [y - 0.15, y + 0.15], "red", linewidth=2)
+        ax.plot([3.7, 4.3], [y + 0.15, y - 0.15], "red", linewidth=2)
+
+for y1 in [3.5, 2.5, 1.5, 0.5]:
+    for y2, actif in zip([3.5, 2.5, 1.5, 0.5], actifs_l2):
+        alpha_ = 0.2 if actif else 0.05
+        ax.plot([1.3, 3.7], [y1, y2], "k-", alpha=alpha_)
+ax.set_title("Avec dropout (p=0.5)\n(2 neurones désactivés aléatoirement)", fontweight="bold", fontsize=12)
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🧪 Dropout en PyTorch
+
+```{python}
+# MLP avec dropout
+class MLPDropout(nn.Module):
+    def __init__(self, n_input, n_hidden, n_output, dropout_p=0.3):
+        super().__init__()
+        self.fc1 = nn.Linear(n_input, n_hidden)
+        self.drop1 = nn.Dropout(dropout_p)
+        self.fc2 = nn.Linear(n_hidden, n_hidden)
+        self.drop2 = nn.Dropout(dropout_p)
+        self.fc3 = nn.Linear(n_hidden, n_output)
+    
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.drop1(x)
+        x = torch.relu(self.fc2(x))
+        x = self.drop2(x)
+        x = self.fc3(x)
+        return x
+
+# Instancier
+modele = MLPDropout(n_input=2, n_hidden=32, n_output=1, dropout_p=0.3)
+print(modele)
+```
+
+::: {.callout-important}
+## 💡 Dropout : actif en train, désactivé en eval
+`model.train()` → dropout **actif** (désactive des neurones)  
+`model.eval()` → dropout **inactif** (tous les neurones)
+
+C'est pour ça qu'il est **crucial** d'appeler `model.eval()` avant l'évaluation !
+:::
+
+## ⚖️ Weight decay (régularisation L2)
+
+**Idée** : pénaliser les gros poids dans la loss.
+
+```
+Loss_totale = Loss_data + λ · Σ w²
+```
+
+**Effet** : force le modèle à utiliser des poids **petits** → moins de sur-confiance → meilleure généralisation.
+
+En PyTorch, c'est un **paramètre de l'optimizer** :
+
+```{python}
+# Weight decay λ = 0.01
+optimizer = optim.Adam(modele.parameters(), lr=0.01, weight_decay=0.01)
+print("✅ Optimizer avec weight decay configuré")
+```
+
+**Valeurs typiques** : `1e-4` à `1e-2`. Si trop fort → underfitting.
+
+## ⏱️ Early stopping
+
+**Idée** : arrêter l'entraînement **quand la val_loss remonte** (signe d'overfit).
+
+On **sauvegarde** le modèle au **minimum de la val_loss**.
+
+```{python}
+# Implémentation simple
+class EarlyStopping:
+    def __init__(self, patience=10):
+        self.patience = patience
+        self.best_loss = float("inf")
+        self.counter = 0
+        self.best_state = None
+    
+    def step(self, val_loss, modele):
+        if val_loss < self.best_loss:
+            self.best_loss = val_loss
+            self.counter = 0
+            # Sauvegarder l'état actuel
+            self.best_state = {k: v.clone() for k, v in modele.state_dict().items()}
+        else:
+            self.counter += 1
+        
+        return self.counter >= self.patience
+    
+    def restore(self, modele):
+        if self.best_state is not None:
+            modele.load_state_dict(self.best_state)
+
+print("✅ EarlyStopping défini")
+```
+
+# 3. Démonstration : régularisation en action
+
+Créons un **petit dataset** (propice à l'overfitting) et un **gros réseau** :
+
+```{python}
+# Petit dataset avec du bruit
+X, y = make_moons(n_samples=150, noise=0.3, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+X_train_t = torch.FloatTensor(X_train)
+y_train_t = torch.FloatTensor(y_train).unsqueeze(1)
+X_test_t = torch.FloatTensor(X_test)
+y_test_t = torch.FloatTensor(y_test).unsqueeze(1)
+
+print(f"Train : {X_train.shape}, Test : {X_test.shape}")
+```
+
+## 🧪 Comparer : sans vs avec régularisation
+
+```{python}
+# Modèle "gros" (propice à l'overfit)
+class BigMLP(nn.Module):
+    def __init__(self, dropout=0.0):
+        super().__init__()
+        self.fc1 = nn.Linear(2, 64)
+        self.fc2 = nn.Linear(64, 64)
+        self.fc3 = nn.Linear(64, 64)
+        self.fc4 = nn.Linear(64, 1)
+        self.drop = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.drop(x)
+        x = torch.relu(self.fc2(x))
+        x = self.drop(x)
+        x = torch.relu(self.fc3(x))
+        x = self.drop(x)
+        return self.fc4(x)
+
+def train_et_eval(dropout=0.0, weight_decay=0.0, n_epochs=500, seed=42):
+    torch.manual_seed(seed)
+    modele = BigMLP(dropout=dropout)
+    loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(modele.parameters(), lr=0.01, weight_decay=weight_decay)
+    
+    train_losses, test_losses = [], []
+    
+    for epoch in range(n_epochs):
+        # Train
+        modele.train()
+        logits = modele(X_train_t)
+        loss = loss_fn(logits, y_train_t)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        train_losses.append(loss.item())
+        
+        # Eval
+        modele.eval()
+        with torch.no_grad():
+            test_loss = loss_fn(modele(X_test_t), y_test_t).item()
+            test_losses.append(test_loss)
+    
+    # Accuracies finales
+    modele.eval()
+    with torch.no_grad():
+        acc_train = ((torch.sigmoid(modele(X_train_t)) >= 0.5).float() == y_train_t).float().mean().item()
+        acc_test = ((torch.sigmoid(modele(X_test_t)) >= 0.5).float() == y_test_t).float().mean().item()
+    
+    return train_losses, test_losses, acc_train, acc_test
+
+# Configs à tester
+configs = {
+    "Sans régularisation": (0.0, 0.0),
+    "Dropout 0.3": (0.3, 0.0),
+    "Weight decay 0.01": (0.0, 0.01),
+    "Dropout + Weight decay": (0.3, 0.01),
+}
+
+resultats = {}
+for nom, (drop, wd) in configs.items():
+    tr, te, acc_tr, acc_te = train_et_eval(dropout=drop, weight_decay=wd)
+    resultats[nom] = {"train_loss": tr, "test_loss": te,
+                      "acc_train": acc_tr, "acc_test": acc_te}
+
+# Affichage
+fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+for ax, (nom, res) in zip(axes.flat, resultats.items()):
+    ax.plot(res["train_loss"], linewidth=1.5, label="Train")
+    ax.plot(res["test_loss"], linewidth=1.5, label="Test")
+    ax.set_title(f"{nom}\nTrain: {res['acc_train']:.2%} | Test: {res['acc_test']:.2%}", fontsize=11)
+    ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+
+# Récap
+print("\n=== Récapitulatif ===")
+for nom, res in resultats.items():
+    ecart = res['acc_train'] - res['acc_test']
+    print(f"{nom:30s} | Train {res['acc_train']:.2%} | Test {res['acc_test']:.2%} | Écart {ecart:+.2%}")
+```
+
+**Observations** :
+
+- **Sans régularisation** : gros écart train/test (overfit)
+- **Dropout** : réduit l'écart
+- **Weight decay** : réduit aussi l'écart
+- **Combinés** : le meilleur compromis souvent
+
+**Règle pratique** : commence avec dropout=0.2, weight_decay=1e-4, puis ajuste.
+
+## ✏️ Exercice 1 — Early stopping en pratique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Entraîne un gros MLP (BigMLP sans régularisation) avec **early stopping** (patience=30) :
+
+1. Boucle d'entraînement avec suivi de la **val_loss**
+2. À chaque époque, appelle `early_stop.step(val_loss, modele)`
+3. Si ça retourne True, **arrête et restaure** le meilleur état
+4. Compare :
+   - Modèle entraîné 500 époques sans early stopping
+   - Modèle avec early stopping
+
+Les courbes de test_loss, et la meilleure époque.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+torch.manual_seed(42)
+modele = BigMLP(dropout=0.0)
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+early_stop = EarlyStopping(patience=30)
+
+train_losses, val_losses = [], []
+epoque_arret = None
+
+for epoch in range(500):
+    # Train
+    modele.train()
+    logits = modele(X_train_t)
+    loss = loss_fn(logits, y_train_t)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+    train_losses.append(loss.item())
+    
+    # Val
+    modele.eval()
+    with torch.no_grad():
+        val_loss = loss_fn(modele(X_test_t), y_test_t).item()
+    val_losses.append(val_loss)
+    
+    # Early stopping
+    if early_stop.step(val_loss, modele):
+        epoque_arret = epoch
+        break
+
+# Restaurer le meilleur modèle
+early_stop.restore(modele)
+
+print(f"Arrêt à l'époque : {epoque_arret if epoque_arret else 'fin'}")
+print(f"Meilleure val_loss : {early_stop.best_loss:.4f}")
+
+# Affichage
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(train_losses, linewidth=1.5, label="Train")
+ax.plot(val_losses, linewidth=1.5, label="Validation")
+best_epoch = val_losses.index(min(val_losses))
+ax.axvline(best_epoch, color="green", linestyle="--", alpha=0.7, label=f"Meilleur : époque {best_epoch}")
+if epoque_arret:
+    ax.axvline(epoque_arret, color="red", linestyle="--", alpha=0.7, label=f"Arrêt : époque {epoque_arret}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Early stopping en action")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# Accuracy finale
+modele.eval()
+with torch.no_grad():
+    acc_test = ((torch.sigmoid(modele(X_test_t)) >= 0.5).float() == y_test_t).float().mean().item()
+print(f"Accuracy test après restauration : {acc_test:.3f}")
+```
+
+**Leçon** : early stopping **évite d'entraîner en trop**. Très utile en pratique, économise du temps GPU.
+:::
+
+# 4. Optimizers : au-delà de SGD
+
+## 📊 Les 4 optimizers à connaître
+
+| Optimizer | Caractéristique | Quand utiliser |
+|---|---|---|
+| **SGD** | Pur, simple, besoin de tuning lr | Benchmarks, recherche |
+| **SGD + momentum** | Accélère, oscille moins | Grands modèles, batch normalisation |
+| **Adam** | Adapte lr par paramètre | **Défaut moderne** |
+| **AdamW** | Adam + weight decay correctement fait | Transformers, modèles profonds |
+
+## 🎬 SGD avec momentum
+
+**Momentum** : accumule une "vitesse" qui aide à sortir des plateaux.
+
+```
+v = momentum × v - lr × gradient
+w = w + v
+```
+
+Comme une **bille** qui roule et accumule de l'énergie cinétique.
+
+```{python}
+# SGD basique
+opt_sgd = optim.SGD(modele.parameters(), lr=0.01)
+
+# SGD + momentum (très populaire pour CV)
+opt_sgd_mom = optim.SGD(modele.parameters(), lr=0.01, momentum=0.9)
+
+# Adam (le défaut)
+opt_adam = optim.Adam(modele.parameters(), lr=0.001)
+
+# AdamW (Adam corrigé)
+opt_adamw = optim.AdamW(modele.parameters(), lr=0.001, weight_decay=0.01)
+```
+
+## 🧪 Comparaison sur un dataset difficile
+
+```{python}
+# Dataset plus complexe
+X_big, y_big = make_classification(
+    n_samples=1000, n_features=20, n_informative=10,
+    n_redundant=5, n_classes=2, random_state=42
+)
+X_train, X_test, y_train, y_test = train_test_split(X_big, y_big, test_size=0.3, random_state=42)
+scaler = StandardScaler()
+X_train = scaler.fit_transform(X_train)
+X_test = scaler.transform(X_test)
+
+X_train_t = torch.FloatTensor(X_train)
+y_train_t = torch.FloatTensor(y_train).unsqueeze(1)
+X_test_t = torch.FloatTensor(X_test)
+y_test_t = torch.FloatTensor(y_test).unsqueeze(1)
+
+class MLPBig(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(20, 64)
+        self.fc2 = nn.Linear(64, 32)
+        self.fc3 = nn.Linear(32, 1)
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        return self.fc3(x)
+
+def train_with_optimizer(optimizer_cls, **kwargs):
+    torch.manual_seed(42)
+    modele = MLPBig()
+    loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = optimizer_cls(modele.parameters(), **kwargs)
+    
+    losses = []
+    for epoch in range(200):
+        logits = modele(X_train_t)
+        loss = loss_fn(logits, y_train_t)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        losses.append(loss.item())
+    
+    modele.eval()
+    with torch.no_grad():
+        acc = ((torch.sigmoid(modele(X_test_t)) >= 0.5).float() == y_test_t).float().mean().item()
+    
+    return losses, acc
+
+# Test des 4 optimizers
+optimizers = {
+    "SGD (lr=0.01)": (optim.SGD, {"lr": 0.01}),
+    "SGD + momentum": (optim.SGD, {"lr": 0.01, "momentum": 0.9}),
+    "Adam (lr=0.001)": (optim.Adam, {"lr": 0.001}),
+    "AdamW (lr=0.001)": (optim.AdamW, {"lr": 0.001, "weight_decay": 0.01}),
+}
+
+resultats = {}
+for nom, (cls, kwargs) in optimizers.items():
+    losses, acc = train_with_optimizer(cls, **kwargs)
+    resultats[nom] = {"losses": losses, "acc": acc}
+
+# Affichage
+fig, ax = plt.subplots(figsize=(12, 5))
+for nom, res in resultats.items():
+    ax.plot(res["losses"], linewidth=2, label=f"{nom} — acc {res['acc']:.2%}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Comparaison des 4 optimizers")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations typiques** :
+- **SGD pur** : lent à démarrer
+- **SGD+momentum** : beaucoup plus rapide
+- **Adam** : converge vite dès le début
+- **AdamW** : similaire à Adam mais mieux quand on ajoute weight decay
+
+# 5. Learning rate scheduling
+
+## 🎯 Le problème
+
+Un **learning rate fixe** n'est pas idéal :
+- **Au début** : on veut un lr **grand** (avancer vite)
+- **Vers la fin** : on veut un lr **petit** (affiner)
+
+Les **schedulers** font varier `lr` au fil des époques.
+
+## 📊 Les 3 schedulers courants
+
+```{python}
+#| label: fig-schedulers
+#| fig-cap: "Les 3 schedulers courants"
+
+epochs = np.arange(100)
+lr_init = 0.01
+
+# Step decay : divise par 10 tous les 30 epochs
+lr_step = np.where(epochs < 30, lr_init,
+                    np.where(epochs < 60, lr_init * 0.1, lr_init * 0.01))
+
+# Cosine annealing : décroissance en cosinus
+lr_cosine = lr_init * 0.5 * (1 + np.cos(np.pi * epochs / 100))
+
+# Reduce on plateau : simulation (baisse quand la val_loss stagne)
+lr_plateau = np.copy(epochs).astype(float)
+lr_plateau[:] = lr_init
+lr_plateau[40:] = lr_init * 0.5
+lr_plateau[70:] = lr_init * 0.25
+
+fig, ax = plt.subplots(figsize=(11, 4))
+ax.plot(epochs, lr_step, linewidth=2, label="StepLR (÷10 tous les 30)")
+ax.plot(epochs, lr_cosine, linewidth=2, label="CosineAnnealing")
+ax.plot(epochs, lr_plateau, linewidth=2, label="ReduceLROnPlateau")
+ax.set_xlabel("Époque"); ax.set_ylabel("Learning rate")
+ax.set_title("3 stratégies de scheduling du learning rate")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+ax.set_yscale("log")
+plt.tight_layout()
+plt.show()
+```
+
+## 🧪 Utilisation en PyTorch
+
+```{python}
+# Modèle + optimizer
+torch.manual_seed(42)
+modele = MLPBig()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+# Scheduler : divise lr par 10 tous les 50 epochs
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
+
+loss_fn = nn.BCEWithLogitsLoss()
+losses, lrs = [], []
+
+for epoch in range(100):
+    logits = modele(X_train_t)
+    loss = loss_fn(logits, y_train_t)
+    optimizer.zero_grad(); loss.backward(); optimizer.step()
+    
+    # IMPORTANT : appeler scheduler.step() après optimizer.step()
+    scheduler.step()
+    
+    losses.append(loss.item())
+    lrs.append(optimizer.param_groups[0]["lr"])
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+axes[0].plot(losses, linewidth=2)
+axes[0].set_xlabel("Époque"); axes[0].set_ylabel("Loss")
+axes[0].set_title("Loss avec StepLR")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(lrs, linewidth=2, color="coral")
+axes[1].set_xlabel("Époque"); axes[1].set_ylabel("Learning rate")
+axes[1].set_title("Évolution du learning rate")
+axes[1].set_yscale("log")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : à chaque **chute** de lr, la loss **baisse encore un peu** (on affine).
+
+## 🎯 Quel scheduler choisir ?
+
+| Situation | Scheduler |
+|---|---|
+| **Dataset classique, entraînement connu** | StepLR ou CosineAnnealing |
+| **Dataset nouveau, tu ne sais pas** | ReduceLROnPlateau (s'adapte automatiquement) |
+| **Entraînements longs (transformers)** | CosineAnnealing avec warmup |
+
+## ✏️ Exercice 2 — Comparer avec/sans scheduler
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Entraîne **2 fois** le même `MLPBig` pendant 200 époques :
+
+1. **Sans scheduler** : `Adam(lr=0.01)`
+2. **Avec CosineAnnealing** : `Adam(lr=0.01)` + `optim.lr_scheduler.CosineAnnealingLR(T_max=200)`
+
+Compare :
+- Les **courbes de loss**
+- L'**accuracy test finale**
+
+Le scheduler aide-t-il ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+def train_avec_scheduler(use_scheduler=False):
+    torch.manual_seed(42)
+    modele = MLPBig()
+    loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(modele.parameters(), lr=0.01)
+    scheduler = (optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=200)
+                 if use_scheduler else None)
+    
+    losses = []
+    for epoch in range(200):
+        logits = modele(X_train_t)
+        loss = loss_fn(logits, y_train_t)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        if scheduler is not None:
+            scheduler.step()
+        losses.append(loss.item())
+    
+    modele.eval()
+    with torch.no_grad():
+        acc = ((torch.sigmoid(modele(X_test_t)) >= 0.5).float() == y_test_t).float().mean().item()
+    return losses, acc
+
+losses_sans, acc_sans = train_avec_scheduler(use_scheduler=False)
+losses_avec, acc_avec = train_avec_scheduler(use_scheduler=True)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(losses_sans, linewidth=2, label=f"Sans scheduler — acc {acc_sans:.2%}")
+ax.plot(losses_avec, linewidth=2, label=f"CosineAnnealing — acc {acc_avec:.2%}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Avec vs sans scheduler")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : le scheduler donne souvent une loss **plus lisse en fin d'entraînement** et une accuracy légèrement meilleure. Pas toujours spectaculaire sur petits problèmes, mais **très utile** sur les gros.
+:::
+
+# 6. Batch Normalization
+
+## 🎯 Le problème qu'il résout
+
+Dans un réseau profond, les **activations** peuvent devenir très grandes ou très petites au fur et à mesure qu'on descend dans les couches. Ça crée :
+- **Gradients qui explosent** ou **s'évanouissent**
+- **Apprentissage lent** ou **instable**
+
+## 💡 La solution
+
+**Batch Normalization** (2015) : normaliser les activations **dans chaque mini-batch** pour qu'elles aient moyenne 0 et écart-type 1.
+
+Effets magiques :
+- **Entraînement plus rapide** (on peut mettre lr plus grand)
+- **Plus stable** (moins de sensibilité à l'init)
+- **Effet régularisant léger** (un peu comme dropout)
+
+## 🧪 BatchNorm en pratique
+
+```{python}
+class MLPBN(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.fc1 = nn.Linear(20, 64)
+        self.bn1 = nn.BatchNorm1d(64)  # 1d car entrées 1D
+        self.fc2 = nn.Linear(64, 32)
+        self.bn2 = nn.BatchNorm1d(32)
+        self.fc3 = nn.Linear(32, 1)
+    
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.bn1(x)       # normalise
+        x = torch.relu(x)
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = torch.relu(x)
+        return self.fc3(x)
+
+print("MLP avec BatchNorm défini")
+```
+
+**Ordre type** : `Linear → BatchNorm → ReLU → Dropout`
+
+## 📊 Comparaison avec/sans BatchNorm
+
+```{python}
+# DataLoader pour mini-batchs (BN a besoin de batchs > 1)
+train_ds = TensorDataset(X_train_t, y_train_t)
+train_loader = DataLoader(train_ds, batch_size=32, shuffle=True)
+
+def train_model(model_cls, n_epochs=100, lr=0.01):
+    torch.manual_seed(42)
+    modele = model_cls()
+    loss_fn = nn.BCEWithLogitsLoss()
+    optimizer = optim.Adam(modele.parameters(), lr=lr)
+    
+    losses = []
+    for epoch in range(n_epochs):
+        modele.train()
+        epoch_losses = []
+        for Xb, yb in train_loader:
+            logits = modele(Xb)
+            loss = loss_fn(logits, yb)
+            optimizer.zero_grad(); loss.backward(); optimizer.step()
+            epoch_losses.append(loss.item())
+        losses.append(np.mean(epoch_losses))
+    
+    modele.eval()
+    with torch.no_grad():
+        acc = ((torch.sigmoid(modele(X_test_t)) >= 0.5).float() == y_test_t).float().mean().item()
+    return losses, acc
+
+# Avec et sans BN
+losses_sans, acc_sans = train_model(MLPBig)
+losses_avec, acc_avec = train_model(MLPBN)
+
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(losses_sans, linewidth=2, label=f"Sans BN — acc {acc_sans:.2%}")
+ax.plot(losses_avec, linewidth=2, label=f"Avec BN — acc {acc_avec:.2%}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss (moy. par époque)")
+ax.set_title("Impact de la Batch Normalization")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : avec BN, la loss **descend plus vite** en début d'entraînement.
+
+# 7. Initialisation des poids
+
+## 🎯 Pourquoi c'est important
+
+Si les poids sont mal initialisés, le réseau peut **ne jamais apprendre** :
+- Poids **trop grands** → gradients explosent
+- Poids **trop petits** → gradients s'évanouissent
+- Poids **tous nuls** → tous les neurones apprennent la même chose
+
+## 📊 Les initialisations modernes
+
+| Initialisation | Formule | Quand utiliser |
+|---|---|---|
+| **Xavier/Glorot** | Var = 1/(n_in + n_out) | Sigmoid, tanh |
+| **He/Kaiming** | Var = 2/n_in | **ReLU** (défaut moderne) |
+| **Uniform** | Entre -k et +k | Pas recommandé seul |
+
+**PyTorch fait déjà** une initialisation raisonnable par défaut. Mais on peut la **personnaliser** :
+
+```{python}
+# Initialisation He pour tous les Linear
+def init_he(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+
+modele = MLPBig()
+modele.apply(init_he)
+print("Initialisation He appliquée")
+
+# Vérifier
+for nom, p in modele.named_parameters():
+    print(f"{nom:15s} : mean {p.mean().item():+.3f}, std {p.std().item():.3f}")
+```
+
+# 🏁 Exercice bilan — Pipeline avec toutes les techniques
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis un **modèle professionnel** qui combine **toutes** les techniques :
+
+- Architecture : MLP 3 couches cachées (64, 32, 16)
+- **Dropout** 0.2 après chaque couche
+- **BatchNorm** avant activation
+- **Initialisation He**
+- **Optimizer AdamW** avec weight_decay=0.01
+- **Scheduler CosineAnnealing** sur 100 époques
+- **Early stopping** avec patience=20
+- **DataLoader** avec batch_size=32, shuffle=True
+- Suivi train_loss + val_loss
+
+Dataset : `make_classification(n_samples=2000, n_features=15, n_informative=10, n_classes=2, random_state=42)`
+
+**Target** : > 90% d'accuracy test.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Dataset
+X, y = make_classification(n_samples=2000, n_features=15, n_informative=10,
+                            n_classes=2, random_state=42)
+X_tr, X_rest, y_tr, y_rest = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+X_val, X_te, y_val, y_te = train_test_split(X_rest, y_rest, test_size=0.5, random_state=42, stratify=y_rest)
+
+scaler = StandardScaler()
+X_tr = scaler.fit_transform(X_tr)
+X_val = scaler.transform(X_val)
+X_te = scaler.transform(X_te)
+
+X_tr_t = torch.FloatTensor(X_tr); y_tr_t = torch.FloatTensor(y_tr).unsqueeze(1)
+X_val_t = torch.FloatTensor(X_val); y_val_t = torch.FloatTensor(y_val).unsqueeze(1)
+X_te_t = torch.FloatTensor(X_te); y_te_t = torch.FloatTensor(y_te).unsqueeze(1)
+
+train_loader = DataLoader(TensorDataset(X_tr_t, y_tr_t), batch_size=32, shuffle=True)
+
+# Modèle complet
+class ProMLP(nn.Module):
+    def __init__(self, n_input, dropout=0.2):
+        super().__init__()
+        self.fc1 = nn.Linear(n_input, 64)
+        self.bn1 = nn.BatchNorm1d(64)
+        self.fc2 = nn.Linear(64, 32)
+        self.bn2 = nn.BatchNorm1d(32)
+        self.fc3 = nn.Linear(32, 16)
+        self.bn3 = nn.BatchNorm1d(16)
+        self.fc4 = nn.Linear(16, 1)
+        self.drop = nn.Dropout(dropout)
+    
+    def forward(self, x):
+        x = torch.relu(self.bn1(self.fc1(x)))
+        x = self.drop(x)
+        x = torch.relu(self.bn2(self.fc2(x)))
+        x = self.drop(x)
+        x = torch.relu(self.bn3(self.fc3(x)))
+        x = self.drop(x)
+        return self.fc4(x)
+
+# Init He
+def init_he(m):
+    if isinstance(m, nn.Linear):
+        nn.init.kaiming_normal_(m.weight, nonlinearity="relu")
+        if m.bias is not None:
+            nn.init.zeros_(m.bias)
+
+torch.manual_seed(42)
+modele = ProMLP(n_input=15)
+modele.apply(init_he)
+
+# Optimizer + scheduler
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = optim.AdamW(modele.parameters(), lr=0.01, weight_decay=0.01)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=100)
+early_stop = EarlyStopping(patience=20)
+
+train_losses, val_losses = [], []
+for epoch in range(100):
+    # Train
+    modele.train()
+    epoch_losses = []
+    for Xb, yb in train_loader:
+        logits = modele(Xb)
+        loss = loss_fn(logits, yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        epoch_losses.append(loss.item())
+    train_losses.append(np.mean(epoch_losses))
+    scheduler.step()
+    
+    # Val
+    modele.eval()
+    with torch.no_grad():
+        val_loss = loss_fn(modele(X_val_t), y_val_t).item()
+    val_losses.append(val_loss)
+    
+    # Early stopping
+    if early_stop.step(val_loss, modele):
+        print(f"Early stop à l'époque {epoch}")
+        break
+
+# Restauration
+early_stop.restore(modele)
+
+# Affichage
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(train_losses, linewidth=2, label="Train")
+ax.plot(val_losses, linewidth=2, label="Validation")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Training avec toutes les techniques")
+ax.legend(); ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# Accuracy finale
+modele.eval()
+with torch.no_grad():
+    acc_test = ((torch.sigmoid(modele(X_te_t)) >= 0.5).float() == y_te_t).float().mean().item()
+print(f"\n🎯 Accuracy test : {acc_test:.3f}")
+```
+
+**Tu devrais obtenir > 90%** sur ce dataset. Si non :
+- Augmente n_epochs (patience early stopping donne assez de marge)
+- Teste d'autres valeurs de dropout (0.3 parfois mieux)
+- Essaie d'autres lr (0.001, 0.005)
+
+**Ce pipeline est exactement ce qu'utilisent les pros** en production.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Technique | But | PyTorch |
+|---|---|---|
+| **Dropout** | Régularisation | `nn.Dropout(p=0.3)` |
+| **Weight decay** | Régularisation | `optimizer(weight_decay=0.01)` |
+| **Early stopping** | Éviter overfit | Code maison ou lib |
+| **SGD+momentum** | Optimizer robuste | `optim.SGD(momentum=0.9)` |
+| **Adam/AdamW** | Optimizer défaut | `optim.Adam/AdamW` |
+| **Scheduler** | Adapter lr | `optim.lr_scheduler.*` |
+| **BatchNorm** | Stabiliser | `nn.BatchNorm1d(n)` |
+| **He init** | Init pour ReLU | `nn.init.kaiming_normal_` |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Suivre train + val loss** : c'est ton radar
+2. **Commencer avec Adam** puis raffiner
+3. **Dropout 0.2-0.3** presque par défaut
+4. **Weight decay 1e-4** dans l'optimizer
+5. **Scheduler + early stopping** pour entraînements propres
+
+## 🚨 Les pièges à éviter
+
+1. **Dropout en eval** → désactiver avec `modele.eval()`
+2. **BatchNorm sur batch=1** → calcul impossible (min 2)
+3. **Learning rate trop grand + weight decay** → divergence
+4. **Scheduler qui s'appelle avant `optimizer.step()`** → ordre important
+5. **Ne pas restaurer le meilleur modèle** après early stopping
+
+## 🚀 La suite
+
+Tu sais maintenant **entraîner un réseau proprement**. Dans la [**Notion 6.5 — CNN pour la vision**](notion_6_5_cnn.qmd) :
+
+- **Convolutions 2D** : le bloc de base de la vision
+- **Pooling** : réduction spatiale
+- **Architectures classiques** : LeNet, VGG
+- Classification d'images sur MNIST / Fashion-MNIST
+- **Data augmentation** pour les images
+
+On passe des MLPs aux CNNs, la révolution de 2012 qui a tout changé en vision.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends l'**exercice bilan** et teste **systématiquement** chaque technique, **une par une** :
+
+1. Baseline : MLP simple sans rien
+2. + Dropout
+3. + Weight decay
+4. + BatchNorm
+5. + Scheduler
+6. + Early stopping
+
+À chaque ajout, note l'accuracy. **Chaque technique devrait ajouter 1-3%** selon le dataset. C'est comme ça qu'on **diagnostique** quelles techniques apportent vraiment sur un problème donné.
+:::
