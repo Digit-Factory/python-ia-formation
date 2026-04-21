@@ -1,0 +1,992 @@
+---
+title: "Notion 6.3 — PyTorch : le framework du Deep Learning"
+subtitle: "Tout ce que tu as codé en 60 lignes, en 10 lignes"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_3_pytorch_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_3_pytorch_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 6.2 (MLP et backprop)  
+**Objectif** : maîtriser PyTorch pour construire, entraîner et sauvegarder des modèles DL
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre les **tenseurs** PyTorch et la **différence avec NumPy**
+- Utiliser **`autograd`** pour calculer les gradients automatiquement
+- Définir un modèle en héritant de **`nn.Module`**
+- Créer un **DataLoader** pour gérer les batchs efficacement
+- Écrire une **training loop** propre et réutilisable
+- **Sauvegarder et recharger** un modèle entraîné
+- Exploiter le **GPU** quand disponible
+
+## 🎯 Pourquoi PyTorch ?
+
+Tu as tout codé from scratch en 6.2. C'était **essentiel** pour comprendre. Mais en vrai projet :
+
+- Calculer les gradients à la main pour un CNN à 50 couches = **impossible**
+- Gérer les batchs, shuffling, multi-CPU = **fastidieux**
+- Faire tourner sur GPU = **un cauchemar en NumPy**
+
+**PyTorch** (Meta, 2016) résout tout ça :
+- **Autograd** : calcule tous les gradients automatiquement
+- **`nn.Module`** : API propre pour définir des modèles complexes
+- **GPU natif** : un seul appel `.to('cuda')` pour accélérer ×100
+- **Écosystème** : torchvision, torchaudio, torchtext, HuggingFace...
+- **Standard de facto** en 2025 : utilisé dans 80%+ des papers de recherche
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
+
+from sklearn.datasets import make_moons, load_iris, make_classification
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+torch.manual_seed(42)
+
+print(f"✅ PyTorch {torch.__version__}")
+print(f"   GPU disponible : {torch.cuda.is_available()}")
+```
+
+# 1. Les tenseurs : la brique de base
+
+## 🎨 C'est quoi un tenseur ?
+
+Un **tenseur** est une généralisation des matrices :
+- **Scalaire** : tenseur 0D (un nombre)
+- **Vecteur** : tenseur 1D
+- **Matrice** : tenseur 2D
+- **Batch d'images couleur** : tenseur 4D (N, C, H, W)
+
+Pour toi, **c'est comme un array NumPy**, mais avec **2 super-pouvoirs** :
+
+1. Peut **vivre sur GPU** (accélération massive)
+2. Peut **enregistrer les gradients** automatiquement
+
+```{python}
+# Créer des tenseurs
+a = torch.tensor([1, 2, 3])
+b = torch.tensor([[1., 2.], [3., 4.]])
+c = torch.zeros(3, 4)
+d = torch.randn(2, 3, 4)  # 3D : 2 matrices 3x4
+
+print(f"a = {a}, shape = {a.shape}")
+print(f"b = \n{b}, shape = {b.shape}")
+print(f"c shape = {c.shape}")
+print(f"d shape = {d.shape}")
+```
+
+## 🔄 NumPy ↔ PyTorch : des frères
+
+Convertir entre NumPy et PyTorch est **trivial** :
+
+```{python}
+# NumPy → PyTorch
+arr = np.array([1.0, 2.0, 3.0])
+tensor = torch.from_numpy(arr)
+print(f"Tensor depuis NumPy : {tensor}")
+
+# PyTorch → NumPy
+arr_retour = tensor.numpy()
+print(f"Retour en NumPy : {arr_retour}")
+
+# Attention : ils partagent la mémoire !
+tensor[0] = 99
+print(f"Après modif du tensor : NumPy = {arr}")  # modifié aussi !
+```
+
+## 📐 Les opérations : idem NumPy
+
+```{python}
+x = torch.randn(3, 4)
+y = torch.randn(4, 5)
+
+# Multiplication matricielle
+z = x @ y
+print(f"Shape : {x.shape} @ {y.shape} = {z.shape}")
+
+# Opérations élément par élément
+a = torch.tensor([1., 2., 3.])
+b = torch.tensor([4., 5., 6.])
+print(f"a + b = {a + b}")
+print(f"a * b = {a * b}")
+print(f"sum(a) = {a.sum()}")
+print(f"mean(b) = {b.mean()}")
+```
+
+## 💻 CPU vs GPU
+
+```{python}
+# Savoir où tourner
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device : {device}")
+
+# Créer un tenseur sur le bon device
+x = torch.randn(100, 100, device=device)
+# Ou déplacer après coup
+y = torch.randn(100, 100).to(device)
+
+print(f"x est sur : {x.device}")
+```
+
+**Règle d'or** : tous les tenseurs d'un calcul doivent être **sur le même device**.
+
+# 2. Autograd : les gradients automatiques
+
+## 🎯 La magie
+
+En 6.2, tu as calculé les gradients **à la main**. PyTorch le fait **automatiquement** grâce à l'**autograd**.
+
+**Il suffit de dire qu'on veut suivre les gradients** (`requires_grad=True`), et PyTorch **mémorise toutes les opérations** pour calculer les dérivées sur demande.
+
+## 🧪 Exemple : y = x² + 2x + 1
+
+On veut calculer `dy/dx` pour `x=3`. Mathématiquement : `dy/dx = 2x + 2 = 8`.
+
+```{python}
+# Créer un tensor avec suivi des gradients
+x = torch.tensor(3.0, requires_grad=True)
+
+# Calcul
+y = x ** 2 + 2 * x + 1
+
+# Calculer les gradients
+y.backward()
+
+# Accès au gradient de y par rapport à x
+print(f"y = {y.item()}")
+print(f"dy/dx = {x.grad.item()}  (attendu : 8)")
+```
+
+**C'est tout.** Un appel à `.backward()` et PyTorch remonte tout le graphe de calcul.
+
+## 🧪 Exemple plus parlant : régression logistique
+
+```{python}
+# Données simples
+X = torch.tensor([[1., 2.], [3., 4.], [5., 6.]])
+y = torch.tensor([0., 1., 1.])
+
+# Paramètres à apprendre
+w = torch.randn(2, requires_grad=True)
+b = torch.randn(1, requires_grad=True)
+
+# Forward
+logits = X @ w + b
+probas = torch.sigmoid(logits)
+loss = -(y * torch.log(probas + 1e-8) + (1 - y) * torch.log(1 - probas + 1e-8)).mean()
+
+print(f"Loss : {loss.item():.4f}")
+
+# Backward
+loss.backward()
+
+print(f"\nGradient de w : {w.grad}")
+print(f"Gradient de b : {b.grad}")
+```
+
+**PyTorch a calculé `∂L/∂w` et `∂L/∂b` tout seul.** En 6.2, c'était 10 lignes de code. Ici : 1 appel.
+
+# 3. `nn.Module` : définir un modèle proprement
+
+## 🏗️ L'approche PyTorch
+
+Un modèle PyTorch **hérite** de `nn.Module` et définit :
+- `__init__` : déclare les **couches** (paramètres)
+- `forward` : décrit le **calcul** de la prédiction
+
+PyTorch **s'occupe** :
+- Du **backward** (via autograd)
+- De la **gestion des paramètres** (liste automatique)
+- Du **device** (tout déplacer sur GPU en un appel)
+
+## 🧪 MLP en PyTorch
+
+Le **même** MLP qu'on a codé en 60 lignes en 6.2, en PyTorch :
+
+```{python}
+class MLP(nn.Module):
+    def __init__(self, n_input, n_hidden, n_output):
+        super().__init__()
+        self.fc1 = nn.Linear(n_input, n_hidden)
+        self.fc2 = nn.Linear(n_hidden, n_output)
+    
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+# Instancier
+modele = MLP(n_input=2, n_hidden=8, n_output=1)
+print(modele)
+```
+
+**C'est tout.** 7 lignes de code. PyTorch s'occupe du reste.
+
+## 🔍 Regarder les paramètres
+
+```{python}
+for nom, param in modele.named_parameters():
+    print(f"{nom:20s} : shape {tuple(param.shape)}, requires_grad = {param.requires_grad}")
+
+# Total de paramètres
+total = sum(p.numel() for p in modele.parameters())
+print(f"\nTotal : {total} paramètres entraînables")
+```
+
+**`nn.Linear(a, b)`** = une couche dense avec :
+- Une matrice `W` de shape `(b, a)` (attention à l'ordre)
+- Un biais `b` de shape `(b,)`
+
+# 4. Training loop : les 5 étapes rituelles
+
+## 🧘 Le pattern universel
+
+Toute training loop PyTorch suit **5 étapes** :
+
+```python
+for batch in dataloader:
+    x, y = batch
+    
+    # 1. Forward
+    y_pred = modele(x)
+    
+    # 2. Loss
+    loss = loss_fn(y_pred, y)
+    
+    # 3. Reset des gradients (important !)
+    optimizer.zero_grad()
+    
+    # 4. Backward
+    loss.backward()
+    
+    # 5. Update
+    optimizer.step()
+```
+
+Ces 5 lignes sont **le cœur du DL**. Tu les écriras **des milliers de fois**.
+
+::: {.callout-important}
+## ⚠️ Ne jamais oublier `optimizer.zero_grad()`
+PyTorch **accumule** les gradients par défaut. Si on ne les remet pas à zéro, ils s'**additionnent** entre batchs → l'apprentissage devient fou.
+:::
+
+## 🧪 Entraîner un MLP sur moons
+
+```{python}
+# Données
+X, y = make_moons(n_samples=500, noise=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Convertir en tenseurs
+X_train_t = torch.FloatTensor(X_train)
+y_train_t = torch.FloatTensor(y_train).unsqueeze(1)  # shape (n, 1) pour BCE
+X_test_t = torch.FloatTensor(X_test)
+y_test_t = torch.FloatTensor(y_test).unsqueeze(1)
+
+print(f"X_train_t : {X_train_t.shape}, dtype {X_train_t.dtype}")
+print(f"y_train_t : {y_train_t.shape}")
+```
+
+```{python}
+# Modèle + loss + optimizer
+modele = MLP(n_input=2, n_hidden=8, n_output=1)
+loss_fn = nn.BCEWithLogitsLoss()  # sigmoid + BCE combinés (plus stable)
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+# Training loop
+n_epochs = 1000
+losses = []
+
+for epoch in range(n_epochs):
+    # 1. Forward
+    logits = modele(X_train_t)
+    # 2. Loss
+    loss = loss_fn(logits, y_train_t)
+    # 3. Zero grad
+    optimizer.zero_grad()
+    # 4. Backward
+    loss.backward()
+    # 5. Update
+    optimizer.step()
+    
+    losses.append(loss.item())
+    if (epoch + 1) % 200 == 0:
+        print(f"Époque {epoch+1} : loss = {loss.item():.4f}")
+```
+
+## 📊 Évaluation
+
+```{python}
+# Évaluation (sans calcul de gradients)
+modele.eval()  # mode évaluation (désactive dropout, etc.)
+with torch.no_grad():
+    logits_test = modele(X_test_t)
+    probas = torch.sigmoid(logits_test)
+    pred = (probas >= 0.5).float()
+    acc = (pred == y_test_t).float().mean().item()
+
+print(f"Accuracy test : {acc:.3f}")
+```
+
+## 🎨 Visualiser frontière + loss
+
+```{python}
+#| label: fig-pytorch-moons
+#| fig-cap: "MLP PyTorch sur moons : frontière + courbe de loss"
+
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+# Loss
+axes[0].plot(losses, linewidth=1.5)
+axes[0].set_xlabel("Époque"); axes[0].set_ylabel("Loss")
+axes[0].set_title("Courbe d'apprentissage")
+axes[0].grid(True, alpha=0.3)
+
+# Frontière
+xx, yy = np.meshgrid(
+    np.linspace(X[:, 0].min() - 0.3, X[:, 0].max() + 0.3, 200),
+    np.linspace(X[:, 1].min() - 0.3, X[:, 1].max() + 0.3, 200)
+)
+grid = torch.FloatTensor(np.c_[xx.ravel(), yy.ravel()])
+with torch.no_grad():
+    Z = torch.sigmoid(modele(grid)).numpy().reshape(xx.shape)
+
+axes[1].contourf(xx, yy, Z, levels=20, cmap="RdBu_r", alpha=0.5)
+axes[1].contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=2)
+axes[1].scatter(X[y == 0, 0], X[y == 0, 1], s=20, c="steelblue", edgecolor="black", linewidth=0.3)
+axes[1].scatter(X[y == 1, 0], X[y == 1, 1], s=20, c="crimson", edgecolor="black", linewidth=0.3)
+axes[1].set_title(f"Frontière apprise — accuracy {acc:.2%}")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Résultat** : même performance qu'en 6.2, **en 3 fois moins de code**. C'est la puissance de PyTorch.
+
+## ✏️ Exercice 1 — Comparer SGD et Adam
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Entraîne le même MLP avec **2 optimizers différents** :
+
+1. `optim.SGD(lr=0.01)` (descente de gradient classique)
+2. `optim.Adam(lr=0.01)` (optimizer moderne)
+
+Compare :
+- Les **courbes de loss** (sur le même graphe)
+- L'**accuracy finale** après 1000 époques
+- La **vitesse de convergence**
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+results = {}
+
+for nom, opt_cls in [("SGD", optim.SGD), ("Adam", optim.Adam)]:
+    # Recréer le modèle pour repartir de zéro
+    torch.manual_seed(42)
+    modele = MLP(n_input=2, n_hidden=8, n_output=1)
+    optimizer = opt_cls(modele.parameters(), lr=0.01)
+    loss_fn = nn.BCEWithLogitsLoss()
+    
+    losses = []
+    for epoch in range(1000):
+        logits = modele(X_train_t)
+        loss = loss_fn(logits, y_train_t)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        losses.append(loss.item())
+    
+    # Accuracy
+    modele.eval()
+    with torch.no_grad():
+        pred = (torch.sigmoid(modele(X_test_t)) >= 0.5).float()
+        acc = (pred == y_test_t).float().mean().item()
+    
+    results[nom] = {"losses": losses, "acc": acc}
+
+# Graphique
+fig, ax = plt.subplots(figsize=(10, 5))
+for nom, res in results.items():
+    ax.plot(res["losses"], linewidth=2, label=f"{nom} — acc {res['acc']:.2%}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("SGD vs Adam")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- **Adam converge BEAUCOUP plus vite** que SGD (quelques dizaines d'époques vs 500+)
+- Adam adapte automatiquement le learning rate **par paramètre**
+- SGD simple nécessite souvent **du tuning** pour bien marcher
+
+**En pratique** : **Adam en défaut**, SGD+momentum si Adam pose problème. On détaille en Notion 6.4.
+:::
+
+# 5. DataLoader : gérer les batchs efficacement
+
+## 🎯 Pourquoi les batchs ?
+
+Jusqu'ici on entraînait sur **tout le dataset à chaque époque** (batch gradient descent). En vrai projet :
+
+- Les datasets ont **des millions d'exemples** (ne tient pas en RAM)
+- Les mises à jour par **mini-batchs** convergent **plus vite**
+- Le **shuffling** à chaque époque améliore la généralisation
+
+**DataLoader** : l'outil PyTorch qui gère ça automatiquement.
+
+## 🧪 DataLoader en action
+
+```{python}
+# Créer un dataset PyTorch (tensors combinés)
+train_dataset = TensorDataset(X_train_t, y_train_t)
+test_dataset = TensorDataset(X_test_t, y_test_t)
+
+# DataLoader : livre les batchs
+train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True)
+test_loader = DataLoader(test_dataset, batch_size=32, shuffle=False)
+
+print(f"Nombre de batchs train : {len(train_loader)}")
+print(f"Taille totale train    : {len(train_dataset)}")
+
+# Regarder un batch
+for X_batch, y_batch in train_loader:
+    print(f"\nPremier batch : X {X_batch.shape}, y {y_batch.shape}")
+    break
+```
+
+## 🔁 Nouvelle training loop avec mini-batchs
+
+```{python}
+# Modèle + optimizer
+torch.manual_seed(42)
+modele = MLP(n_input=2, n_hidden=8, n_output=1)
+loss_fn = nn.BCEWithLogitsLoss()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+# Training loop avec batchs
+n_epochs = 100
+losses_epoch = []
+
+for epoch in range(n_epochs):
+    # Mode entraînement
+    modele.train()
+    losses_batch = []
+    
+    # Parcourir les batchs
+    for X_batch, y_batch in train_loader:
+        logits = modele(X_batch)
+        loss = loss_fn(logits, y_batch)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        losses_batch.append(loss.item())
+    
+    # Loss moyen de l'époque
+    avg_loss = np.mean(losses_batch)
+    losses_epoch.append(avg_loss)
+    
+    if (epoch + 1) % 20 == 0:
+        print(f"Époque {epoch+1} : loss moyen = {avg_loss:.4f}")
+
+# Évaluation
+modele.eval()
+all_correct = 0
+total = 0
+with torch.no_grad():
+    for X_batch, y_batch in test_loader:
+        pred = (torch.sigmoid(modele(X_batch)) >= 0.5).float()
+        all_correct += (pred == y_batch).sum().item()
+        total += y_batch.numel()
+
+print(f"\nAccuracy test : {all_correct / total:.3f}")
+```
+
+**Observation** : avec 100 époques seulement (au lieu de 1000), on atteint des performances comparables, car **chaque époque** effectue plusieurs updates (une par batch).
+
+# 6. Sauvegarder et recharger un modèle
+
+## 💾 Sauvegarder les poids
+
+```{python}
+# Sauvegarde (seulement les poids, pas l'architecture)
+torch.save(modele.state_dict(), "/tmp/mon_mlp.pth")
+print("Modèle sauvegardé ✅")
+```
+
+## 📂 Recharger
+
+```{python}
+# Recréer l'architecture identique
+modele_charge = MLP(n_input=2, n_hidden=8, n_output=1)
+# Charger les poids
+modele_charge.load_state_dict(torch.load("/tmp/mon_mlp.pth"))
+modele_charge.eval()  # important !
+
+# Vérifier que c'est le même
+with torch.no_grad():
+    pred_original = torch.sigmoid(modele(X_test_t)).numpy()
+    pred_charge = torch.sigmoid(modele_charge(X_test_t)).numpy()
+
+print(f"Même prédictions : {np.allclose(pred_original, pred_charge)}")
+```
+
+## 📋 La bonne pratique
+
+On sauvegarde **seulement les poids** (`state_dict`), pas l'objet complet :
+- Plus **portable** (indépendant de ton code)
+- Plus **léger**
+- **Recommandé** dans la doc PyTorch
+
+```python
+# Sauvegarder
+torch.save({
+    "epoch": epoch,
+    "model_state_dict": modele.state_dict(),
+    "optimizer_state_dict": optimizer.state_dict(),
+    "loss": loss.item(),
+}, "checkpoint.pth")
+
+# Charger
+checkpoint = torch.load("checkpoint.pth")
+modele.load_state_dict(checkpoint["model_state_dict"])
+optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+```
+
+# 7. Multi-classes : Iris en PyTorch
+
+## 🧪 Adapter le modèle
+
+```{python}
+# Dataset
+iris = load_iris()
+X = StandardScaler().fit_transform(iris.data)
+y = iris.target
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+
+# Tensors (attention : y en Long pour cross-entropy multi-classes)
+X_train_t = torch.FloatTensor(X_train)
+y_train_t = torch.LongTensor(y_train)  # pas de unsqueeze !
+X_test_t = torch.FloatTensor(X_test)
+y_test_t = torch.LongTensor(y_test)
+```
+
+## 🏗️ Modèle pour 3 classes
+
+```{python}
+class MLPMulti(nn.Module):
+    def __init__(self, n_input, n_hidden, n_classes):
+        super().__init__()
+        self.fc1 = nn.Linear(n_input, n_hidden)
+        self.fc2 = nn.Linear(n_hidden, n_classes)
+    
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = self.fc2(x)  # logits, on ne met PAS softmax ici
+        return x
+
+modele = MLPMulti(n_input=4, n_hidden=16, n_classes=3)
+```
+
+::: {.callout-important}
+## 💡 Subtilité PyTorch
+On ne met **pas** de `softmax` dans le `forward` parce que `CrossEntropyLoss` le fait **en interne** (et de manière numériquement stable). On renvoie les **logits** bruts.
+:::
+
+## 🚀 Entraînement
+
+```{python}
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+n_epochs = 500
+losses = []
+for epoch in range(n_epochs):
+    logits = modele(X_train_t)
+    loss = loss_fn(logits, y_train_t)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    losses.append(loss.item())
+
+# Évaluation
+modele.eval()
+with torch.no_grad():
+    logits_test = modele(X_test_t)
+    pred = logits_test.argmax(dim=1)
+    acc = (pred == y_test_t).float().mean().item()
+
+print(f"Accuracy test Iris : {acc:.3f}")
+```
+
+## 🎯 Obtenir les probabilités
+
+```{python}
+# Si tu veux les probabilités (pour une inférence)
+modele.eval()
+with torch.no_grad():
+    logits = modele(X_test_t[:3])
+    probas = torch.softmax(logits, dim=1)
+
+print("Probas des 3 premiers exemples :")
+for i, p in enumerate(probas):
+    print(f"  {iris.target_names[p.argmax()]:15s} : {p.numpy().round(3)}")
+```
+
+## ✏️ Exercice 2 — Batch size : quel impact ?
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le même problème Iris, compare **3 batch sizes** : 8, 32, 120 (= dataset entier, batch gradient descent).
+
+Pour chaque :
+1. Entraîne 100 époques avec `lr=0.01, Adam`
+2. Note la courbe de loss
+3. Note le **temps** et l'**accuracy** finale
+
+Conclusion : quel est l'impact du batch size ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+import time
+
+# Datasets
+train_ds = TensorDataset(X_train_t, y_train_t)
+test_ds = TensorDataset(X_test_t, y_test_t)
+
+results = {}
+
+for bs in [8, 32, 120]:
+    train_loader = DataLoader(train_ds, batch_size=bs, shuffle=True)
+    
+    torch.manual_seed(42)
+    modele = MLPMulti(n_input=4, n_hidden=16, n_classes=3)
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = optim.Adam(modele.parameters(), lr=0.01)
+    
+    t0 = time.time()
+    losses_bs = []
+    for epoch in range(100):
+        batch_losses = []
+        for Xb, yb in train_loader:
+            logits = modele(Xb)
+            loss = loss_fn(logits, yb)
+            optimizer.zero_grad(); loss.backward(); optimizer.step()
+            batch_losses.append(loss.item())
+        losses_bs.append(np.mean(batch_losses))
+    temps = time.time() - t0
+    
+    # Accuracy
+    modele.eval()
+    with torch.no_grad():
+        acc = (modele(X_test_t).argmax(dim=1) == y_test_t).float().mean().item()
+    
+    results[bs] = {"losses": losses_bs, "temps": temps, "acc": acc}
+
+# Afficher
+fig, ax = plt.subplots(figsize=(10, 5))
+for bs, res in results.items():
+    ax.plot(res["losses"], linewidth=2,
+            label=f"batch_size={bs} — {res['temps']:.1f}s — acc {res['acc']:.2%}")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Impact du batch size")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations typiques** :
+- **batch_size=8** : courbe **plus bruitée** (chaque batch voit peu d'exemples), mais souvent **meilleur apprentissage** grâce au bruit
+- **batch_size=32** : bon compromis, **défaut classique**
+- **batch_size=120** (tout le dataset) : courbe **lisse** mais peut converger vers un minimum moins bon
+
+**Règle pratique** :
+- Petit dataset : batch = 16-64
+- Gros dataset : batch = 64-256 (limité par la RAM/VRAM du GPU)
+- **Jamais batch=1** (trop bruité, lent)
+:::
+
+# 8. Exemple GPU (si disponible)
+
+```{python}
+# Détecter device
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Device utilisé : {device}")
+
+# Déplacer modèle et données
+modele = MLPMulti(n_input=4, n_hidden=16, n_classes=3).to(device)
+X_train_gpu = X_train_t.to(device)
+y_train_gpu = y_train_t.to(device)
+
+# Le reste de la training loop est IDENTIQUE
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+for epoch in range(100):
+    logits = modele(X_train_gpu)
+    loss = loss_fn(logits, y_train_gpu)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+
+print(f"Entraînement sur {device} terminé")
+```
+
+**Sur un GPU** : les calculs sont **massivement parallélisés**. Pour un gros modèle (CNN, Transformer), on passe de **plusieurs heures** à **quelques minutes**.
+
+::: {.callout-tip}
+## ☁️ Pas de GPU chez toi ?
+**Google Colab** offre des **GPU gratuits** (NVIDIA T4). Pour l'activer : `Exécution → Modifier le type d'exécution → GPU T4`.
+:::
+
+# 🏁 Exercice bilan — Pipeline complet PyTorch
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis un **pipeline PyTorch complet** pour un problème de classification.
+
+```python
+from sklearn.datasets import make_classification
+
+X, y = make_classification(
+    n_samples=2000, n_features=10, n_informative=7,
+    n_classes=3, random_state=42
+)
+```
+
+**Mission** :
+
+1. **Split** 70/15/15 (train/val/test), **standardise**
+2. Convertis en tensors, crée des **DataLoaders** (batch=32)
+3. Définis une classe `MLP3(nn.Module)` avec **2 couches cachées** (32, 16)
+4. Entraîne pendant 50 époques avec `Adam(lr=0.01)` et **mini-batchs**
+5. À chaque époque, calcule les **loss train ET val**
+6. Trace les **2 courbes** de loss sur le même graphe
+7. **Accuracy finale** sur le test set
+8. **Bonus** : sauvegarde le modèle et recharge-le
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_classification
+
+X, y = make_classification(
+    n_samples=2000, n_features=10, n_informative=7,
+    n_classes=3, random_state=42
+)
+
+# 1. Split 70/15/15
+X_tr, X_rest, y_tr, y_rest = train_test_split(X, y, test_size=0.3, random_state=42, stratify=y)
+X_val, X_te, y_val, y_te = train_test_split(X_rest, y_rest, test_size=0.5, random_state=42, stratify=y_rest)
+
+scaler = StandardScaler()
+X_tr = scaler.fit_transform(X_tr)
+X_val = scaler.transform(X_val)
+X_te = scaler.transform(X_te)
+
+# 2. Tensors + DataLoaders
+X_tr_t = torch.FloatTensor(X_tr); y_tr_t = torch.LongTensor(y_tr)
+X_val_t = torch.FloatTensor(X_val); y_val_t = torch.LongTensor(y_val)
+X_te_t = torch.FloatTensor(X_te); y_te_t = torch.LongTensor(y_te)
+
+train_loader = DataLoader(TensorDataset(X_tr_t, y_tr_t), batch_size=32, shuffle=True)
+val_loader = DataLoader(TensorDataset(X_val_t, y_val_t), batch_size=32)
+
+# 3. Modèle 2 couches cachées
+class MLP3(nn.Module):
+    def __init__(self, n_input, n_classes):
+        super().__init__()
+        self.fc1 = nn.Linear(n_input, 32)
+        self.fc2 = nn.Linear(32, 16)
+        self.fc3 = nn.Linear(16, n_classes)
+    def forward(self, x):
+        x = torch.relu(self.fc1(x))
+        x = torch.relu(self.fc2(x))
+        return self.fc3(x)
+
+torch.manual_seed(42)
+modele = MLP3(n_input=10, n_classes=3)
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(modele.parameters(), lr=0.01)
+
+# 4-5. Training loop avec loss train + val
+train_losses, val_losses = [], []
+for epoch in range(50):
+    # Train
+    modele.train()
+    losses_batch = []
+    for Xb, yb in train_loader:
+        logits = modele(Xb)
+        loss = loss_fn(logits, yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        losses_batch.append(loss.item())
+    train_losses.append(np.mean(losses_batch))
+    
+    # Val
+    modele.eval()
+    val_batch_losses = []
+    with torch.no_grad():
+        for Xb, yb in val_loader:
+            val_batch_losses.append(loss_fn(modele(Xb), yb).item())
+    val_losses.append(np.mean(val_batch_losses))
+
+# 6. Courbes
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(train_losses, label="Train", linewidth=2)
+ax.plot(val_losses, label="Validation", linewidth=2)
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Courbes train vs validation")
+ax.legend(); ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+# 7. Accuracy finale test
+modele.eval()
+with torch.no_grad():
+    acc_test = (modele(X_te_t).argmax(dim=1) == y_te_t).float().mean().item()
+print(f"Accuracy test : {acc_test:.3f}")
+
+# 8. Sauvegarder et recharger
+torch.save(modele.state_dict(), "/tmp/mlp3.pth")
+modele2 = MLP3(n_input=10, n_classes=3)
+modele2.load_state_dict(torch.load("/tmp/mlp3.pth"))
+modele2.eval()
+with torch.no_grad():
+    acc_check = (modele2(X_te_t).argmax(dim=1) == y_te_t).float().mean().item()
+print(f"Accuracy après reload : {acc_check:.3f} (devrait être identique)")
+```
+
+**Points pédagogiques** :
+- Suivre **train ET val** pour détecter l'overfitting
+- Les deux courbes qui **divergent** (train qui continue à baisser, val qui remonte) → overfit
+- **Early stopping** possible : garder le modèle au minimum de la val_loss
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Tenseur** | NumPy + GPU + gradients automatiques |
+| **`requires_grad=True`** | Active le suivi autograd |
+| **`.backward()`** | Calcule tous les gradients automatiquement |
+| **`nn.Module`** | Classe de base pour tous les modèles |
+| **`nn.Linear(in, out)`** | Couche dense |
+| **`BCEWithLogitsLoss`** | Binary cross-entropy avec sigmoid intégré |
+| **`CrossEntropyLoss`** | Multi-classes, softmax intégré |
+| **5 étapes training** | forward, loss, zero_grad, backward, step |
+| **DataLoader** | Gestion des batchs avec shuffling |
+| **`.to(device)`** | Déplace sur GPU |
+| **`state_dict()`** | Pour sauvegarder les poids |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **`optimizer.zero_grad()`** à chaque itération (sinon les gradients s'accumulent)
+2. **`modele.train()` / `modele.eval()`** avant train/eval
+3. **`with torch.no_grad():`** pour l'évaluation (économise la mémoire)
+4. **Adam** en optimizer par défaut
+5. **Suivre train + val loss** pour détecter l'overfitting
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier `zero_grad()`** → gradients s'additionnent → tout explose
+2. **Softmax ET CrossEntropyLoss** → double application, loss cassée
+3. **Modèle en `.train()` pendant l'éval** → comportements aléatoires (dropout actif)
+4. **Tenseur sur CPU, modèle sur GPU** → erreur
+5. **Charger un modèle sans recréer l'architecture** → erreur
+
+## 🚀 La suite
+
+Tu sais maintenant utiliser PyTorch à la place de NumPy. Mais on a à peine gratté la surface. Dans la [**Notion 6.4 — Techniques d'entraînement**](notion_6_4_entrainement.qmd) :
+
+- **Régularisation** : dropout, weight decay, early stopping
+- **Optimizers avancés** : SGD+momentum, Adam, AdamW
+- **Learning rate scheduling** : décroissance, warmup, cosine
+- **Normalisation** : Batch Norm, Layer Norm
+- **Initialisation** : Xavier, He, impact énorme
+
+C'est ce qui fait la **différence** entre un modèle qui marche vaguement et un qui explose les benchmarks.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Utilise PyTorch pour résoudre un problème de **régression** (pas classification) :
+
+```python
+from sklearn.datasets import make_regression
+X, y = make_regression(n_samples=500, n_features=5, noise=10, random_state=42)
+```
+
+1. Construis un MLP avec **1 seul neurone de sortie** (pas 3)
+2. Utilise **`nn.MSELoss()`** au lieu de `CrossEntropyLoss`
+3. Évalue avec **RMSE** et **R²**
+4. Compare avec `sklearn.linear_model.LinearRegression` : tu devrais faire aussi bien, voire mieux grâce à la non-linéarité
+
+C'est le même pattern — la **polyvalence** de PyTorch !
+:::
