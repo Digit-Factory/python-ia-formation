@@ -1,0 +1,918 @@
+---
+title: "Notion 5.4 — Réduction de dimension : PCA"
+subtitle: "Comprimer les données en gardant l'essentiel"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_4_pca_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_4_pca_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 5.1-5.3, bases d'algèbre linéaire (Module 1)  
+**Objectif** : maîtriser la PCA de A à Z : intuition, maths, implémentation, applications
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **intuitivement et mathématiquement** la PCA
+- L'**implémenter from scratch** en quelques lignes de NumPy
+- Choisir le **nombre de composantes** à garder (variance expliquée)
+- Utiliser la PCA pour **visualiser** des données haute dimension
+- **Accélérer** un modèle ML en réduisant la dimension
+- Identifier les **limites** de la PCA (linéarité)
+
+## 🎯 Pourquoi la PCA ?
+
+Tu travailleras souvent avec des données à **beaucoup de dimensions** :
+- Images : 784 pixels pour MNIST (28×28), 150 528 pour une photo couleur HD
+- Expression génétique : 20 000 gènes par patient
+- Logs utilisateur : 500 features comportementales
+- Texte : vecteurs de 300, 768 ou 1536 dimensions
+
+**Problèmes** :
+- ❌ **Impossible à visualiser** au-delà de 3D
+- ❌ **Lent à traiter** pour les modèles ML (et l'overfitting explose)
+- ❌ **Redondance** : souvent beaucoup de features sont corrélées
+
+👉 **La PCA** : projeter les données dans un espace **plus petit** en gardant **l'essentiel de l'information**. Souvent, 3 composantes suffisent pour capturer 90% de ce qui compte.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import load_iris, load_digits, make_blobs
+from sklearn.pipeline import Pipeline
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. L'intuition visuelle
+
+## 🎨 Un exemple simple en 2D
+
+Imagine des points qui s'alignent **à peu près** le long d'une diagonale. L'info utile est surtout dans **cette direction**. Si on projette les points sur cette droite, on perd peu d'information.
+
+```{python}
+#| label: fig-pca-intuition
+#| fig-cap: "PCA : trouver la direction qui maximise la variance"
+
+# Points élongés dans une direction
+np.random.seed(0)
+n = 100
+x = np.random.normal(0, 3, n)
+y = 0.7 * x + np.random.normal(0, 0.5, n)  # corrélation forte
+X_demo = np.column_stack([x, y])
+
+# Ajuster la PCA
+pca = PCA(n_components=2)
+pca.fit(X_demo)
+
+# Récupérer les composantes et centres
+centre = X_demo.mean(axis=0)
+composantes = pca.components_      # 2 vecteurs unitaires
+variances = pca.explained_variance_  # variance le long de chaque axe
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# 1. Données + axes principaux
+axes[0].scatter(X_demo[:, 0], X_demo[:, 1], s=50, alpha=0.6, edgecolor="black", color="steelblue")
+for i, (comp, var) in enumerate(zip(composantes, variances)):
+    # tracer un vecteur proportionnel à l'importance
+    end = centre + comp * np.sqrt(var) * 2.5
+    axes[0].annotate("", xy=end, xytext=centre,
+                     arrowprops=dict(arrowstyle="->", color=["red", "green"][i], lw=3))
+    axes[0].text(end[0], end[1], f" PC{i+1}", color=["red", "green"][i], 
+                 fontsize=14, fontweight="bold")
+
+axes[0].set_title("Données originales + axes principaux")
+axes[0].set_xlabel("x1"); axes[0].set_ylabel("x2")
+axes[0].axis("equal")
+
+# 2. Après projection
+X_proj = pca.transform(X_demo)
+axes[1].scatter(X_proj[:, 0], X_proj[:, 1], s=50, alpha=0.6, edgecolor="black", color="coral")
+axes[1].set_title(f"Après PCA : axes alignés\nPC1 explique {pca.explained_variance_ratio_[0]*100:.1f}%")
+axes[1].set_xlabel("PC1"); axes[1].set_ylabel("PC2")
+axes[1].axhline(0, color="gray", alpha=0.3)
+axes[1].axvline(0, color="gray", alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- **PC1** (flèche rouge) suit la **direction d'étalement maximal** des données
+- **PC2** (flèche verte) est **perpendiculaire** et capture la variance restante
+- Après projection, les axes sont **alignés horizontalement et verticalement**
+- La variance le long de PC1 est **beaucoup plus grande** que celle de PC2
+
+**L'idée clé** : si tu ne gardes que PC1 (1 dimension au lieu de 2), tu as perdu très peu d'info parce que la variance sur PC2 est faible.
+
+## 📐 Ce que fait vraiment la PCA
+
+La PCA effectue **une rotation** des axes pour que :
+
+1. **PC1** pointe dans la direction de **plus grande variance**
+2. **PC2** pointe dans la direction de **plus grande variance restante**, perpendiculairement
+3. **PC3** perpendiculairement à PC1 et PC2, et ainsi de suite
+
+Les nouvelles coordonnées d'un point = ses **projections** sur ces axes.
+
+# 2. Les maths de la PCA
+
+## 🔢 Étapes de l'algorithme
+
+1. **Centrer** les données (soustraire la moyenne)
+2. Calculer la **matrice de covariance** `C = (1/n) X_centered.T @ X_centered`
+3. Calculer les **vecteurs propres** et **valeurs propres** de `C`
+4. Les **vecteurs propres** = composantes principales
+5. Les **valeurs propres** = variance expliquée par chaque composante
+6. Trier par variance décroissante
+
+## 🧠 Pourquoi la covariance ?
+
+La covariance mesure **comment les variables varient ensemble**. Les **directions propres** de la covariance sont celles où la variance est maximale — c'est exactement ce qu'on cherche.
+
+## 🔢 Implémentation from scratch
+
+```{python}
+def mon_pca(X, n_components):
+    """Implémentation éducative de la PCA.
+    
+    Retourne les données projetées, les composantes, et la variance expliquée.
+    """
+    # 1. Centrer les données
+    mean = X.mean(axis=0)
+    X_centered = X - mean
+    
+    # 2. Matrice de covariance
+    n = len(X)
+    cov = (X_centered.T @ X_centered) / (n - 1)
+    
+    # 3. Décomposition en valeurs/vecteurs propres
+    valeurs_propres, vecteurs_propres = np.linalg.eigh(cov)
+    
+    # 4. Trier par valeur propre décroissante
+    idx = np.argsort(valeurs_propres)[::-1]
+    valeurs_propres = valeurs_propres[idx]
+    vecteurs_propres = vecteurs_propres[:, idx]
+    
+    # 5. Garder les n_components premières composantes
+    composantes = vecteurs_propres[:, :n_components].T  # shape (n_comp, n_features)
+    
+    # 6. Projeter les données
+    X_projete = X_centered @ composantes.T
+    
+    # Variance expliquée (ratio)
+    variance_ratio = valeurs_propres[:n_components] / valeurs_propres.sum()
+    
+    return X_projete, composantes, variance_ratio
+```
+
+Validation par comparaison avec sklearn :
+
+```{python}
+# Notre implémentation
+X_proj_manuel, comp_manuel, var_manuel = mon_pca(X_demo, n_components=2)
+
+# sklearn
+pca_sklearn = PCA(n_components=2)
+X_proj_sklearn = pca_sklearn.fit_transform(X_demo)
+
+print("Variance expliquée (ratio) :")
+print(f"  From scratch : {var_manuel.round(4)}")
+print(f"  sklearn      : {pca_sklearn.explained_variance_ratio_.round(4)}")
+
+# Note : les signes des composantes peuvent être inversés (convention),
+# mais l'information reste identique
+print("\nSomme des valeurs absolues des projections (doit être égale) :")
+print(f"  From scratch : {np.abs(X_proj_manuel).sum():.3f}")
+print(f"  sklearn      : {np.abs(X_proj_sklearn).sum():.3f}")
+```
+
+**Les résultats sont cohérents** — on a bien reproduit la PCA de scikit-learn.
+
+::: {.callout-note}
+## 💡 Une subtilité : le signe
+Les vecteurs propres peuvent être obtenus avec un **signe arbitraire** (si `v` est vecteur propre, `-v` l'est aussi). Donc `X_proj_manuel` peut être `-X_proj_sklearn` sur certains axes. **Ce n'est pas un bug** : la structure géométrique est préservée.
+:::
+
+## ✏️ Exercice 1 — PCA manuelle sur un petit dataset
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+np.random.seed(10)
+X_exo = np.random.multivariate_normal(
+    mean=[0, 0, 0],
+    cov=[[3, 0.8, 0.5], [0.8, 1, 0.3], [0.5, 0.3, 0.8]],
+    size=200
+)
+```
+
+1. Applique ta fonction `mon_pca(X_exo, n_components=3)`
+2. Affiche la **variance expliquée** par chaque composante
+3. Quelle proportion totale la **PC1** capture-t-elle seule ?
+4. Combien faut-il de composantes pour capturer **95%** de la variance ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(10)
+X_exo = np.random.multivariate_normal(
+    mean=[0, 0, 0],
+    cov=[[3, 0.8, 0.5], [0.8, 1, 0.3], [0.5, 0.3, 0.8]],
+    size=200
+)
+
+# 1-2. PCA
+X_proj, _, var_ratio = mon_pca(X_exo, n_components=3)
+
+print("Variance expliquée par composante :")
+for i, v in enumerate(var_ratio):
+    print(f"  PC{i+1} : {v*100:.2f}%")
+
+# 3. PC1
+print(f"\nPC1 seule : {var_ratio[0]*100:.1f}%")
+
+# 4. Cumulé
+cumul = np.cumsum(var_ratio)
+n_needed = np.argmax(cumul >= 0.95) + 1
+print(f"\nVariance cumulée : {cumul.round(3)}")
+print(f"Pour 95% : {n_needed} composantes suffisent")
+```
+
+**Leçon** : sur des données où une dimension domine (covariance [[3, ...]] est grosse), **PC1 capture la majorité** de la variance. Ici ~70%. Pour 95%, il en faut **2-3**.
+:::
+
+# 3. Utilisation en pratique avec sklearn
+
+## 🚀 Le workflow typique
+
+```{python}
+# Charger un dataset haute dimension
+iris = load_iris()
+X, y = iris.data, iris.target
+
+print(f"Shape initiale : {X.shape}")  # 150 × 4
+
+# Standardiser (très important !)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+# PCA
+pca = PCA(n_components=2)
+X_2d = pca.fit_transform(X_scaled)
+
+print(f"Shape après PCA : {X_2d.shape}")  # 150 × 2
+print(f"Variance expliquée : {pca.explained_variance_ratio_.sum() * 100:.1f}%")
+```
+
+## 🎨 Visualisation
+
+```{python}
+#| label: fig-iris-pca
+#| fig-cap: "Iris projeté en 2D via PCA"
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+couleurs = ["red", "green", "blue"]
+for classe in range(3):
+    mask = y == classe
+    ax.scatter(X_2d[mask, 0], X_2d[mask, 1],
+               c=couleurs[classe], s=60, alpha=0.7, edgecolor="black",
+               label=iris.target_names[classe])
+
+ax.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.1f}%)")
+ax.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.1f}%)")
+ax.set_title("Iris projeté en 2D : les espèces sont quasi-séparables !")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Observation impressionnante** : avec seulement **2 composantes**, on **voit** très clairement les 3 espèces d'Iris. La PCA a **compressé 4 dimensions en 2 tout en préservant la séparation**.
+
+::: {.callout-warning}
+## ⚠️ Standardisation obligatoire
+La PCA est **très sensible aux échelles** : si une feature va de 0 à 1000 et une autre de 0 à 1, la PCA sera dominée par la première. **Toujours `StandardScaler()` avant PCA.**
+:::
+
+# 4. Combien de composantes garder ?
+
+## 📊 La variance expliquée cumulée
+
+Si tu as 100 features, tu ne veux pas garder 100 composantes (ça ne réduit rien !). Mais tu ne veux pas non plus trop réduire.
+
+**La règle pratique** : regarder la **variance expliquée cumulée** et choisir un seuil (80%, 90%, 95%).
+
+```{python}
+#| label: fig-variance-cumul
+#| fig-cap: "Variance expliquée cumulée sur MNIST (digits)"
+
+# Charger MNIST (digits 8x8)
+digits = load_digits()
+X = digits.data   # (1797, 64)
+y = digits.target
+
+# Standardiser
+X_scaled = StandardScaler().fit_transform(X)
+
+# PCA complète
+pca_full = PCA()
+pca_full.fit(X_scaled)
+
+variance_cumul = np.cumsum(pca_full.explained_variance_ratio_)
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(range(1, len(variance_cumul) + 1), variance_cumul * 100, 
+        "o-", markersize=3, linewidth=1.5)
+
+# Seuils utiles
+for seuil, couleur in [(80, "green"), (90, "orange"), (95, "red")]:
+    n_comp = np.argmax(variance_cumul >= seuil/100) + 1
+    ax.axhline(seuil, color=couleur, linestyle="--", alpha=0.5)
+    ax.axvline(n_comp, color=couleur, linestyle="--", alpha=0.5)
+    ax.text(n_comp + 1, seuil - 2, f"{seuil}% → {n_comp} comp.", 
+            color=couleur, fontsize=10)
+
+ax.set_xlabel("Nombre de composantes")
+ax.set_ylabel("Variance cumulée expliquée (%)")
+ax.set_title(f"MNIST — {X.shape[1]} features originales")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : sur MNIST (64 features), il suffit d'environ :
+- **15 composantes** pour 80%
+- **25 composantes** pour 90%
+- **40 composantes** pour 95%
+
+On peut **réduire de 64 à 25 dimensions** en perdant seulement 10% de l'info. **Énorme gain** de vitesse et de stockage.
+
+## 🎯 La règle d'or
+
+```
+80% → exploration rapide
+90% → travail courant (bon compromis)
+95% → pipeline ML sérieux
+99% → compression conservatrice
+```
+
+Si tu n'es pas sûr, **commence à 95%**.
+
+## 🎨 Visualiser les composantes elles-mêmes
+
+Pour MNIST, chaque composante est un **"chiffre moyen"** dans une direction. Regardons :
+
+```{python}
+#| label: fig-pca-components
+#| fig-cap: "Les 10 premières composantes de MNIST"
+
+pca_digits = PCA(n_components=10)
+pca_digits.fit(X_scaled)
+
+fig, axes = plt.subplots(2, 5, figsize=(14, 6))
+for i, ax in enumerate(axes.flat):
+    # Chaque composante est un vecteur de 64 valeurs → reshape en 8×8
+    composante = pca_digits.components_[i].reshape(8, 8)
+    ax.imshow(composante, cmap="RdBu_r")
+    var_pct = pca_digits.explained_variance_ratio_[i] * 100
+    ax.set_title(f"PC{i+1} ({var_pct:.1f}%)", fontsize=10)
+    ax.axis("off")
+
+plt.suptitle("Les composantes principales de MNIST (comme des 'concepts')", 
+             fontweight="bold", fontsize=13, y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : chaque composante capture un **pattern** des chiffres. PC1 = "opposition haut/bas", PC2 = "diagonale", etc. Un chiffre réel = combinaison pondérée de ces "concepts".
+
+## ✏️ Exercice 2 — Variance expliquée
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset Iris (4 features, standardisées) :
+
+1. Applique une PCA avec toutes les composantes (`n_components=4`)
+2. Affiche la **variance expliquée** par composante ET **cumulée**
+3. Combien de composantes pour atteindre 95% ?
+4. Visualise la projection en 2D, puis en 3D (tu peux utiliser `projection='3d'`)
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+y_iris = iris.target
+
+# 1-2. PCA complète
+pca = PCA(n_components=4)
+X_pca = pca.fit_transform(X_iris)
+
+print(f"Variance par composante : {pca.explained_variance_ratio_.round(3)}")
+print(f"Variance cumulée        : {np.cumsum(pca.explained_variance_ratio_).round(3)}")
+
+# 3. 95%
+cumul = np.cumsum(pca.explained_variance_ratio_)
+n_95 = np.argmax(cumul >= 0.95) + 1
+print(f"\n95% atteint avec {n_95} composantes")
+```
+
+```{python}
+# 4. Visualisation 2D et 3D
+fig = plt.figure(figsize=(14, 5))
+
+# 2D
+ax1 = fig.add_subplot(121)
+for classe in range(3):
+    mask = y_iris == classe
+    ax1.scatter(X_pca[mask, 0], X_pca[mask, 1], s=50, alpha=0.7, edgecolor="black",
+                label=iris.target_names[classe])
+ax1.set_xlabel(f"PC1 ({pca.explained_variance_ratio_[0]*100:.0f}%)")
+ax1.set_ylabel(f"PC2 ({pca.explained_variance_ratio_[1]*100:.0f}%)")
+ax1.set_title(f"Projection 2D ({cumul[1]*100:.0f}% variance)")
+ax1.legend()
+
+# 3D
+ax2 = fig.add_subplot(122, projection="3d")
+for classe in range(3):
+    mask = y_iris == classe
+    ax2.scatter(X_pca[mask, 0], X_pca[mask, 1], X_pca[mask, 2], s=40, alpha=0.7,
+                label=iris.target_names[classe])
+ax2.set_xlabel("PC1"); ax2.set_ylabel("PC2"); ax2.set_zlabel("PC3")
+ax2.set_title(f"Projection 3D ({cumul[2]*100:.0f}% variance)")
+ax2.legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Conclusion** : sur Iris, 2 composantes suffisent déjà à voir clairement les 3 espèces (~95% de variance). La 3D apporte peu en visuel mais pourrait aider un modèle en aval.
+:::
+
+# 5. La PCA comme pré-traitement pour le ML
+
+## 🚀 Accélérer un modèle
+
+**Idée** : si tu as 100 features dont beaucoup sont redondantes, la PCA peut **accélérer** ton modèle ML tout en gardant la performance.
+
+```{python}
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+import time
+
+# Dataset avec 64 features
+X, y = digits.data, digits.target
+X_scaled = StandardScaler().fit_transform(X)
+
+# Sans PCA
+t0 = time.time()
+scores_full = cross_val_score(LogisticRegression(max_iter=2000), X_scaled, y, cv=5)
+t_full = time.time() - t0
+
+# Avec PCA (95%)
+pca_95 = PCA(n_components=0.95)  # astuce : float = % variance
+X_reduit = pca_95.fit_transform(X_scaled)
+
+t0 = time.time()
+scores_pca = cross_val_score(LogisticRegression(max_iter=2000), X_reduit, y, cv=5)
+t_pca = time.time() - t0
+
+print(f"=== Sans PCA (64 features) ===")
+print(f"Accuracy : {scores_full.mean():.3f} ± {scores_full.std():.3f}")
+print(f"Temps    : {t_full:.1f}s")
+
+print(f"\n=== Avec PCA (95%, {X_reduit.shape[1]} features) ===")
+print(f"Accuracy : {scores_pca.mean():.3f} ± {scores_pca.std():.3f}")
+print(f"Temps    : {t_pca:.1f}s")
+print(f"\nGain de dimension : {X.shape[1]} → {X_reduit.shape[1]}")
+```
+
+**Observation typique** : on réduit la dimension de **60-70%** avec une **perte d'accuracy minime** (voire parfois gain grâce à la régularisation implicite).
+
+::: {.callout-note}
+## ⚡ Gain de temps : sur quels datasets ?
+Sur de **petits datasets** comme `digits` (1797 lignes), le gain en temps peut être **faible ou nul** — le coût du `fit_transform` de la PCA compense l'accélération du modèle.
+
+Le **gain temps réel** apparaît sur **gros datasets** :
+- \> 100 000 lignes, ou
+- \> 500 features, ou
+- Modèles lents (RandomForest, XGBoost, réseaux de neurones)
+
+Sur MNIST complet (60k × 784), passer à 50 composantes peut **diviser le temps d'entraînement par 5 à 10**.
+:::
+
+## 🏭 Pipeline PCA + modèle
+
+Comme toujours, on **intègre dans un pipeline** pour éviter le data leakage :
+
+```{python}
+pipeline_pca = Pipeline([
+    ("scaler", StandardScaler()),
+    ("pca", PCA(n_components=0.95)),
+    ("clf", LogisticRegression(max_iter=2000))
+])
+
+scores = cross_val_score(pipeline_pca, X, y, cv=5)
+print(f"Pipeline PCA + LogReg : {scores.mean():.3f} ± {scores.std():.3f}")
+```
+
+Le scaler et la PCA sont **ré-ajustés sur chaque fold** → zéro data leakage.
+
+## ✏️ Exercice 3 — PCA vs sans PCA
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur un dataset **synthétique haute-dimension** :
+
+```python
+# Dataset : 500 observations, 50 features, mais seulement 10 portent le signal
+from sklearn.datasets import make_classification
+
+X, y = make_classification(
+    n_samples=500, n_features=50, n_informative=10,
+    n_redundant=20, n_repeated=10, random_state=42
+)
+```
+
+1. Compare **3 pipelines** (5-fold CV, scoring="accuracy") :
+   - Scaler seul + LogReg
+   - Scaler + PCA (95% variance) + LogReg
+   - Scaler + PCA (10 composantes) + LogReg
+2. Affiche le nombre de composantes choisies par PCA(0.95)
+3. Quel pipeline est le plus rapide ? Le plus précis ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_classification
+
+X, y = make_classification(
+    n_samples=500, n_features=50, n_informative=10,
+    n_redundant=20, n_repeated=10, random_state=42
+)
+
+pipes = {
+    "Sans PCA": Pipeline([
+        ("sc", StandardScaler()),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+    "PCA 95%": Pipeline([
+        ("sc", StandardScaler()),
+        ("pca", PCA(n_components=0.95)),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+    "PCA 10": Pipeline([
+        ("sc", StandardScaler()),
+        ("pca", PCA(n_components=10)),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+}
+
+resultats = []
+for nom, pipe in pipes.items():
+    t0 = time.time()
+    scores = cross_val_score(pipe, X, y, cv=5)
+    t = time.time() - t0
+    resultats.append({
+        "pipeline": nom,
+        "accuracy_moy": scores.mean(),
+        "accuracy_std": scores.std(),
+        "temps_s": t
+    })
+
+print(pd.DataFrame(resultats).round(3).to_string(index=False))
+
+# Combien de composantes a choisies PCA(0.95) ?
+pca_95 = pipes["PCA 95%"].fit(X, y).named_steps["pca"]
+print(f"\nPCA 95% a retenu {pca_95.n_components_} composantes sur 50")
+```
+
+**Analyse** :
+- PCA 95% : accuracy comparable à "sans PCA" mais **plus rapide**
+- PCA 10 : si le nombre choisi est proche du vrai nombre de features informatives → excellentes performances
+
+**Leçon** : sur des données avec beaucoup de features redondantes, la PCA peut **gagner à la fois en vitesse et en stabilité**.
+:::
+
+# 6. Les limites de la PCA
+
+## 🚫 Limite 1 : c'est linéaire
+
+La PCA trouve des **droites** (hyperplans). Si tes données sont sur une **courbe** ou une **surface complexe**, la PCA rate la structure.
+
+```{python}
+#| label: fig-pca-linear-limit
+#| fig-cap: "PCA sur un 'swiss roll' (rouleau suisse)"
+
+from sklearn.datasets import make_swiss_roll
+
+X_swiss, color = make_swiss_roll(n_samples=500, random_state=42)
+
+# PCA 2D
+pca_swiss = PCA(n_components=2)
+X_swiss_2d = pca_swiss.fit_transform(X_swiss)
+
+fig = plt.figure(figsize=(14, 5))
+
+# 3D
+ax1 = fig.add_subplot(121, projection="3d")
+ax1.scatter(X_swiss[:, 0], X_swiss[:, 1], X_swiss[:, 2], c=color, cmap="viridis", s=20)
+ax1.set_title("Swiss roll original (3D)")
+
+# 2D PCA
+ax2 = fig.add_subplot(122)
+ax2.scatter(X_swiss_2d[:, 0], X_swiss_2d[:, 1], c=color, cmap="viridis", s=20)
+ax2.set_title("PCA 2D : rate la structure 'déroulée'")
+
+plt.tight_layout()
+plt.show()
+```
+
+La PCA aplatit le rouleau **sans le dérouler** — l'ordre des points est cassé. **t-SNE et UMAP** (Notion 5.5) peuvent faire mieux sur ce genre de cas.
+
+## 🚫 Limite 2 : elle dépend de la variance
+
+La PCA privilégie les directions de **forte variance**. Mais parfois, ce qui est important **n'est pas** la variance maximale. Par exemple, pour **distinguer deux classes**, tu veux maximiser la **séparation entre classes**, pas la variance globale.
+
+→ Pour ça, il existe **LDA** (Linear Discriminant Analysis), une méthode supervisée.
+
+## 🚫 Limite 3 : interprétation difficile
+
+Les composantes sont des **combinaisons linéaires** des features originales. Comment interpréter "0.42 × âge + 0.35 × revenu - 0.28 × ancienneté" ? Difficile.
+
+**Astuce** : regarder la **matrice de chargement** (`pca.components_`) pour voir quelles features dominent chaque composante.
+
+```{python}
+# Exemple sur Iris
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+pca_iris = PCA(n_components=2)
+pca_iris.fit(X_iris)
+
+chargements = pd.DataFrame(
+    pca_iris.components_.T,
+    columns=["PC1", "PC2"],
+    index=iris.feature_names
+)
+print("Chargements (poids des features dans chaque composante) :")
+print(chargements.round(3))
+```
+
+**Lecture** : si `PC1 = 0.52 * sepal_length + ...`, la feature `sepal_length` "tire" fortement PC1 dans le sens positif.
+
+# 🏁 Exercice bilan — Pipeline complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Imagine un dataset d'empreintes génétiques : 1000 patients × 200 gènes, avec 3 classes (types de cancer).
+
+```python
+np.random.seed(42)
+from sklearn.datasets import make_classification
+
+X, y = make_classification(
+    n_samples=1000, n_features=200, 
+    n_informative=30, n_redundant=50,
+    n_classes=3, n_clusters_per_class=2,
+    random_state=42
+)
+```
+
+**Mission** :
+
+1. **Explore** : quelles sont les dimensions ? Combien de classes ?
+2. Applique un **StandardScaler + PCA**. 
+3. **Variance cumulée** : trace la courbe et identifie le nombre de composantes pour 80%, 90%, 95%.
+4. Avec **PCA → 2D**, visualise les 3 classes en scatter. Sont-elles séparables ?
+5. Compare la performance de **LogReg** avec / sans PCA (CV 5-fold) :
+   - Sans PCA (200 features)
+   - Avec PCA 95% 
+   - Avec PCA 2 composantes (juste pour voir)
+6. **Conclusion** : la PCA apporte-t-elle de la valeur ? En vitesse ? En accuracy ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_classification
+
+np.random.seed(42)
+X, y = make_classification(
+    n_samples=1000, n_features=200,
+    n_informative=30, n_redundant=50,
+    n_classes=3, n_clusters_per_class=2,
+    random_state=42
+)
+
+# 1. Exploration
+print(f"Shape : {X.shape}")
+print(f"Classes : {np.unique(y)} — répartition : {np.bincount(y)}")
+```
+
+```{python}
+# 2-3. Variance cumulée
+X_scaled = StandardScaler().fit_transform(X)
+pca_full = PCA()
+pca_full.fit(X_scaled)
+
+cumul = np.cumsum(pca_full.explained_variance_ratio_)
+
+fig, ax = plt.subplots(figsize=(12, 5))
+ax.plot(range(1, len(cumul) + 1), cumul * 100, linewidth=2)
+for seuil, couleur in [(80, "green"), (90, "orange"), (95, "red")]:
+    n = np.argmax(cumul >= seuil/100) + 1
+    ax.axhline(seuil, color=couleur, linestyle="--", alpha=0.4)
+    ax.axvline(n, color=couleur, linestyle="--", alpha=0.4)
+    ax.text(n + 2, seuil - 3, f"{seuil}% → {n} comp.", color=couleur)
+
+ax.set_xlabel("Nombre de composantes")
+ax.set_ylabel("Variance cumulée (%)")
+ax.set_title(f"Variance expliquée — {X.shape[1]} features originales")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 4. Visualisation 2D
+pca_2d = PCA(n_components=2)
+X_2d = pca_2d.fit_transform(X_scaled)
+
+fig, ax = plt.subplots(figsize=(9, 6))
+for classe in range(3):
+    mask = y == classe
+    ax.scatter(X_2d[mask, 0], X_2d[mask, 1], s=30, alpha=0.6, edgecolor="black",
+               label=f"Classe {classe}")
+ax.set_xlabel(f"PC1 ({pca_2d.explained_variance_ratio_[0]*100:.1f}%)")
+ax.set_ylabel(f"PC2 ({pca_2d.explained_variance_ratio_[1]*100:.1f}%)")
+ax.set_title(f"Projection 2D (total {pca_2d.explained_variance_ratio_.sum()*100:.1f}% de variance)")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 5. Comparaison 3 pipelines
+from sklearn.linear_model import LogisticRegression
+
+pipes = {
+    "Sans PCA (200 features)": Pipeline([
+        ("sc", StandardScaler()),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+    "PCA 95%": Pipeline([
+        ("sc", StandardScaler()),
+        ("pca", PCA(n_components=0.95)),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+    "PCA 2D": Pipeline([
+        ("sc", StandardScaler()),
+        ("pca", PCA(n_components=2)),
+        ("clf", LogisticRegression(max_iter=2000))
+    ]),
+}
+
+resultats = []
+for nom, pipe in pipes.items():
+    t0 = time.time()
+    scores = cross_val_score(pipe, X, y, cv=5)
+    t = time.time() - t0
+    resultats.append({
+        "pipeline": nom,
+        "accuracy": f"{scores.mean():.3f} ± {scores.std():.3f}",
+        "temps_s": round(t, 2)
+    })
+
+print(pd.DataFrame(resultats).to_string(index=False))
+```
+
+**Conclusion** :
+
+- **PCA 95%** conserve l'accuracy (ou presque) tout en réduisant **massivement** la dimension
+- **Temps d'entraînement** souvent réduit de 30-50%
+- **PCA 2D** perd beaucoup — utile seulement pour visualisation, pas pour prédire
+
+**En production** : utiliser **PCA 95%** (ou 90%) dans un pipeline quand tu as beaucoup de features redondantes. Gain de vitesse et stabilité, perte minime.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **PCA** | Rotation des axes pour aligner avec les directions de variance maximale |
+| **Composante principale** | Vecteur propre de la matrice de covariance |
+| **Variance expliquée** | Valeur propre correspondante (en ratio) |
+| **Standardisation** | **Obligatoire** avant PCA |
+| **Règle d'or** | 80-95% de variance selon le besoin |
+| **Applications** | Visualisation, accélération, compression, débruitage |
+| **Limite** | Linéaire — échoue sur des structures courbes complexes |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours `StandardScaler` avant PCA** (sauf cas exceptionnels)
+2. **Regarder la variance cumulée** pour choisir n_components
+3. **`PCA(n_components=0.95)`** est une syntaxe pratique (95% de variance)
+4. **Intégrer dans un Pipeline** pour éviter le data leakage
+5. **Visualiser** les 2 premières composantes, même si on en garde plus
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier de standardiser** → PCA dominée par les features à grande échelle
+2. **Garder 2 composantes par défaut** → trop agressif pour le ML (suffit pour voir, pas pour prédire)
+3. **Se fier à PC1 seul** → regarder **plusieurs** composantes pour l'interprétation
+4. **PCA pour maximiser la séparation des classes** → utiliser LDA à la place
+5. **Appliquer PCA sur données non-linéaires** → préférer t-SNE ou UMAP
+
+## 🚀 La suite
+
+Dans la [**Notion 5.5 — Visualisation non-linéaire : t-SNE et UMAP**](notion_5_5_tsne_umap.qmd), on va découvrir :
+
+- **t-SNE** : l'algorithme qui a révolutionné la visualisation ML
+- **UMAP** : l'alternative moderne, plus rapide et plus stable
+- Pourquoi t-SNE/UMAP battent la PCA sur les structures complexes
+- Précautions d'usage (ne pas les utiliser pour la modélisation !)
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Prends le dataset `digits` de scikit-learn (64 features, 10 classes) :
+
+1. Applique **PCA(n_components=2)** et visualise
+2. Les 10 classes sont-elles séparées visuellement ?
+3. **Non ?** C'est normal — PCA ne maximise pas la séparation inter-classes
+4. Garde cette "question" en tête pour la prochaine notion : t-SNE et UMAP vont bluffer sur ce cas
+
+C'est le **teaser parfait** pour comprendre pourquoi on va apprendre de nouvelles méthodes !
+:::
