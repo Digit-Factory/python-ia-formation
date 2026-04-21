@@ -57,7 +57,7 @@ Depuis chaque notion, le bouton « Ouvrir dans Colab » lance le notebook direct
 | **5.4** | [Réduction de dimension : PCA](notion_5_4_pca.qmd) | 3-4 h 
 | **5.5** | [Visualisation non-linéaire : t-SNE, UMAP](notion_5_5_tsne_umap.qmd) | 2-3 h |
 | **5.6** | [Détection d'anomalies](notion_5_6_anomalies.qmd) | 3 h |
-| **🎓 TP** | Segmentation client _(à venir)_ | 8-10 h |
+| **🎓 TP** | [Segmentation client e-commerce](tp_sommatif.qmd) | 8-10 h |
 
 ## 💡 Approche pédagogique
 

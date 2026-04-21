@@ -1,0 +1,89 @@
+---
+title: "Module 6 — Deep Learning"
+subtitle: "Les réseaux de neurones : de l'intuition aux modèles de vision"
+---
+
+## 🎯 Pourquoi ce module ?
+
+Jusqu'ici, tu as maîtrisé le ML **classique** (régressions, arbres, clustering). Ça marche très bien sur des **données tabulaires** bien préparées.
+
+Mais pour certains problèmes, le ML classique **plafonne** :
+- 🖼️ **Images** : un chat en bas à gauche ou en haut à droite ? Une régression logistique est perdue.
+- 🗣️ **Texte** : « bon produit » vs « produit pas bon » ? Même nombre de mots, sens opposés.
+- 🔊 **Son** : reconnaître une voix parmi d'autres ?
+- 🌍 **Traductions** : apprendre 100 langues en même temps ?
+
+👉 C'est là qu'intervient le **Deep Learning** : des **réseaux de neurones profonds** qui apprennent automatiquement les **représentations** des données, sans feature engineering manuel.
+
+C'est la technologie derrière : ChatGPT, la reconnaissance faciale, la traduction automatique, les voitures autonomes, la diffusion (MidJourney), AlphaFold...
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **comment fonctionne vraiment** un réseau de neurones
+- Implémenter un **perceptron** et un **MLP** from scratch
+- Utiliser **PyTorch** pour construire, entraîner et sauvegarder des modèles
+- Maîtriser les **techniques d'entraînement** (régularisation, optimizers, batch size)
+- Construire un **CNN** pour la vision par ordinateur
+- Exploiter le **transfer learning** pour résoudre des problèmes avec peu de données
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **6.1** | [Introduction + perceptron](notion_6_1_perceptron.qmd) | 3-4 h |
+| **6.2** | MLP + rétropropagation _(à venir)_ | 4-5 h |
+| **6.3** | PyTorch : le framework _(à venir)_ | 4-5 h |
+| **6.4** | Techniques d'entraînement _(à venir)_ | 3-4 h |
+| **6.5** | CNN : vision par ordinateur _(à venir)_ | 4-5 h |
+| **6.6** | Transfer learning _(à venir)_ | 3 h |
+| **🎓 TP** | Classification d'images _(à venir)_ | 10-12 h |
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local
+
+<a href="../../ressources_eleves/module_06_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 6 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Idéal pour le DL : **GPU gratuit** disponible. Chaque notion a son bouton Colab.
+:::
+
+:::
+
+::: {.callout-warning}
+## 🔧 Nouvelles dépendances
+Le Deep Learning nécessite **PyTorch**. Installation :
+```bash
+pip install torch torchvision
+```
+Sur Colab, c'est **déjà installé** (plus l'accès au GPU gratuit !).
+:::
+
+## 💡 Approche pédagogique
+
+Le DL a mauvaise réputation de "boîte noire mathématique". On va **démystifier** avec :
+
+1. **Intuitions visuelles** à chaque étape (schémas, graphiques)
+2. **From scratch en NumPy** avant PyTorch (pour vraiment comprendre)
+3. **Maths au bon niveau** : juste ce qu'il faut, pas plus
+4. **Exemples simples** pour poser les concepts, avant de scaler
+5. **PyTorch officiel** : le framework utilisé en recherche et en industrie
+
+::: {.callout-tip}
+## 🎯 Conseil important
+Le DL fait **beaucoup d'essais-erreurs**. Les meilleurs data scientists **ne comprennent pas tout** — ils savent **quoi essayer** quand quelque chose ne marche pas. Ce module va te donner ce réflexe.
+:::
+
+---
+
+[**→ Commencer par la Notion 6.1 : Introduction + perceptron**](notion_6_1_perceptron.qmd)

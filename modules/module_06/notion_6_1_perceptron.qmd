@@ -1,0 +1,749 @@
+---
+title: "Notion 6.1 — Introduction aux réseaux de neurones + perceptron"
+subtitle: "Le neurone artificiel : la brique de base du Deep Learning"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_1_perceptron_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_1_perceptron_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Module 1 (maths IA), Module 4 (ML supervisé)  
+**Objectif** : comprendre ce qu'est un neurone artificiel, l'implémenter from scratch, voir ses limites
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre l'**inspiration biologique** et son abstraction mathématique
+- Implémenter un **perceptron** from scratch en NumPy
+- Entraîner un perceptron pour résoudre un problème **linéairement séparable**
+- Identifier **la limite fondamentale** du perceptron (problème XOR)
+- Comprendre pourquoi il faut passer à des réseaux **multicouches**
+
+## 🎯 Pourquoi commencer par le perceptron ?
+
+Le **perceptron** (1958, Frank Rosenblatt) est le **premier neurone artificiel** fonctionnel de l'histoire. Il est :
+
+- **Ultra simple** : une ligne de maths, 5 lignes de Python
+- **Fondamentale** : toute l'architecture du DL moderne en découle
+- **Pédagogique** : ses **limites** motivent tout le reste du module
+
+Une fois que tu as compris le perceptron, un réseau de neurones moderne n'est **que** plein de perceptrons empilés.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import make_classification, make_moons
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import Perceptron  # version sklearn
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. L'inspiration biologique
+
+## 🧠 Le neurone biologique
+
+Dans ton cerveau, chaque neurone :
+
+1. Reçoit des **signaux électriques** via ses dendrites
+2. Les **pondère** selon la force des connexions (synapses)
+3. Si la somme dépasse un **seuil**, il **s'active** et envoie un signal via son axone
+4. Sinon, il **reste silencieux**
+
+Il y a environ **86 milliards** de neurones dans ton cerveau, chacun connecté à ~10 000 autres. La pensée **émerge** de l'activité collective de ces neurones.
+
+## 🔢 Le neurone artificiel
+
+En ML, on copie ce schéma **mathématiquement** :
+
+```
+Entrées : x1, x2, ..., xn
+Poids   : w1, w2, ..., wn
+Biais   : b
+Fonction d'activation : f
+
+Sortie = f(w1·x1 + w2·x2 + ... + wn·xn + b)
+```
+
+**Traduction** :
+- Les **entrées** = les features du problème
+- Les **poids** = la "force" accordée à chaque entrée (à apprendre)
+- Le **biais** = un décalage (à apprendre aussi)
+- L'**activation** = "est-ce que le neurone s'active ?"
+
+```{python}
+#| label: fig-neuron
+#| fig-cap: "Schéma d'un neurone artificiel"
+
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.set_xlim(-0.5, 6.5); ax.set_ylim(-0.5, 4.5)
+ax.axis("off")
+
+# Entrées
+inputs = [(0, 3.5, "x₁"), (0, 2.5, "x₂"), (0, 1.5, "x₃"), (0, 0.5, "x₄")]
+for x, y, label in inputs:
+    ax.scatter(x, y, s=800, c="lightblue", edgecolor="black", linewidth=2, zorder=5)
+    ax.text(x, y, label, ha="center", va="center", fontsize=12, fontweight="bold")
+
+# Neurone (somme pondérée)
+nx, ny = 3, 2
+ax.scatter(nx, ny, s=3000, c="lightyellow", edgecolor="black", linewidth=2, zorder=5)
+ax.text(nx, ny, "Σ·wᵢxᵢ\n+ b", ha="center", va="center", fontsize=10, fontweight="bold")
+
+# Activation
+ax_x, ax_y = 5, 2
+ax.scatter(ax_x, ax_y, s=2000, c="lightcoral", edgecolor="black", linewidth=2, zorder=5)
+ax.text(ax_x, ax_y, "f(.)", ha="center", va="center", fontsize=12, fontweight="bold")
+
+# Sortie
+ax.scatter(6.3, 2, s=800, c="lightgreen", edgecolor="black", linewidth=2, zorder=5)
+ax.text(6.3, 2, "ŷ", ha="center", va="center", fontsize=14, fontweight="bold")
+
+# Flèches entrées -> neurone (avec poids)
+for i, (x, y, _) in enumerate(inputs):
+    ax.annotate("", xy=(nx - 0.4, ny), xytext=(x + 0.3, y),
+                 arrowprops=dict(arrowstyle="->", color="gray", lw=1.5))
+    # Label poids
+    mx = (x + nx) / 2
+    my = (y + ny) / 2
+    ax.text(mx, my + 0.15, f"w{i+1}", fontsize=10, color="darkred", 
+            ha="center", fontweight="bold")
+
+# Neurone -> activation
+ax.annotate("", xy=(ax_x - 0.3, ax_y), xytext=(nx + 0.4, ny),
+             arrowprops=dict(arrowstyle="->", color="black", lw=2))
+
+# Activation -> sortie
+ax.annotate("", xy=(6.1, 2), xytext=(ax_x + 0.3, ax_y),
+             arrowprops=dict(arrowstyle="->", color="black", lw=2))
+
+ax.set_title("Neurone artificiel : somme pondérée + activation", 
+              fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🔑 Le vocabulaire à retenir
+
+| Terme | Définition |
+|---|---|
+| **Entrées / inputs** | Les features du problème |
+| **Poids (weights)** | Coefficients appris, un par entrée |
+| **Biais (bias)** | Décalage constant, comme l'ordonnée à l'origine |
+| **Somme pondérée (z)** | `z = w·x + b` (produit scalaire + biais) |
+| **Fonction d'activation** | Décide si/comment le neurone "s'active" |
+| **Sortie (ŷ)** | Prédiction du neurone |
+
+## 🔎 Un lien direct avec ce que tu connais
+
+Tu as déjà vu un **"neurone"** en Module 4 : la **régression logistique** !
+
+```
+Régression logistique : ŷ = sigmoid(w·x + b)
+Un neurone            : ŷ = f(w·x + b)
+```
+
+C'est **exactement la même chose**, avec `sigmoid` comme fonction d'activation. Un réseau de neurones, c'est **plein de régressions logistiques empilées**.
+
+# 2. Les fonctions d'activation
+
+Le choix de **f** détermine le comportement du neurone. Les principales :
+
+## 📊 Panorama des activations
+
+```{python}
+#| label: fig-activations
+#| fig-cap: "Les fonctions d'activation classiques"
+
+x = np.linspace(-5, 5, 200)
+
+# Step (originale du perceptron)
+step = (x >= 0).astype(float)
+
+# Sigmoid
+sigmoid = 1 / (1 + np.exp(-x))
+
+# Tanh
+tanh = np.tanh(x)
+
+# ReLU
+relu = np.maximum(0, x)
+
+# Leaky ReLU
+leaky = np.where(x >= 0, x, 0.1 * x)
+
+fig, axes = plt.subplots(2, 3, figsize=(15, 8))
+
+for ax, data, name, desc in zip(
+    axes.flat,
+    [step, sigmoid, tanh, relu, leaky],
+    ["Step (Heaviside)", "Sigmoid", "Tanh", "ReLU", "Leaky ReLU"],
+    [
+        "Perceptron original : 0 ou 1",
+        "0 à 1 — régression logistique",
+        "-1 à 1 — sortie centrée",
+        "max(0, x) — défaut du DL moderne",
+        "max(0.1x, x) — évite ReLU mort"
+    ]
+):
+    ax.plot(x, data, linewidth=2.5)
+    ax.axhline(0, color="gray", alpha=0.3)
+    ax.axvline(0, color="gray", alpha=0.3)
+    ax.set_title(f"{name}\n{desc}", fontsize=11)
+    ax.grid(True, alpha=0.3)
+    ax.set_ylim(-1.5, 2)
+
+# Dernier subplot vide
+axes[1, 2].axis("off")
+axes[1, 2].text(0.5, 0.5,
+                "💡 En 2025, ReLU est\nla plus utilisée\n\nParce qu'elle :\n- Calcule vite\n- Converge bien\n- Évite les gradients\n  qui s'évanouissent",
+                ha="center", va="center", fontsize=11,
+                transform=axes[1, 2].transAxes,
+                bbox=dict(boxstyle="round", facecolor="lightyellow", edgecolor="black"))
+
+plt.tight_layout()
+plt.show()
+```
+
+**L'histoire courte** :
+- **Step** : utilisée dans le perceptron original. Problème : **pas différentiable** (pas d'apprentissage par gradient).
+- **Sigmoid / Tanh** : utilisées 1980-2010. Problèmes : **gradients évanescents** sur réseaux profonds.
+- **ReLU** (2011) : révolution. Simple, rapide, très efficace. **Défaut moderne**.
+- **Leaky ReLU, GELU, SiLU** : variantes qui corrigent les petites limites de ReLU.
+
+Pour le perceptron, on va utiliser la **step** (historique). Plus tard (MLP), on passera à ReLU.
+
+# 3. Le perceptron : algorithme
+
+## 🎯 Qu'est-ce qu'on cherche à faire ?
+
+**Classification binaire** : étant donné `x`, prédire `y ∈ {0, 1}` (ou `{-1, +1}`).
+
+Le perceptron dit :
+- Calcule `z = w·x + b`
+- Si `z ≥ 0` → prédiction 1
+- Si `z < 0` → prédiction 0
+
+**Géométriquement** : le perceptron cherche une **droite** (ou hyperplan) qui sépare les deux classes.
+
+## 🧮 L'algorithme d'apprentissage (1958)
+
+Extrêmement simple :
+
+```
+Initialiser w, b à zéro (ou petit aléatoire)
+
+POUR chaque époque :
+   POUR chaque exemple (x, y_vrai) :
+      y_pred = 1 si w·x + b ≥ 0, sinon 0
+      erreur = y_vrai - y_pred
+      
+      # Mettre à jour UNIQUEMENT si erreur
+      w = w + learning_rate * erreur * x
+      b = b + learning_rate * erreur
+```
+
+**L'idée géniale** : si le modèle se trompe, on **pousse les poids** dans la direction du point mal classé. Si c'est correct, on ne touche à rien.
+
+## 🔢 Implémentation from scratch
+
+```{python}
+def perceptron_from_scratch(X, y, lr=0.1, n_epochs=20):
+    """
+    Perceptron from scratch.
+    
+    X : (n_samples, n_features)
+    y : (n_samples,) avec 0 ou 1
+    lr : learning rate (taux d'apprentissage)
+    n_epochs : nombre de passages sur les données
+    """
+    n_samples, n_features = X.shape
+    w = np.zeros(n_features)
+    b = 0.0
+    
+    # Historique pour analyse
+    erreurs_par_epoch = []
+    
+    for epoch in range(n_epochs):
+        erreurs = 0
+        for xi, yi in zip(X, y):
+            # Prédiction
+            z = np.dot(w, xi) + b
+            y_pred = 1 if z >= 0 else 0
+            
+            # Erreur
+            erreur = yi - y_pred
+            
+            # Mise à jour si erreur
+            if erreur != 0:
+                w = w + lr * erreur * xi
+                b = b + lr * erreur
+                erreurs += 1
+        
+        erreurs_par_epoch.append(erreurs)
+        if erreurs == 0:
+            print(f"Convergence à l'époque {epoch + 1}")
+            break
+    
+    return w, b, erreurs_par_epoch
+```
+
+## 🧪 Test sur un problème simple
+
+On génère des **données linéairement séparables** :
+
+```{python}
+# Dataset simple : 2 blobs bien séparés
+X, y = make_classification(
+    n_samples=100, n_features=2, n_redundant=0,
+    n_informative=2, random_state=42, n_clusters_per_class=1,
+    class_sep=2.0
+)
+
+# Visualiser
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(X[y == 0, 0], X[y == 0, 1], s=60, c="steelblue", edgecolor="black",
+           label="Classe 0")
+ax.scatter(X[y == 1, 0], X[y == 1, 1], s=60, c="crimson", edgecolor="black",
+           label="Classe 1")
+ax.set_title("Dataset : 2 classes linéairement séparables")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# Entraîner notre perceptron
+w_final, b_final, historique = perceptron_from_scratch(X, y, lr=0.1, n_epochs=20)
+
+print(f"Poids finaux : w = {w_final.round(3)}")
+print(f"Biais final  : b = {b_final:.3f}")
+print(f"Nombre d'erreurs par époque : {historique}")
+```
+
+## 📐 Visualiser la frontière de décision
+
+```{python}
+#| label: fig-decision
+#| fig-cap: "Frontière de décision apprise par le perceptron"
+
+# Grille pour le contour
+xx, yy = np.meshgrid(np.linspace(X[:, 0].min() - 0.5, X[:, 0].max() + 0.5, 200),
+                      np.linspace(X[:, 1].min() - 0.5, X[:, 1].max() + 0.5, 200))
+grid = np.c_[xx.ravel(), yy.ravel()]
+
+# Prédiction sur la grille
+z = grid @ w_final + b_final
+Z = (z >= 0).astype(int).reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(9, 7))
+ax.contourf(xx, yy, Z, alpha=0.3, cmap="coolwarm")
+ax.scatter(X[y == 0, 0], X[y == 0, 1], s=60, c="steelblue", edgecolor="black", label="Classe 0")
+ax.scatter(X[y == 1, 0], X[y == 1, 1], s=60, c="crimson", edgecolor="black", label="Classe 1")
+
+# Tracer la frontière exactement : w·x + b = 0 → x2 = -(w1 x1 + b) / w2
+x1_line = np.array([X[:, 0].min() - 0.5, X[:, 0].max() + 0.5])
+x2_line = -(w_final[0] * x1_line + b_final) / w_final[1]
+ax.plot(x1_line, x2_line, "k-", linewidth=2, label="Frontière apprise")
+
+ax.set_title(f"Perceptron — poids = {w_final.round(2)}, biais = {b_final:.2f}")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : le perceptron trouve **une** droite qui sépare les 2 classes. Il n'y en a pas qu'une seule possible — c'est la première qu'il rencontre qui marche.
+
+## ✏️ Exercice 1 — Impact du learning rate
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Entraîne le perceptron avec **3 learning rates différents** : 0.001, 0.1, 10.
+
+Pour chacun :
+1. Affiche le nombre d'erreurs par époque
+2. Le modèle converge-t-il ?
+3. Quel est l'impact du `lr` trop petit / trop grand ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+for ax, lr in zip(axes, [0.001, 0.1, 10.0]):
+    w, b, hist = perceptron_from_scratch(X, y, lr=lr, n_epochs=20)
+    ax.plot(range(1, len(hist) + 1), hist, "o-", linewidth=2, markersize=6)
+    ax.set_xlabel("Époque"); ax.set_ylabel("Erreurs")
+    ax.set_title(f"lr = {lr}\nConvergence : {hist[-1] == 0}")
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- **lr = 0.001** (trop petit) : convergence **très lente**, peut ne pas converger en 20 époques
+- **lr = 0.1** (correct) : converge proprement en quelques époques
+- **lr = 10** (trop grand) : peut **osciller** indéfiniment, les poids sautent d'un extrême à l'autre
+
+**Leçon** : le learning rate est **l'hyperparamètre le plus important** en DL. Trop petit = trop lent ; trop grand = instable.
+
+**En pratique** : on commence souvent par **0.001 à 0.1**, et on ajuste selon la convergence.
+:::
+
+# 4. Comparaison avec scikit-learn
+
+Pour vérifier que notre implémentation est bonne :
+
+```{python}
+# Perceptron de sklearn
+perc_sklearn = Perceptron(max_iter=100, tol=1e-3, random_state=42)
+perc_sklearn.fit(X, y)
+accuracy_sklearn = perc_sklearn.score(X, y)
+
+# Notre implémentation
+w, b, _ = perceptron_from_scratch(X, y, lr=0.1, n_epochs=50)
+predictions_notre = ((X @ w + b) >= 0).astype(int)
+accuracy_notre = (predictions_notre == y).mean()
+
+print(f"Accuracy sklearn       : {accuracy_sklearn:.3f}")
+print(f"Accuracy from scratch  : {accuracy_notre:.3f}")
+```
+
+**Les deux donnent 100%** sur ce problème facile. On a bien reproduit l'algorithme.
+
+# 5. LA limite : le problème XOR
+
+## 🚫 Un cas que le perceptron ne peut pas résoudre
+
+Considère le problème **XOR** (ou exclusif) :
+
+| x1 | x2 | y |
+|:---:|:---:|:---:|
+| 0 | 0 | 0 |
+| 0 | 1 | 1 |
+| 1 | 0 | 1 |
+| 1 | 1 | 0 |
+
+Autrement dit : `y = 1 si x1 ≠ x2, sinon 0`.
+
+## 📊 Visualisation
+
+```{python}
+#| label: fig-xor
+#| fig-cap: "Le problème XOR : impossible à séparer par une droite"
+
+X_xor = np.array([[0, 0], [0, 1], [1, 0], [1, 1]])
+y_xor = np.array([0, 1, 1, 0])
+
+fig, ax = plt.subplots(figsize=(7, 6))
+ax.scatter(X_xor[y_xor == 0, 0], X_xor[y_xor == 0, 1], s=500, c="steelblue", 
+           edgecolor="black", linewidth=2, label="Classe 0")
+ax.scatter(X_xor[y_xor == 1, 0], X_xor[y_xor == 1, 1], s=500, c="crimson",
+           edgecolor="black", linewidth=2, label="Classe 1")
+
+for (x1, x2), yv in zip(X_xor, y_xor):
+    ax.annotate(f"y={yv}", (x1, x2), textcoords="offset points",
+                xytext=(15, 5), fontsize=12, fontweight="bold")
+
+ax.set_xlim(-0.5, 1.5); ax.set_ylim(-0.5, 1.5)
+ax.set_xlabel("x1"); ax.set_ylabel("x2")
+ax.set_title("Problème XOR — Essaie de dessiner UNE droite qui sépare les 2 couleurs...")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : les deux classes forment **2 diagonales**. Aucune droite ne peut les séparer.
+
+## 🧪 Preuve par l'échec
+
+```{python}
+# Essayer le perceptron sur XOR
+w_xor, b_xor, hist_xor = perceptron_from_scratch(X_xor, y_xor, lr=0.1, n_epochs=100)
+
+print(f"Erreurs par époque (100 époques) : {hist_xor[:10]}...")
+print(f"\nLe perceptron OSCILLE indéfiniment.")
+print(f"Dernière époque : {hist_xor[-1]} erreurs sur 4 exemples.")
+```
+
+**Le perceptron ne converge JAMAIS** sur XOR. Il a été **démontré mathématiquement** par Marvin Minsky en 1969 que c'est **impossible** avec un seul neurone.
+
+## 🕰️ L'hiver du connexionnisme (1969-1986)
+
+Ce résultat a plongé le domaine dans un **"hiver de l'IA"** de 17 ans :
+
+- 1958 : le perceptron est inventé, euphorie
+- 1969 : Minsky & Papert démontrent les limites du perceptron → financements coupés
+- 1986 : Rumelhart, Hinton & Williams redécouvrent la **rétropropagation** → l'apprentissage dans les réseaux **multicouches** devient possible
+- 2006-2012 : le **Deep Learning** explose (GPU, gros datasets, ReLU)
+
+**La leçon** : le problème n'était pas le perceptron, mais le fait qu'il n'y en avait **qu'un**. En **empilant plusieurs neurones**, on peut résoudre des problèmes non-linéaires.
+
+## ✏️ Exercice 2 — Le perceptron sur des croissants
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu connais déjà `make_moons` (Module 5) : 2 croissants imbriqués, non linéairement séparables.
+
+1. Génère `X, y = make_moons(n_samples=200, noise=0.05, random_state=42)`
+2. Applique le perceptron sklearn
+3. Affiche l'**accuracy** et la **frontière** apprise
+4. Est-ce que ça marche ? Pourquoi ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X_moons, y_moons = make_moons(n_samples=200, noise=0.05, random_state=42)
+
+# Perceptron sklearn
+perc = Perceptron(max_iter=1000, random_state=42)
+perc.fit(X_moons, y_moons)
+acc = perc.score(X_moons, y_moons)
+print(f"Accuracy sur make_moons : {acc:.3f}")
+
+# Visualiser
+xx, yy = np.meshgrid(np.linspace(X_moons[:, 0].min() - 0.5, X_moons[:, 0].max() + 0.5, 200),
+                      np.linspace(X_moons[:, 1].min() - 0.5, X_moons[:, 1].max() + 0.5, 200))
+Z = perc.predict(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(9, 6))
+ax.contourf(xx, yy, Z, alpha=0.3, cmap="coolwarm")
+ax.scatter(X_moons[y_moons == 0, 0], X_moons[y_moons == 0, 1], s=40, 
+           c="steelblue", edgecolor="black", label="Classe 0")
+ax.scatter(X_moons[y_moons == 1, 0], X_moons[y_moons == 1, 1], s=40,
+           c="crimson", edgecolor="black", label="Classe 1")
+ax.set_title(f"Perceptron sur make_moons — accuracy {acc:.2%}")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : le perceptron plafonne à ~**75%** d'accuracy. Il trouve la **meilleure droite possible**, mais **aucune droite** ne peut capturer la forme des croissants.
+
+Pour atteindre 99%+, il faut un modèle **non-linéaire** → **MLP** (Notion 6.2) !
+:::
+
+# 6. Vers les réseaux multicouches
+
+## 💡 L'idée qui a tout débloqué
+
+Si **un** perceptron = **une droite**, alors :
+- **2 perceptrons empilés** = 2 droites → une zone **entre deux droites**
+- **3 couches** = combinaisons plus complexes
+- **N couches profondes** = n'importe quelle forme
+
+C'est l'idée du **Multi-Layer Perceptron (MLP)** qu'on verra en Notion 6.2.
+
+## 🎯 Spoiler : résoudre XOR avec 3 neurones
+
+On peut résoudre XOR avec **un MLP minuscule** : 2 neurones cachés + 1 de sortie.
+
+```
+Neurone caché 1 : détecte "x1 OU x2"
+Neurone caché 2 : détecte "x1 ET x2"  
+Neurone sortie : "OU mais pas ET" = XOR
+```
+
+Magnifique, non ? On verra comment les **trouver automatiquement** avec la **rétropropagation**.
+
+## ✏️ Exercice bilan — Comprendre le perceptron à fond
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur le dataset `make_classification` avec `class_sep=1.5` (plus difficile que notre premier exemple) :
+
+```python
+X, y = make_classification(
+    n_samples=200, n_features=2, n_redundant=0, n_informative=2,
+    random_state=42, n_clusters_per_class=1, class_sep=1.5
+)
+```
+
+1. Entraîne le perceptron (from scratch) avec **10 époques**
+2. Affiche le **nombre d'erreurs par époque**
+3. Trace la **frontière** apprise
+4. Compare avec `Perceptron(max_iter=10)` de sklearn
+5. **Bonus** : ajoute du bruit (class_sep=0.8) — le perceptron converge-t-il toujours ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X, y = make_classification(
+    n_samples=200, n_features=2, n_redundant=0, n_informative=2,
+    random_state=42, n_clusters_per_class=1, class_sep=1.5
+)
+
+# From scratch
+w, b, hist = perceptron_from_scratch(X, y, lr=0.1, n_epochs=10)
+
+# sklearn
+perc_sk = Perceptron(max_iter=10, tol=None, random_state=42)
+perc_sk.fit(X, y)
+acc_sk = perc_sk.score(X, y)
+
+# Plot
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Historique
+axes[0].plot(range(1, len(hist) + 1), hist, "o-", linewidth=2, markersize=8)
+axes[0].set_xlabel("Époque"); axes[0].set_ylabel("Erreurs")
+axes[0].set_title(f"Erreurs par époque (from scratch)")
+axes[0].grid(True, alpha=0.3)
+
+# Frontière
+xx, yy = np.meshgrid(
+    np.linspace(X[:, 0].min() - 0.5, X[:, 0].max() + 0.5, 200),
+    np.linspace(X[:, 1].min() - 0.5, X[:, 1].max() + 0.5, 200)
+)
+Z = ((np.c_[xx.ravel(), yy.ravel()] @ w + b) >= 0).astype(int).reshape(xx.shape)
+axes[1].contourf(xx, yy, Z, alpha=0.3, cmap="coolwarm")
+axes[1].scatter(X[y == 0, 0], X[y == 0, 1], s=40, c="steelblue", edgecolor="black")
+axes[1].scatter(X[y == 1, 0], X[y == 1, 1], s=40, c="crimson", edgecolor="black")
+
+# Frontière ligne
+x_line = np.array([X[:, 0].min() - 0.5, X[:, 0].max() + 0.5])
+if abs(w[1]) > 1e-6:
+    y_line = -(w[0] * x_line + b) / w[1]
+    axes[1].plot(x_line, y_line, "k-", linewidth=2, label="Frontière")
+    axes[1].legend()
+
+pred = ((X @ w + b) >= 0).astype(int)
+acc_nous = (pred == y).mean()
+axes[1].set_title(f"Frontière — accuracy {acc_nous:.2%}")
+
+plt.tight_layout()
+plt.show()
+
+print(f"Accuracy from scratch : {acc_nous:.3f}")
+print(f"Accuracy sklearn      : {acc_sk:.3f}")
+
+# Bonus : class_sep = 0.8 (plus difficile)
+X_hard, y_hard = make_classification(
+    n_samples=200, n_features=2, n_redundant=0, n_informative=2,
+    random_state=42, n_clusters_per_class=1, class_sep=0.8
+)
+w_h, b_h, hist_h = perceptron_from_scratch(X_hard, y_hard, lr=0.1, n_epochs=50)
+print(f"\nAvec class_sep=0.8 (plus difficile) :")
+print(f"  Erreurs par époque (5 dernières de 50) : {hist_h[-5:]}")
+print(f"  → Oscille si non séparable, c'est la limite du perceptron.")
+```
+
+**Leçons** :
+
+1. Quand c'est séparable → le perceptron converge (erreurs → 0)
+2. Quand il y a chevauchement → il **oscille** indéfiniment
+3. Sur des données réelles (souvent bruitées), le perceptron seul **ne suffit pas** → MLP !
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Neurone artificiel** | Somme pondérée + biais + activation |
+| **Perceptron** | Neurone avec activation `step` (0 ou 1) |
+| **Poids w, biais b** | Paramètres appris par l'algo |
+| **Learning rate** | Vitesse d'apprentissage (crucial) |
+| **Fonction d'activation** | Step, sigmoid, tanh, ReLU... |
+| **Limite du perceptron** | Problèmes linéairement séparables uniquement |
+| **Solution** | Empiler des neurones → MLP (Notion 6.2) |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Un neurone = une régression logistique** (avec activation différente)
+2. **Le learning rate est critique** : trop petit = lent, trop grand = instable
+3. **Standardiser** les données avant (même pour un perceptron)
+4. **Le perceptron ne résout que le linéaire** — c'est normal
+5. **Quand ça ne converge pas** : soit le problème est non-linéaire, soit il faut plus de données / autre algo
+
+## 🚨 Les pièges à éviter
+
+1. **Essayer le perceptron sur XOR ou moons** → voué à l'échec
+2. **lr trop grand** → oscillations sans fin
+3. **Oublier d'initialiser les poids** → apprentissage peut ne pas démarrer
+4. **Ne pas standardiser** → certaines features dominent les gradients
+5. **Confondre "réseau de neurones" et "perceptron seul"** — le perceptron est **la brique**, pas le réseau
+
+## 🚀 La suite
+
+Dans la [**Notion 6.2 — MLP et rétropropagation**](notion_6_2_mlp.qmd), on va :
+
+- Empiler plusieurs couches de neurones → **MLP**
+- Résoudre XOR et make_moons **enfin** !
+- Comprendre la **rétropropagation** (backprop) : comment le réseau apprend
+- Implémenter un MLP from scratch en **NumPy** (sans PyTorch)
+- Voir les **fonctions de perte** (MSE, cross-entropy)
+
+C'est **la notion** qui déverrouille tout le DL. À bientôt ! 🚀
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Implémente une **version avec mini-batchs** du perceptron :
+
+```python
+def perceptron_batch(X, y, lr=0.1, n_epochs=20, batch_size=32):
+    # À chaque itération, prendre un sous-ensemble aléatoire
+    # Calculer le gradient moyen sur ce batch
+    # Mettre à jour w et b avec ce gradient
+```
+
+C'est **l'approche moderne** (mini-batch gradient descent). Tu verras la différence de comportement : l'apprentissage est plus **stable** que le mode online (un exemple à la fois).
+:::
