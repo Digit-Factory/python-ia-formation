@@ -1,0 +1,787 @@
+---
+title: "TP sommatif Module 5 — Segmentation client e-commerce"
+subtitle: "Un projet de ML non-supervisé complet : clustering, visualisation, anomalies"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 8 à 10 heures  
+**Prérequis** : toutes les notions du Module 5 (5.1 à 5.6) + Module 3  
+**Objectif** : réaliser un projet de segmentation client complet avec visualisation, clustering et détection d'anomalies
+:::
+
+# 🎯 Contexte
+
+Tu es **data scientist** chez **ShopHub**, un e-commerce français en pleine croissance. L'équipe marketing te sollicite :
+
+> « On a 5000 clients et on leur envoie **tous les mêmes emails marketing**. C'est clairement pas optimal.
+> Est-ce que tu peux nous **segmenter intelligemment** les clients ? 
+> On veut comprendre leurs **profils** et adapter nos campagnes. 
+> Et tant qu'on y est : notre service fraude a repéré quelques **comptes suspects** — peux-tu identifier les **clients atypiques** ? »
+
+## 💼 Les objectifs business
+
+1. **Segmentation** : identifier des groupes de clients avec des **comportements similaires**
+2. **Caractérisation** : décrire chaque segment (« qui sont-ils ? », « que font-ils ? »)
+3. **Actions marketing** : proposer une stratégie différente pour chaque segment
+4. **Détection d'anomalies** : identifier les clients au comportement **suspect** (fraudes, abus)
+
+# 📊 Le dataset
+
+Le fichier `clients_ecommerce.csv` contient 5000 clients avec 10 variables comportementales :
+
+| Colonne | Description |
+|---|---|
+| `id_client` | Identifiant unique |
+| `anciennete_jours` | Ancienneté du compte (jours depuis l'inscription) |
+| `nb_commandes_total` | Nombre total de commandes passées |
+| `montant_total_eur` | Montant total dépensé (€) |
+| `panier_moyen_eur` | Montant moyen par commande (€) |
+| `jours_depuis_derniere_cmd` | Jours depuis la dernière commande |
+| `nb_categories_achetees` | Nombre de catégories de produits différentes |
+| `taux_retour_pct` | % des commandes retournées |
+| `nb_avis_laisses` | Nombre d'avis clients laissés |
+| `note_moyenne_donnee` | Note moyenne donnée par le client (0-5) |
+
+::: {.callout-warning}
+## ⚠️ Particularités du dataset
+- Quelques **valeurs manquantes** sur `taux_retour_pct` et `note_moyenne_donnee`
+- Certains clients ont un comportement **très atypique** (anomalies à découvrir)
+- Les **échelles des variables diffèrent énormément** (jours vs euros vs pourcentages)
+:::
+
+# 🗺️ Plan du TP
+
+Le TP se structure en **6 parties** qui suivent le workflow d'un projet de segmentation professionnelle :
+
+1. **Exploration** — comprendre le dataset
+2. **Preprocessing** — nettoyer et préparer
+3. **Visualisation** — voir la structure des données (PCA, UMAP)
+4. **Clustering** — identifier les segments
+5. **Caractérisation** — nommer et décrire chaque segment
+6. **Détection d'anomalies** — repérer les comportements suspects
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.metrics import silhouette_score
+from sklearn.ensemble import IsolationForest
+
+import umap  # pip install umap-learn
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+pd.set_option('display.max_columns', 20)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+```{python}
+#| echo: false
+df = pd.read_csv("ressources_tp/clients_ecommerce.csv")
+```
+
+```{python}
+#| eval: false
+# Charger le dataset
+df = pd.read_csv("ressources_tp/clients_ecommerce.csv")
+print(f"Dataset chargé : {df.shape}")
+```
+
+---
+
+# Partie 1 — Exploration
+
+## ✏️ Étape 1.1 — Premier coup d'œil
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Affiche `df.shape` et `df.head()`
+2. Affiche `df.info()` et `df.describe()`
+3. Repère les **points marquants** : quelle(s) colonne(s) ont des valeurs manquantes ? Les échelles sont-elles homogènes ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+print(f"Shape : {df.shape}")
+df.head()
+```
+
+```{python}
+df.info()
+```
+
+```{python}
+df.describe().round(2)
+```
+
+**Observations** :
+- **5000 clients × 10 colonnes**
+- `taux_retour_pct` : ~50 valeurs manquantes, `note_moyenne_donnee` : ~100
+- **Échelles très hétérogènes** : `montant_total_eur` peut aller jusqu'à 10 000, `taux_retour_pct` est borné 0-100 → **standardisation impérative**
+:::
+
+## ✏️ Étape 1.2 — Explorer les distributions
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Trace un **histogramme** pour chacune des 9 features numériques (pas `id_client`).
+
+Observations attendues :
+- Y a-t-il des distributions **bimodales** (plusieurs pics) ?
+- Des **outliers extrêmes** visibles ?
+- Des distributions **asymétriques** (queue longue) ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+features_num = [c for c in df.columns if c != "id_client"]
+
+fig, axes = plt.subplots(3, 3, figsize=(15, 10))
+for ax, col in zip(axes.flat, features_num):
+    df[col].hist(bins=40, ax=ax, color="steelblue", edgecolor="black", alpha=0.7)
+    ax.set_title(col, fontsize=10)
+    ax.set_xlabel("")
+    ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- Plusieurs distributions semblent **bimodales** ou **multimodales** (ex: `anciennete_jours`) → indice de **plusieurs populations**
+- `montant_total_eur` a une **longue queue à droite** → gros acheteurs (futurs "champions" ?)
+- `taux_retour_pct` a un pic à 0 et quelques valeurs très élevées → abuseurs potentiels ?
+- Les échelles vont de 0-5 (`note_moyenne_donnee`) à 0-10000 (`montant_total_eur`) → **standardiser absolument**
+:::
+
+## ✏️ Étape 1.3 — Corrélations
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Trace la **matrice de corrélation** des 9 variables numériques (heatmap).
+
+1. Quelles variables sont fortement corrélées ?
+2. Cela donne-t-il des indices sur les profils possibles ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+corr = df[features_num].corr()
+
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            vmin=-1, vmax=1, square=True, linewidths=0.5, ax=ax)
+ax.set_title("Corrélations entre les variables")
+plt.tight_layout()
+plt.show()
+```
+
+**Observations typiques** :
+- `nb_commandes_total` ↔ `montant_total_eur` : forte corrélation (logique, ceux qui achètent beaucoup dépensent beaucoup)
+- `anciennete_jours` ↔ `jours_depuis_derniere_cmd` : corrélation **positive** → les anciens inactifs
+- `nb_avis_laisses` ↔ `nb_commandes_total` : forte corrélation → engagement cohérent
+
+Ces corrélations suggèrent qu'on pourra **réduire la dimension** (PCA) sans perdre trop d'info.
+:::
+
+---
+
+# Partie 2 — Preprocessing
+
+## ✏️ Étape 2.1 — Gérer les valeurs manquantes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Mets de côté `id_client` (pas utilisable pour le clustering)
+2. Impute les valeurs manquantes avec la **médiane** via `SimpleImputer`
+3. Vérifie qu'il ne reste plus aucun NaN
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Garder id_client à part
+ids = df["id_client"].copy()
+X = df.drop(columns="id_client")
+
+# Imputation médiane
+imputer = SimpleImputer(strategy="median")
+X_imp = pd.DataFrame(
+    imputer.fit_transform(X),
+    columns=X.columns,
+    index=X.index
+)
+
+print(f"NaN restants : {X_imp.isna().sum().sum()}")
+print(f"Shape : {X_imp.shape}")
+```
+:::
+
+## ✏️ Étape 2.2 — Standardiser
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Applique `StandardScaler` sur `X_imp`
+2. Vérifie que la **moyenne est proche de 0** et l'**écart-type de 1** pour chaque feature
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_imp)
+
+# Vérification
+print(f"Moyennes (doivent être ~0) : {X_scaled.mean(axis=0).round(3)}")
+print(f"Écarts-types (doivent être ~1) : {X_scaled.std(axis=0).round(3)}")
+```
+:::
+
+---
+
+# Partie 3 — Visualisation
+
+## ✏️ Étape 3.1 — PCA : combien de vraies dimensions ?
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Applique une PCA complète (toutes composantes)
+2. Trace la **variance cumulée** expliquée
+3. Combien de composantes pour atteindre **90% de variance** ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+pca_full = PCA()
+pca_full.fit(X_scaled)
+
+cumul = np.cumsum(pca_full.explained_variance_ratio_)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(range(1, len(cumul) + 1), cumul * 100, "o-", linewidth=2, markersize=8)
+for seuil, couleur in [(80, "green"), (90, "orange"), (95, "red")]:
+    n_c = np.argmax(cumul >= seuil/100) + 1
+    ax.axhline(seuil, color=couleur, linestyle="--", alpha=0.4)
+    ax.axvline(n_c, color=couleur, linestyle="--", alpha=0.4)
+    ax.text(n_c + 0.1, seuil - 2, f"{seuil}% → {n_c} comp.", color=couleur, fontsize=10)
+ax.set_xlabel("Nombre de composantes")
+ax.set_ylabel("Variance cumulée (%)")
+ax.set_title("Variance expliquée cumulée")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : avec 9 features originales, il suffit probablement de **4-5 composantes** pour capturer 90% de la variance. Cela confirme qu'il y a de la **redondance** et que le clustering bénéficiera de PCA ou UMAP.
+:::
+
+## ✏️ Étape 3.2 — Visualiser en 2D avec UMAP
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Applique UMAP (`n_neighbors=30`, `min_dist=0.1`) pour obtenir une projection 2D
+2. Affiche les 5000 clients en scatter plot
+3. Vois-tu **des groupes** à l'œil nu ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 3.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+reducer = umap.UMAP(n_neighbors=30, min_dist=0.1, random_state=42)
+X_umap = reducer.fit_transform(X_scaled)
+
+fig, ax = plt.subplots(figsize=(10, 8))
+ax.scatter(X_umap[:, 0], X_umap[:, 1], s=10, alpha=0.5, color="steelblue", edgecolor="white", linewidth=0.2)
+ax.set_title("UMAP 2D — 5000 clients")
+ax.set_xlabel("UMAP 1"); ax.set_ylabel("UMAP 2")
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : on voit **plusieurs groupes** visuellement distincts. Cela nous donne une idée du bon `k` à tester pour k-means (probablement entre 4 et 7).
+:::
+
+---
+
+# Partie 4 — Clustering
+
+## ✏️ Étape 4.1 — Choisir k avec la méthode du coude et la silhouette
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour `k` de 2 à 10 :
+1. Applique `KMeans(n_clusters=k, n_init=10, random_state=42)` sur `X_scaled`
+2. Stocke l'**inertie** et le **score de silhouette**
+3. Trace les deux courbes
+4. Quel k te semble optimal ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+inerties = []
+silhouettes = []
+k_range = range(2, 11)
+
+for k in k_range:
+    km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels = km.fit_predict(X_scaled)
+    inerties.append(km.inertia_)
+    silhouettes.append(silhouette_score(X_scaled, labels))
+
+# Trace
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+axes[0].plot(k_range, inerties, "o-", linewidth=2, markersize=8, color="steelblue")
+axes[0].set_xlabel("k"); axes[0].set_ylabel("Inertie")
+axes[0].set_title("Méthode du coude")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(k_range, silhouettes, "o-", linewidth=2, markersize=8, color="coral")
+axes[1].set_xlabel("k"); axes[1].set_ylabel("Silhouette")
+axes[1].set_title("Coefficient de silhouette")
+axes[1].grid(True, alpha=0.3)
+
+k_opt = list(k_range)[np.argmax(silhouettes)]
+axes[1].axvline(k_opt, color="green", linestyle="--", alpha=0.5,
+                 label=f"Max silhouette : k={k_opt}")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+print(f"k optimal selon silhouette : {k_opt}")
+```
+
+**Interprétation** :
+- La silhouette peut atteindre son **maximum pour k=2 ou k=3** (séparation la plus nette mathématiquement)
+- Mais **pour un usage métier**, 2-3 segments c'est **trop peu** pour proposer des actions différenciées
+- Le **coude** suggère souvent un changement vers **k=5 ou k=6** (baisse de pente de l'inertie)
+- On va prendre **k=5** : c'est le bon compromis entre qualité statistique et **granularité actionnable**
+
+::: {.callout-tip}
+## 💡 Leçon importante
+Les métriques (silhouette, inertie) donnent des **indices**, mais le **choix final dépend du contexte métier**. 
+Un k plus élevé que le "mathématiquement optimal" est souvent nécessaire pour avoir des segments actionnables.
+:::
+:::
+
+## ✏️ Étape 4.2 — Appliquer k-means avec k choisi
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Entraîne `KMeans(n_clusters=5, n_init=10, random_state=42)` sur `X_scaled`
+2. Ajoute les labels de cluster comme nouvelle colonne du DataFrame original
+3. Affiche la **taille de chaque cluster**
+4. Visualise les clusters sur la projection UMAP
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 4.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+km_final = KMeans(n_clusters=5, n_init=10, random_state=42)
+df["cluster"] = km_final.fit_predict(X_scaled)
+
+# Tailles
+print("Nombre de clients par cluster :")
+print(df["cluster"].value_counts().sort_index())
+```
+
+```{python}
+# Visualisation UMAP coloré par cluster
+fig, ax = plt.subplots(figsize=(10, 8))
+for c in sorted(df["cluster"].unique()):
+    mask = df["cluster"] == c
+    ax.scatter(X_umap[mask, 0], X_umap[mask, 1], s=12, alpha=0.6,
+               label=f"Cluster {c} (n={mask.sum()})")
+ax.set_title("Segments clients via k-means, projetés en UMAP 2D")
+ax.legend(markerscale=2)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : les clusters sont **bien séparés** dans l'espace UMAP, ce qui confirme visuellement que la segmentation a du sens.
+:::
+
+---
+
+# Partie 5 — Caractérisation et recommandations
+
+## ✏️ Étape 5.1 — Profil moyen de chaque cluster
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Calcule la **moyenne de chaque feature par cluster**
+2. Range le résultat dans un DataFrame pour comparaison facile
+3. Identifie ce qui distingue chaque cluster
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 5.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Moyennes par cluster
+profils = df.groupby("cluster")[features_num].mean().round(1)
+
+# Taille de chaque cluster
+profils["n_clients"] = df["cluster"].value_counts().sort_index()
+
+# Réorganiser colonnes
+cols_ordre = ["n_clients"] + features_num
+profils = profils[cols_ordre]
+
+print(profils.T)  # transposé pour mieux lire
+```
+
+Pour un **diagnostic visuel rapide**, on peut aussi faire une heatmap des valeurs **standardisées** :
+
+```{python}
+# Heatmap des profils (standardisé pour comparer les 5 clusters)
+profils_std = (profils[features_num] - profils[features_num].mean()) / profils[features_num].std()
+
+fig, ax = plt.subplots(figsize=(12, 5))
+sns.heatmap(profils_std.T, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            cbar_kws={"label": "Écart à la moyenne (std)"}, ax=ax)
+ax.set_title("Profil standardisé de chaque cluster\n(rouge = au-dessus moyenne, bleu = en-dessous)")
+ax.set_xlabel("Cluster"); ax.set_ylabel("Feature")
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : les cases **rouges** montrent où un cluster est **au-dessus** de la moyenne, les **bleues** en-dessous.
+:::
+
+## ✏️ Étape 5.2 — Nommer les segments et proposer des actions
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+En te basant sur les profils :
+
+1. **Donne un nom métier** à chaque cluster (ex: "Champions", "Dormants"...)
+2. Pour chaque segment, propose **une action marketing concrète**
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir l'exemple de correction
+
+*Le nommage dépend de tes clusters réels. Voici un exemple type :*
+
+| Cluster | Nom proposé | Caractéristiques | Action recommandée |
+|:---:|---|---|---|
+| 0 | **Champions** | Montant total élevé, beaucoup de commandes, achats récents, nombreux avis | Programme VIP, avant-premières, récompenses fidélité |
+| 1 | **Fidèles classiques** | Achats réguliers, panier moyen, bonne note | Newsletter personnalisée, recommandations basées sur l'historique |
+| 2 | **Prometteurs** | Compte récent, achats fréquents mais petits paniers | Offres de montée en gamme, upsell, programme parrainage |
+| 3 | **Dormants** | Anciens clients qui n'achètent plus depuis longtemps | Campagne de réactivation, offre de retour, enquête "pourquoi ?" |
+| 4 | **À risque** | Peu de commandes, taux de retour élevé, notes moyennes basses | Enquête satisfaction, amélioration produit/service, offre compensatoire |
+
+**Leçon** : un **bon nom métier** est essentiel pour que le marketing s'approprie les segments. Un nom comme "Cluster 2" ne permet aucune action, "Prometteurs" si.
+:::
+
+---
+
+# Partie 6 — Détection d'anomalies
+
+## ✏️ Étape 6.1 — Isolation Forest
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+L'équipe fraude soupçonne **environ 1%** de clients atypiques (fraude, abus, comptes tests).
+
+1. Applique un `IsolationForest(contamination=0.01, random_state=42)` sur `X_scaled`
+2. Ajoute une colonne `anomalie` (1 = anomalie, 0 = normal) au DataFrame
+3. Combien de clients détectés ?
+4. Visualise-les sur la projection UMAP
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 6.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+iso = IsolationForest(contamination=0.01, random_state=42)
+predictions = iso.fit_predict(X_scaled)
+df["anomalie"] = (predictions == -1).astype(int)
+df["score_anomalie"] = iso.decision_function(X_scaled)
+
+print(f"Clients flaggés comme anomalies : {df['anomalie'].sum()}")
+```
+
+```{python}
+# Visualisation sur UMAP
+fig, ax = plt.subplots(figsize=(10, 8))
+ax.scatter(X_umap[df["anomalie"] == 0, 0], X_umap[df["anomalie"] == 0, 1],
+           s=10, alpha=0.4, color="steelblue", label="Normal")
+ax.scatter(X_umap[df["anomalie"] == 1, 0], X_umap[df["anomalie"] == 1, 1],
+           s=80, marker="X", color="red", edgecolor="black", linewidth=1,
+           label=f"Anomalie ({df['anomalie'].sum()})")
+ax.set_title("Détection d'anomalies — clients suspects")
+ax.legend(markerscale=1)
+plt.tight_layout()
+plt.show()
+```
+:::
+
+## ✏️ Étape 6.2 — Analyser les anomalies détectées
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Extrait les clients flaggés comme anomalies
+2. Compare leur **profil moyen** avec celui des clients normaux
+3. Peux-tu **hypothèses** sur le type d'anomalie (fraude ? abus ? compte test ?)
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 6.2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Comparer anomalies vs normaux
+comparaison = df.groupby("anomalie")[features_num].mean().round(2).T
+comparaison.columns = ["Normal", "Anomalie"]
+comparaison["Ratio"] = (comparaison["Anomalie"] / comparaison["Normal"]).round(2)
+print(comparaison)
+```
+
+```{python}
+# Afficher les 10 premières anomalies
+top_anomalies = df[df["anomalie"] == 1].sort_values("score_anomalie").head(10)
+print("\nTop 10 des anomalies (score le plus négatif = plus suspect) :")
+print(top_anomalies[["id_client"] + features_num + ["score_anomalie"]].to_string())
+```
+
+**Analyse typique** :
+- Certains clients ont un **taux de retour très élevé** (> 70%) → abus de la politique de retour
+- D'autres ont des **montants ridicules** (quelques centimes) → comptes tests internes
+- Certains ont **beaucoup de commandes en peu de temps** → fraude/revente
+
+Chaque type d'anomalie appelle une **action différente** : enquête, blocage, vérification manuelle.
+:::
+
+## ✏️ Étape 6.3 — Anomalies par cluster ?
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un **tableau croisé** `cluster × anomalie`
+2. Dans quel(s) cluster(s) se concentrent les anomalies ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+tableau = pd.crosstab(df["cluster"], df["anomalie"], margins=True)
+tableau.columns = ["Normal", "Anomalie", "Total"]
+tableau["% anomalie"] = (tableau["Anomalie"] / tableau["Total"] * 100).round(2)
+print(tableau)
+```
+
+**Observation** : les anomalies peuvent être **concentrées dans certains clusters** (typiquement les "Champions" gonflés artificiellement, ou les "À risque" avec des taux de retour extrêmes).
+
+Si un cluster a >5% d'anomalies, c'est un **signal d'alerte** pour la direction.
+:::
+
+---
+
+# 🎓 Bilan du TP
+
+## 🏆 Ce que tu viens d'accomplir
+
+Tu as mené un **projet ML non-supervisé complet** :
+
+- ✅ Exploration et nettoyage (Module 3 + 5)
+- ✅ Preprocessing industriel (imputation + standardisation)
+- ✅ Visualisation haute dimension via UMAP
+- ✅ Sélection de `k` avec 2 méthodes (coude + silhouette)
+- ✅ Clustering k-means avec 5 segments
+- ✅ Caractérisation métier et actions recommandées
+- ✅ Détection d'anomalies avec Isolation Forest
+
+C'est **exactement** le workflow d'un projet de segmentation en entreprise.
+
+## 🔍 Les notions mobilisées
+
+| Notion | Usage |
+|---|---|
+| **5.1 — Intro** | Cadre général, tableau comparatif |
+| **5.2 — k-means** | Clustering principal, silhouette |
+| **5.4 — PCA** | Analyse de la variance, base de l'intuition |
+| **5.5 — UMAP** | Visualisation des segments |
+| **5.6 — Anomalies** | Détection des clients atypiques |
+| **Module 3** | Preprocessing, imputation, standardisation |
+
+## 💡 Pistes pour aller plus loin
+
+1. **Tester d'autres algorithmes** : DBSCAN, clustering hiérarchique (Ward)
+2. **Analyser chaque cluster avec UMAP séparé** pour voir les sous-groupes
+3. **Créer un dashboard interactif** (Plotly/Dash) pour l'équipe marketing
+4. **Mettre en production** : pipeline scikit-learn complet, sauvegarde via `joblib`
+5. **Monitoring** : re-entraîner le modèle tous les mois pour détecter le **drift**
+
+## 📊 Le rapport exécutif (bonus)
+
+::: {.callout-tip collapse="true"}
+## 📝 Exemple de résumé à présenter
+
+**Rapport de segmentation clients — ShopHub**
+
+*Méthodologie* : analyse non-supervisée de 5000 clients sur 9 indicateurs comportementaux.
+
+*Résultats* :
+- **5 segments naturels** identifiés (silhouette 0.XX)
+- **Champions** (12%) : 80% du chiffre d'affaires → focus programme VIP
+- **Fidèles** (30%) : socle stable → personnalisation
+- **Prometteurs** (18%) : upsell prioritaire
+- **Dormants** (26%) : campagne de réactivation massive
+- **À risque** (13%) : enquête satisfaction urgente
+
+*Alertes* :
+- **50 clients flaggés** comme atypiques
+- 20 cas probables de fraude (comptes récents, gros volumes)
+- 20 cas d'abus (taux de retour > 70%)
+- 10 comptes tests internes à nettoyer
+
+*Prochaines étapes* :
+1. Validation métier des segments avec l'équipe marketing
+2. Lancement des campagnes différenciées (semaine 1-2)
+3. Enquête sur les 20 fraudes probables (équipe risque)
+4. Re-segmentation trimestrielle
+:::
+
+**🎉 Bravo — tu as bouclé le Module 5 !**
+
+## 🚀 La suite
+
+Tu as maintenant :
+- ✅ Les fondations (Modules 1-3)
+- ✅ Le ML supervisé (Module 4)
+- ✅ Le ML non-supervisé (Module 5)
+
+Les prochains modules vont te faire découvrir :
+
+- **Module 6 — Deep Learning** : réseaux de neurones, CNN, PyTorch
+- **Module 7 — LLM et IA générative** : embeddings, RAG, agents
+- **Module 8 — MLOps** : déploiement, monitoring, MLflow
+
+Tu as déjà largement de quoi **être autonome** sur des projets ML classiques en entreprise !

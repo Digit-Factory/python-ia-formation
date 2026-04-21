@@ -55,7 +55,7 @@ book:
         - modules/module_05/notion_5_4_pca.qmd
         - modules/module_05/notion_5_5_tsne_umap.qmd
         - modules/module_05/notion_5_6_anomalies.qmd
-        # - modules/module_05/tp_sommatif.qmd
+        - modules/module_05/tp_sommatif.qmd
         
   # Bas de page
   page-footer:
