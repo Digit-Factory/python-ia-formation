@@ -1,0 +1,796 @@
+---
+title: "Notion 5.3 — Clustering avancé : DBSCAN et hiérarchique"
+subtitle: "Au-delà de k-means : clusters de forme quelconque et structure multi-niveaux"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_3_clustering_avance_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_3_clustering_avance_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notion 5.2 (k-means)  
+**Objectif** : maîtriser deux alternatives puissantes à k-means, savoir choisir le bon algorithme selon la situation
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **DBSCAN** et son fonctionnement basé sur la densité
+- Choisir les hyperparamètres `eps` et `min_samples` avec la méthode du **k-distance plot**
+- Maîtriser le **clustering hiérarchique** et lire un **dendrogramme**
+- Choisir le bon **linkage** (ward, complete, average, single)
+- Savoir **quel algorithme** utiliser selon la forme des données
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as vu en Notion 5.2 que **k-means a des limites** :
+- ❌ Rate les clusters non-convexes (croissants, spirales)
+- ❌ Rate les clusters de densités très différentes
+- ❌ Assigne **tout le monde** à un cluster (même les outliers)
+- ❌ Il faut connaître `k` à l'avance
+
+Cette notion te donne **2 alternatives** qui comblent ces lacunes chacune à leur façon :
+
+- **DBSCAN** : basé sur la **densité**, détecte des clusters de forme quelconque + identifie les outliers
+- **Clustering hiérarchique** : construit une **hiérarchie** de clusters, tu choisis la granularité après coup
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.cluster import KMeans, DBSCAN, AgglomerativeClustering
+from sklearn.datasets import make_blobs, make_moons, make_circles
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score
+from sklearn.neighbors import NearestNeighbors
+from scipy.cluster.hierarchy import dendrogram, linkage
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. DBSCAN : clustering basé sur la densité
+
+## 🎨 L'intuition
+
+**DBSCAN** = **D**ensity-**B**ased **S**patial **C**lustering of **A**pplications with **N**oise.
+
+L'idée : un cluster est une **zone dense** de points. Les points "perdus" entre les zones sont des **bruits** (noise).
+
+**Règles simples** :
+- Un point avec **beaucoup de voisins proches** → fait partie d'un cluster
+- Un point avec **peu de voisins** → bruit (outlier)
+- Les clusters se forment en propageant de voisin en voisin
+
+## 🔧 Les 2 hyperparamètres
+
+DBSCAN a **seulement 2 paramètres** :
+
+| Paramètre | Rôle |
+|---|---|
+| **`eps`** (ε) | Rayon de voisinage : "à quelle distance considère-t-on deux points proches ?" |
+| **`min_samples`** | Nombre minimum de voisins pour être un "noyau" |
+
+## 🧭 Les 3 types de points
+
+```{python}
+#| label: fig-dbscan-points
+#| fig-cap: "Les 3 types de points dans DBSCAN"
+
+fig, ax = plt.subplots(figsize=(10, 6))
+ax.set_xlim(-1, 11)
+ax.set_ylim(-1, 8)
+ax.set_aspect("equal")
+
+# Point core (au centre d'un cluster dense)
+core = (3, 4)
+ax.add_patch(plt.Circle(core, 1.2, fill=False, edgecolor="green", linewidth=2, linestyle="--"))
+ax.scatter(*core, s=300, c="green", edgecolor="black", linewidth=2, zorder=10, label="Core point")
+# voisins denses
+for dx, dy in [(0.5, 0.3), (-0.4, 0.6), (0.6, -0.5), (-0.3, -0.4), (0.2, 0.8)]:
+    ax.scatter(core[0] + dx, core[1] + dy, s=80, c="lightgreen", edgecolor="black", zorder=9)
+
+# Point border (au bord d'un cluster)
+border = (4.5, 4.2)
+ax.add_patch(plt.Circle(border, 1.2, fill=False, edgecolor="orange", linewidth=2, linestyle="--"))
+ax.scatter(*border, s=300, c="orange", edgecolor="black", linewidth=2, zorder=10, label="Border point")
+
+# Point noise (isolé)
+noise = (8, 6)
+ax.add_patch(plt.Circle(noise, 1.2, fill=False, edgecolor="red", linewidth=2, linestyle="--"))
+ax.scatter(*noise, s=300, c="red", edgecolor="black", linewidth=2, zorder=10, label="Noise point")
+
+ax.set_title("Les 3 types de points selon DBSCAN", fontweight="bold", fontsize=13)
+ax.legend(loc="lower right", fontsize=11)
+ax.text(3, 1.8, "Beaucoup de voisins\n→ Core", ha="center", color="green", fontsize=10)
+ax.text(4.5, 2.0, "Près d'un core\nmais peu de voisins\n→ Border", ha="center", color="darkorange", fontsize=10)
+ax.text(8, 3.8, "Isolé\n→ Noise", ha="center", color="red", fontsize=10)
+
+plt.tight_layout()
+plt.show()
+```
+
+- **Core point** (vert) : a au moins `min_samples` voisins dans un rayon `eps`
+- **Border point** (orange) : près d'un core mais pas assez de voisins pour être core lui-même
+- **Noise point** (rouge) : ni core ni proche d'un core → **labellisé comme -1**
+
+## 🚀 DBSCAN à l'œuvre sur les croissants
+
+Tu te souviens que k-means **ratait** les `make_moons` ? Regardons DBSCAN :
+
+```{python}
+#| label: fig-dbscan-moons
+#| fig-cap: "DBSCAN réussit là où k-means échoue"
+
+X_moons, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+
+# Comparaison k-means vs DBSCAN
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# k-means
+km = KMeans(n_clusters=2, n_init=10, random_state=0)
+labels_km = km.fit_predict(X_moons)
+axes[0].scatter(X_moons[:, 0], X_moons[:, 1], c=labels_km, cmap="coolwarm",
+                s=40, alpha=0.7, edgecolor="black")
+axes[0].set_title("k-means (k=2) : RATE", fontweight="bold", color="red")
+
+# DBSCAN
+dbscan = DBSCAN(eps=0.2, min_samples=5)
+labels_db = dbscan.fit_predict(X_moons)
+axes[1].scatter(X_moons[:, 0], X_moons[:, 1], c=labels_db, cmap="coolwarm",
+                s=40, alpha=0.7, edgecolor="black")
+axes[1].set_title(f"DBSCAN : RÉUSSIT ✅ ({len(np.unique(labels_db))} clusters)",
+                  fontweight="bold", color="green")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : DBSCAN **suit la forme** des croissants. Parce qu'il propage par **voisinage**, pas par distance au centre, il gère les formes arbitraires.
+
+## 🎛️ Choisir `eps` : la méthode du k-distance plot
+
+Le choix d'`eps` est **crucial**. Voici une méthode éprouvée :
+
+1. Pour chaque point, calculer la distance à son **k-ième voisin** (typiquement k = `min_samples`)
+2. Trier ces distances
+3. Tracer la courbe
+4. Le **coude** de la courbe donne un bon `eps`
+
+```{python}
+#| label: fig-kdist
+#| fig-cap: "k-distance plot pour choisir eps"
+
+# Sur le dataset moons
+k = 5  # = min_samples
+neighbors = NearestNeighbors(n_neighbors=k)
+neighbors.fit(X_moons)
+distances, _ = neighbors.kneighbors(X_moons)
+
+# Distance au k-ième voisin (la plus éloignée)
+k_distances = np.sort(distances[:, -1])
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(k_distances, linewidth=2)
+ax.axhline(0.2, color="red", linestyle="--", label="eps = 0.2 (coude)")
+ax.set_xlabel("Point (trié)")
+ax.set_ylabel(f"Distance au {k}-ième voisin")
+ax.set_title(f"k-distance plot (k={k})")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : le point où la courbe commence à **monter brusquement** donne un bon `eps`. Ici, c'est autour de 0.2.
+
+**Règle de pouce pour `min_samples`** :
+- **2D** : `min_samples` = 4 à 5
+- **> 2D** : `min_samples` = 2 × nb_dimensions
+- **Données bruyantes** : augmenter `min_samples`
+
+## 🧪 Démonstration : sensibilité à `eps`
+
+```{python}
+#| label: fig-eps-sensitivity
+#| fig-cap: "Sensibilité de DBSCAN au paramètre eps"
+
+X_demo, _ = make_blobs(n_samples=200, centers=3, cluster_std=0.6, random_state=42)
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_demo)
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+for ax, eps in zip(axes, [0.1, 0.3, 0.5, 1.0]):
+    db = DBSCAN(eps=eps, min_samples=5)
+    labels = db.fit_predict(X_scaled)
+    n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise = (labels == -1).sum()
+    
+    # Visualiser (noise en noir)
+    mask_noise = labels == -1
+    ax.scatter(X_scaled[~mask_noise, 0], X_scaled[~mask_noise, 1],
+               c=labels[~mask_noise], cmap="viridis", s=40, alpha=0.7, edgecolor="black")
+    ax.scatter(X_scaled[mask_noise, 0], X_scaled[mask_noise, 1],
+               c="black", s=60, marker="x", label=f"Noise ({n_noise})")
+    ax.set_title(f"eps = {eps}\n{n_clusters} clusters, {n_noise} bruits")
+    if n_noise > 0:
+        ax.legend(loc="lower right", fontsize=9)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- **`eps` trop petit** (0.1) : chaque point isolé, trop de bruit
+- **`eps` bien choisi** (0.3) : 3 clusters détectés proprement
+- **`eps` trop grand** (1.0) : tout fusionné en un seul cluster
+
+## ⚠️ Ne pas oublier la standardisation !
+
+Comme k-means, DBSCAN utilise la **distance**. Donc : **toujours standardiser** avant.
+
+## ✏️ Exercice 1 — DBSCAN sur un cas difficile
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+# Deux cercles concentriques + du bruit
+from sklearn.datasets import make_circles
+X_circles, _ = make_circles(n_samples=400, factor=0.4, noise=0.08, random_state=42)
+```
+
+1. Visualise les données (gris, sans label)
+2. Applique **k-means avec k=2**. Ça marche ?
+3. Trace le **k-distance plot** (k=5) pour choisir `eps`
+4. Applique `DBSCAN` avec le `eps` trouvé et `min_samples=5`
+5. Combien de clusters et combien de points-bruits ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X_circles, _ = make_circles(n_samples=400, factor=0.4, noise=0.08, random_state=42)
+
+# Standardiser (important !)
+X_circles_sc = StandardScaler().fit_transform(X_circles)
+
+# 2. k-means
+km = KMeans(n_clusters=2, n_init=10, random_state=42)
+labels_km = km.fit_predict(X_circles_sc)
+
+# 3. k-distance
+neighbors = NearestNeighbors(n_neighbors=5)
+neighbors.fit(X_circles_sc)
+distances, _ = neighbors.kneighbors(X_circles_sc)
+k_distances = np.sort(distances[:, -1])
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+axes[0].scatter(X_circles_sc[:, 0], X_circles_sc[:, 1], c=labels_km, cmap="coolwarm",
+                s=30, alpha=0.7, edgecolor="black")
+axes[0].set_title("k-means (k=2) : rate les cercles")
+
+axes[1].plot(k_distances, linewidth=2)
+axes[1].axhline(0.35, color="red", linestyle="--", label="eps ≈ 0.35")
+axes[1].set_xlabel("Point (trié)"); axes[1].set_ylabel("Distance au 5ᵉ voisin")
+axes[1].set_title("k-distance plot")
+axes[1].legend(); axes[1].grid(True, alpha=0.3)
+
+# 4. DBSCAN
+db = DBSCAN(eps=0.35, min_samples=5)
+labels_db = db.fit_predict(X_circles_sc)
+n_clusters = len(set(labels_db)) - (1 if -1 in labels_db else 0)
+n_noise = (labels_db == -1).sum()
+
+mask_noise = labels_db == -1
+axes[2].scatter(X_circles_sc[~mask_noise, 0], X_circles_sc[~mask_noise, 1],
+                c=labels_db[~mask_noise], cmap="coolwarm", s=30, alpha=0.7, edgecolor="black")
+axes[2].scatter(X_circles_sc[mask_noise, 0], X_circles_sc[mask_noise, 1],
+                c="black", s=50, marker="x")
+axes[2].set_title(f"DBSCAN : {n_clusters} clusters, {n_noise} bruits")
+
+plt.tight_layout()
+plt.show()
+
+print(f"DBSCAN a trouvé {n_clusters} clusters et identifié {n_noise} points bruits")
+```
+
+**Interprétation** :
+- **k-means** sépare les cercles en haut/bas → **rate complètement** la structure circulaire
+- **DBSCAN** suit la densité des anneaux → **trouve les 2 cercles** + repère les points bruyants
+:::
+
+# 2. Clustering hiérarchique
+
+## 🎨 L'intuition
+
+Plutôt que de choisir `k` à l'avance, on construit **l'arbre complet** des regroupements possibles, **du plus fin au plus grossier**.
+
+**Approche agglomérative** (la plus courante) :
+
+```
+Étape 0 : chaque point est son propre cluster (n clusters)
+Étape 1 : fusionner les 2 plus proches → (n-1 clusters)
+Étape 2 : fusionner les 2 plus proches → (n-2 clusters)
+...
+Étape n-1 : tout le monde dans un seul cluster
+```
+
+À la fin, on obtient un **dendrogramme** — un arbre des fusions successives.
+
+## 🌳 Le dendrogramme en action
+
+```{python}
+#| label: fig-dendrogram
+#| fig-cap: "Dendrogramme du clustering hiérarchique"
+
+# Dataset simple avec 3 clusters
+np.random.seed(42)
+X_h, _ = make_blobs(n_samples=30, centers=3, cluster_std=1.0, random_state=42)
+
+# Standardiser
+X_h_sc = StandardScaler().fit_transform(X_h)
+
+# Calculer le linkage
+Z = linkage(X_h_sc, method="ward")
+
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+# Points (colorés pour identification)
+axes[0].scatter(X_h_sc[:, 0], X_h_sc[:, 1], s=100, c=range(len(X_h_sc)),
+                cmap="tab20", edgecolor="black")
+for i, (x, y) in enumerate(X_h_sc):
+    axes[0].annotate(str(i), (x, y), fontsize=8, ha="center", va="center")
+axes[0].set_title("30 points étiquetés 0 à 29")
+
+# Dendrogramme
+dendrogram(Z, ax=axes[1], color_threshold=4, leaf_font_size=8)
+axes[1].set_title("Dendrogramme (méthode Ward)")
+axes[1].set_xlabel("Index du point")
+axes[1].set_ylabel("Distance de fusion")
+axes[1].axhline(4, color="red", linestyle="--", label="Seuil (→ 3 clusters)")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture du dendrogramme** :
+- **L'axe X** : les 30 points (feuilles de l'arbre)
+- **L'axe Y** : la distance à laquelle les clusters ont fusionné
+- **Les branches** : chaque fusion
+- **Les couleurs** : clusters obtenus en coupant à un seuil donné
+
+**Pour obtenir `k` clusters** : on coupe horizontalement pour obtenir exactement `k` branches.
+
+## 🔧 Les méthodes de linkage
+
+Quand on fusionne deux clusters, **comment définit-on la distance** entre eux ? Plusieurs choix :
+
+| Linkage | Définition de la distance entre clusters |
+|---|---|
+| **`ward`** | Minimise l'augmentation de variance (par défaut, souvent le meilleur) |
+| **`complete`** | Distance entre les points **les plus éloignés** des 2 clusters |
+| **`average`** | Moyenne des distances entre toutes les paires |
+| **`single`** | Distance entre les points **les plus proches** (sensible aux chaînes) |
+
+## 🎨 Comparer les linkages
+
+```{python}
+#| label: fig-linkages
+#| fig-cap: "Impact du choix du linkage"
+
+X_ln, _ = make_blobs(n_samples=200, centers=4, cluster_std=1.0, random_state=42)
+X_ln_sc = StandardScaler().fit_transform(X_ln)
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+for ax, method in zip(axes, ["ward", "complete", "average", "single"]):
+    clust = AgglomerativeClustering(n_clusters=4, linkage=method)
+    labels = clust.fit_predict(X_ln_sc)
+    ax.scatter(X_ln_sc[:, 0], X_ln_sc[:, 1], c=labels, cmap="viridis",
+               s=30, alpha=0.7, edgecolor="black")
+    ax.set_title(f"linkage = '{method}'")
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- **Ward** : clusters **équilibrés** → souvent le **meilleur défaut**
+- **Complete** : similaire à ward
+- **Average** : compromis
+- **Single** : peut créer un **gros cluster + petits** (phénomène de "chaînage")
+
+**Conseil** : **commencer toujours par `ward`**, essayer `complete` ou `average` si résultats insatisfaisants.
+
+## 🚀 Utilisation avec scikit-learn
+
+```{python}
+# Exemple simple
+X, _ = make_blobs(n_samples=300, centers=4, cluster_std=1.0, random_state=42)
+X_sc = StandardScaler().fit_transform(X)
+
+# Clustering hiérarchique
+clust = AgglomerativeClustering(n_clusters=4, linkage="ward")
+labels = clust.fit_predict(X_sc)
+
+# Visualiser
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.scatter(X_sc[:, 0], X_sc[:, 1], c=labels, cmap="viridis",
+           s=40, alpha=0.7, edgecolor="black")
+ax.set_title("Clustering hiérarchique — Ward linkage — k=4")
+plt.tight_layout()
+plt.show()
+
+print(f"Nombre de points par cluster : {np.bincount(labels)}")
+```
+
+## 💡 Avantages du hiérarchique
+
+- Pas besoin de choisir `k` à l'avance → on **voit tout** dans le dendrogramme
+- Produit **plusieurs niveaux** de granularité (utile pour exploration)
+- Déterministe : **pas de random state** à gérer
+- **Fonctionne bien** sur petits datasets
+
+## ⚠️ Limites
+
+- **Lent** sur gros datasets : O(n³) en temps, O(n²) en mémoire
+- Pas forcément meilleur que k-means sur données "sphériques"
+- Une fois une fusion faite, **impossible de revenir en arrière**
+
+**Règle** : utilise le hiérarchique sur des datasets **< 10 000 points**. Au-delà, préfère k-means ou des variantes.
+
+## ✏️ Exercice 2 — Dendrogramme en pratique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Utilise le dataset Iris (classique !) :
+
+```python
+from sklearn.datasets import load_iris
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+```
+
+1. Calcule le linkage avec `ward`
+2. Trace le dendrogramme
+3. Coupe l'arbre pour obtenir **3 clusters** (`AgglomerativeClustering(n_clusters=3)`)
+4. Compare avec les vraies espèces (`iris.target`) via l'**Adjusted Rand Index** (`adjusted_rand_score`)
+
+Le modèle retrouve-t-il bien les 3 espèces ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import load_iris
+from sklearn.metrics import adjusted_rand_score
+
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+vrais_labels = iris.target
+
+# 1-2. Linkage + dendrogramme
+Z_iris = linkage(X_iris, method="ward")
+
+fig, ax = plt.subplots(figsize=(12, 5))
+dendrogram(Z_iris, ax=ax, truncate_mode="lastp", p=20, color_threshold=10)
+ax.set_title("Dendrogramme Iris (ward linkage)")
+ax.set_xlabel("Clusters (tronqué)")
+ax.set_ylabel("Distance de fusion")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 3. Clustering en 3 groupes
+clust = AgglomerativeClustering(n_clusters=3, linkage="ward")
+labels_h = clust.fit_predict(X_iris)
+
+print(f"Répartition trouvée : {np.bincount(labels_h)}")
+print(f"Répartition réelle  : {np.bincount(vrais_labels)}")
+
+# 4. Comparaison
+ari = adjusted_rand_score(vrais_labels, labels_h)
+print(f"\nAdjusted Rand Index : {ari:.3f}")
+print("(0 = aléatoire, 1 = parfait)")
+```
+
+**Résultat** : ARI ≈ 0.6-0.7 → **très bon** ! Le modèle retrouve largement les 3 espèces **sans jamais voir les labels**.
+
+C'est un exemple classique qui montre la **puissance du non-supervisé** : des mesures botaniques seules permettent de redécouvrir les espèces.
+:::
+
+# 3. Quel algorithme choisir ?
+
+## 🎨 Visualisation comparative globale
+
+```{python}
+#| label: fig-comparaison
+#| fig-cap: "Les 3 algorithmes sur 3 types de datasets"
+
+datasets_demo = {
+    "Blobs (convexes)": make_blobs(n_samples=300, centers=3, cluster_std=0.8, random_state=42)[0],
+    "Moons (non-convexes)": make_moons(n_samples=300, noise=0.05, random_state=42)[0],
+    "Circles (imbriqués)": make_circles(n_samples=300, factor=0.4, noise=0.08, random_state=42)[0],
+}
+
+fig, axes = plt.subplots(3, 3, figsize=(15, 13))
+
+for row, (nom_data, X_d) in enumerate(datasets_demo.items()):
+    X_sc = StandardScaler().fit_transform(X_d)
+    
+    # Paramètres adaptés selon le dataset
+    k = 3 if "Blobs" in nom_data else 2
+    if "Blobs" in nom_data:
+        eps_val = 0.3
+    elif "Moons" in nom_data:
+        eps_val = 0.2
+    else:  # Circles
+        eps_val = 0.35
+    
+    algos = {
+        "k-means": KMeans(n_clusters=k, n_init=10, random_state=42),
+        "DBSCAN": DBSCAN(eps=eps_val, min_samples=5),
+        "Hiérarchique": AgglomerativeClustering(n_clusters=k, linkage="ward"),
+    }
+    
+    for col, (nom_algo, modele) in enumerate(algos.items()):
+        labels = modele.fit_predict(X_sc)
+        mask_noise = labels == -1
+        
+        ax = axes[row, col]
+        ax.scatter(X_sc[~mask_noise, 0], X_sc[~mask_noise, 1],
+                   c=labels[~mask_noise], cmap="viridis", s=25, alpha=0.7, edgecolor="black")
+        if mask_noise.any():
+            ax.scatter(X_sc[mask_noise, 0], X_sc[mask_noise, 1],
+                       c="black", s=40, marker="x")
+        ax.set_title(f"{nom_data}\n{nom_algo}", fontsize=10)
+        ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("Comparaison des 3 algorithmes sur 3 types de données",
+             fontweight="bold", fontsize=14, y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** :
+
+- **Blobs** : les 3 algos marchent tous ✅
+- **Moons** : seul **DBSCAN** suit la forme ✅
+- **Circles** : seul **DBSCAN** gère les cercles imbriqués ✅
+
+## 📋 Tableau de décision
+
+| Besoin | Choix recommandé |
+|---|---|
+| **Clusters sphériques + grand dataset** | k-means (rapide) |
+| **Clusters de forme arbitraire** | **DBSCAN** |
+| **Détecter outliers automatiquement** | **DBSCAN** (label -1) |
+| **Explorer plusieurs granularités** | **Hiérarchique** (dendrogramme) |
+| **Je ne connais pas k** | DBSCAN ou Hiérarchique |
+| **Gros dataset (> 100k)** | k-means ou MiniBatchKMeans |
+| **Petit dataset (< 1k)** | Hiérarchique (résultats clairs) |
+| **Densités très variables** | HDBSCAN (extension de DBSCAN) |
+
+## 🧠 L'approche pragmatique
+
+En pratique, voici le workflow que je recommande :
+
+1. **Commence par k-means** (baseline rapide)
+2. Si résultats décevants **ou** formes non-convexes suspectées → **DBSCAN**
+3. Si tu veux explorer la structure **à plusieurs niveaux** → **hiérarchique**
+4. **Toujours standardiser** avant n'importe quel clustering
+5. **Toujours valider par visualisation** et discussion métier
+
+# 🏁 Exercice bilan — Choisir le bon algo
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu reçois 3 datasets mystères. Pour chacun :
+
+1. Visualise-le
+2. Choisis **l'algorithme le plus adapté** (k-means, DBSCAN ou hiérarchique)
+3. Justifie ton choix
+4. Applique-le et visualise le résultat
+5. Évalue avec la **silhouette**
+
+```python
+# Dataset 1 : 4 blobs bien séparés
+X1, _ = make_blobs(n_samples=400, centers=4, cluster_std=0.7, random_state=1)
+
+# Dataset 2 : forme complexe
+X2, _ = make_moons(n_samples=400, noise=0.07, random_state=2)
+
+# Dataset 3 : 3 blobs + outliers artificiels
+np.random.seed(3)
+X3_base, _ = make_blobs(n_samples=300, centers=3, cluster_std=0.7, random_state=3)
+outliers = np.random.uniform(-6, 6, (30, 2))
+X3 = np.vstack([X3_base, outliers])
+```
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Datasets
+X1, _ = make_blobs(n_samples=400, centers=4, cluster_std=0.7, random_state=1)
+X2, _ = make_moons(n_samples=400, noise=0.07, random_state=2)
+np.random.seed(3)
+X3_base, _ = make_blobs(n_samples=300, centers=3, cluster_std=0.7, random_state=3)
+outliers = np.random.uniform(-6, 6, (30, 2))
+X3 = np.vstack([X3_base, outliers])
+
+# Standardiser
+X1_sc = StandardScaler().fit_transform(X1)
+X2_sc = StandardScaler().fit_transform(X2)
+X3_sc = StandardScaler().fit_transform(X3)
+
+fig, axes = plt.subplots(2, 3, figsize=(15, 9))
+
+# Dataset 1 : blobs convexes → k-means ou hiérarchique
+axes[0, 0].scatter(X1_sc[:, 0], X1_sc[:, 1], c="gray", s=25, alpha=0.6, edgecolor="black")
+axes[0, 0].set_title("Dataset 1 : blobs convexes\n→ k-means parfait")
+
+km1 = KMeans(n_clusters=4, n_init=10, random_state=1)
+l1 = km1.fit_predict(X1_sc)
+axes[1, 0].scatter(X1_sc[:, 0], X1_sc[:, 1], c=l1, cmap="viridis", s=25, alpha=0.7, edgecolor="black")
+axes[1, 0].set_title(f"k-means | silhouette = {silhouette_score(X1_sc, l1):.3f}")
+
+# Dataset 2 : formes non-convexes → DBSCAN
+axes[0, 1].scatter(X2_sc[:, 0], X2_sc[:, 1], c="gray", s=25, alpha=0.6, edgecolor="black")
+axes[0, 1].set_title("Dataset 2 : croissants\n→ DBSCAN nécessaire")
+
+db2 = DBSCAN(eps=0.2, min_samples=5)
+l2 = db2.fit_predict(X2_sc)
+n_noise = (l2 == -1).sum()
+mask_n = l2 == -1
+axes[1, 1].scatter(X2_sc[~mask_n, 0], X2_sc[~mask_n, 1], c=l2[~mask_n], cmap="coolwarm",
+                    s=25, alpha=0.7, edgecolor="black")
+axes[1, 1].scatter(X2_sc[mask_n, 0], X2_sc[mask_n, 1], c="black", s=40, marker="x")
+# silhouette sans le bruit
+if (l2 != -1).sum() > 1:
+    s2 = silhouette_score(X2_sc[l2 != -1], l2[l2 != -1])
+else:
+    s2 = np.nan
+axes[1, 1].set_title(f"DBSCAN | silh={s2:.3f} | {n_noise} bruits")
+
+# Dataset 3 : blobs + outliers → DBSCAN (identifie les outliers)
+axes[0, 2].scatter(X3_sc[:, 0], X3_sc[:, 1], c="gray", s=25, alpha=0.6, edgecolor="black")
+axes[0, 2].set_title("Dataset 3 : blobs + outliers\n→ DBSCAN (isole les outliers)")
+
+db3 = DBSCAN(eps=0.3, min_samples=5)
+l3 = db3.fit_predict(X3_sc)
+n_noise3 = (l3 == -1).sum()
+mask_n = l3 == -1
+axes[1, 2].scatter(X3_sc[~mask_n, 0], X3_sc[~mask_n, 1], c=l3[~mask_n], cmap="viridis",
+                    s=25, alpha=0.7, edgecolor="black")
+axes[1, 2].scatter(X3_sc[mask_n, 0], X3_sc[mask_n, 1], c="black", s=40, marker="x", label=f"Bruits ({n_noise3})")
+axes[1, 2].legend(loc="lower left", fontsize=9)
+if (l3 != -1).sum() > 1:
+    s3 = silhouette_score(X3_sc[l3 != -1], l3[l3 != -1])
+else:
+    s3 = np.nan
+axes[1, 2].set_title(f"DBSCAN | silh={s3:.3f} | {n_noise3} outliers détectés")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Justifications** :
+
+- **Dataset 1** (blobs) : k-means parfait. Hiérarchique aurait marché aussi. Silhouette haute (> 0.7).
+- **Dataset 2** (moons) : DBSCAN nécessaire — k-means aurait raté. On perd quelques points au bruit, ce qui est acceptable.
+- **Dataset 3** (blobs + outliers) : DBSCAN excelle parce qu'il **identifie les outliers** (label -1) sans polluer les vrais clusters. K-means les aurait intégrés dans les vrais clusters en tirant les centres.
+
+**Leçon** : le choix de l'algorithme doit être **motivé par la forme des données**, pas juste par habitude.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **DBSCAN** | Clustering basé sur la densité, gère les formes arbitraires |
+| **3 types de points** | Core, Border, Noise (label -1) |
+| **Paramètres DBSCAN** | `eps` (rayon) et `min_samples` (densité min) |
+| **k-distance plot** | Méthode pour choisir `eps` (coude) |
+| **Clustering hiérarchique** | Construit un arbre de fusions (dendrogramme) |
+| **Linkage ward** | Bon défaut, minimise la variance des fusions |
+| **Dendrogramme** | Couper à une hauteur = obtenir un nombre de clusters |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **k-means en baseline** puis DBSCAN si les données ne sont pas convexes
+2. **Standardiser** (même pour DBSCAN !)
+3. **k-distance plot** pour choisir `eps` au lieu de deviner
+4. **Ward** par défaut en hiérarchique
+5. **Visualiser** toujours les clusters obtenus avant de conclure
+
+## 🚨 Les pièges à éviter
+
+1. **DBSCAN sans scaling** → résultats erratiques
+2. **`eps` deviné au doigt mouillé** → préférer le k-distance plot
+3. **Hiérarchique sur gros dataset** → lent + gourmand en mémoire
+4. **Ignorer les points-bruits** (-1) → ils sont une **information**, pas une erreur
+5. **Couper le dendrogramme sans justification** → utiliser aussi silhouette / métier
+
+## 🚀 La suite
+
+Dans la [**Notion 5.4 — Réduction de dimension : PCA**](notion_5_4_pca.qmd), on change totalement de famille d'algorithmes :
+
+- Comprendre la **PCA** (Principal Component Analysis) **mathématiquement et visuellement**
+- Réduire la dimension de 100 features à 2 pour visualiser
+- **Compression** sans perte majeure d'information
+- Accélérer les modèles ML en aval
+- Limites de la PCA (linéarité)
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends le dataset Iris (4D, 3 espèces) et compare **3 algorithmes** :
+
+1. `KMeans(n_clusters=3)`
+2. `DBSCAN(eps=0.8, min_samples=5)` (sur données standardisées)
+3. `AgglomerativeClustering(n_clusters=3, linkage='ward')`
+
+Pour chacun, calcule l'**Adjusted Rand Index** avec les vraies espèces. Lequel gagne ? 
+
+Tu verras que sur ce dataset "bien sage", **les 3 donnent des résultats comparables**. C'est souvent le cas sur données tabulaires propres — les différences apparaissent surtout sur des données complexes.
+:::

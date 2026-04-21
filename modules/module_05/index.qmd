@@ -53,7 +53,7 @@ Depuis chaque notion, le bouton « Ouvrir dans Colab » lance le notebook direct
 |:---:|---|:---:|
 | **5.1** | [Introduction au non supervisé](notion_5_1_intro_non_supervise.qmd) | 2-3 h |
 | **5.2** | [Clustering : k-means](notion_5_2_kmeans.qmd) | 3-4 h |
-| **5.3** | Clustering avancé : DBSCAN, hiérarchique _(à venir)_ | 3 h |
+| **5.3** | [Clustering avancé : DBSCAN, hiérarchique](notion_5_3_clustering_avance.qmd) | 3 h |
 | **5.4** | Réduction de dimension : PCA _(à venir)_ | 3-4 h |
 | **5.5** | Visualisation non-linéaire : t-SNE, UMAP _(à venir)_ | 2-3 h |
 | **5.6** | Détection d'anomalies _(à venir)_ | 3 h |
