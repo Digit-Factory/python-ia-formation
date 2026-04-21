@@ -1,0 +1,911 @@
+---
+title: "Notion 6.2 — MLP et rétropropagation"
+subtitle: "Empiler des neurones pour résoudre l'impossible"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_2_mlp_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_2_mlp_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 6.1 (perceptron)  
+**Objectif** : comprendre et implémenter un MLP from scratch avec backprop, résoudre des problèmes non-linéaires
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre l'**architecture** d'un MLP (couches, neurones, connexions)
+- Saisir la **rétropropagation** sans se noyer dans les maths
+- Implémenter un **MLP from scratch** en NumPy (~60 lignes)
+- Résoudre **XOR et make_moons** avec quelques neurones
+- Choisir la **bonne fonction de perte** (MSE vs cross-entropy)
+- Gérer la **classification multi-classes** avec softmax
+
+## 🎯 Pourquoi cette notion ?
+
+C'est **LA** notion qui déverrouille le Deep Learning. Après ça :
+- Tu auras **vraiment compris** comment un réseau apprend
+- PyTorch ne sera plus de la magie, juste une simplification
+- Tu pourras **diagnostiquer** des problèmes d'entraînement en connaissance de cause
+
+**L'histoire** : en 1986, Rumelhart, Hinton et Williams publient "Learning representations by back-propagating errors". Cette idée débloque l'hiver de l'IA et permet d'entraîner des **réseaux multicouches**. Ils viennent de remporter le **prix Turing 2018** pour ça.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.datasets import make_moons, make_classification, make_circles
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPClassifier  # pour comparaison
+from sklearn.model_selection import train_test_split
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. L'architecture d'un MLP
+
+## 🏗️ Schéma général
+
+Un **MLP** (Multi-Layer Perceptron) empile des **couches** de neurones :
+
+```
+COUCHE D'ENTRÉE  →  COUCHE(S) CACHÉE(S)  →  COUCHE DE SORTIE
+  (features)          (représentations         (prédictions)
+                       apprises)
+```
+
+Chaque **couche** est un groupe de neurones. Chaque neurone d'une couche est **connecté à tous** ceux de la couche suivante → c'est le **"dense"** ou **"fully connected"**.
+
+```{python}
+#| label: fig-mlp-arch
+#| fig-cap: "Architecture d'un MLP à 1 couche cachée"
+
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.set_xlim(-0.5, 10); ax.set_ylim(-0.5, 5.5)
+ax.axis("off")
+
+# Couche d'entrée (2 neurones)
+for i, y in enumerate([3, 2]):
+    ax.scatter(1, y, s=1200, c="lightblue", edgecolor="black", linewidth=2, zorder=5)
+    ax.text(1, y, f"x{i+1}", ha="center", va="center", fontsize=12, fontweight="bold")
+ax.text(1, 4.5, "Entrée", ha="center", fontweight="bold", fontsize=12)
+ax.text(1, 0.7, "(2 features)", ha="center", fontsize=9, style="italic")
+
+# Couche cachée (4 neurones)
+hidden_y = [4, 3, 2, 1]
+for y in hidden_y:
+    ax.scatter(5, y, s=1200, c="lightyellow", edgecolor="black", linewidth=2, zorder=5)
+    ax.text(5, y, "h", ha="center", va="center", fontsize=11, fontweight="bold")
+ax.text(5, 4.7, "Cachée", ha="center", fontweight="bold", fontsize=12)
+ax.text(5, 0.4, "(4 neurones, ReLU)", ha="center", fontsize=9, style="italic")
+
+# Couche de sortie (1 neurone)
+ax.scatter(9, 2.5, s=1200, c="lightgreen", edgecolor="black", linewidth=2, zorder=5)
+ax.text(9, 2.5, "ŷ", ha="center", va="center", fontsize=13, fontweight="bold")
+ax.text(9, 4.5, "Sortie", ha="center", fontweight="bold", fontsize=12)
+ax.text(9, 1.5, "(sigmoid)", ha="center", fontsize=9, style="italic")
+
+# Connexions entrée -> cachée
+for y1 in [3, 2]:
+    for y2 in hidden_y:
+        ax.plot([1.3, 4.7], [y1, y2], "k-", alpha=0.2, linewidth=0.8)
+
+# Connexions cachée -> sortie
+for y1 in hidden_y:
+    ax.plot([5.3, 8.7], [y1, 2.5], "k-", alpha=0.2, linewidth=0.8)
+
+ax.set_title("MLP à 1 couche cachée : 2 → 4 → 1", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🔢 Combien de paramètres ?
+
+Chaque **connexion** a un poids, chaque **neurone caché/sortie** a un biais.
+
+Pour le réseau ci-dessus (2 → 4 → 1) :
+- W1 : 2×4 = 8 poids (entrée → cachée)
+- b1 : 4 biais (couche cachée)
+- W2 : 4×1 = 4 poids (cachée → sortie)
+- b2 : 1 biais (sortie)
+- **Total : 17 paramètres**
+
+Pour GPT-4 : environ **1 700 milliards** de paramètres. Même principe, juste beaucoup plus de couches et de neurones.
+
+## 🎬 Le "forward pass" (propagation avant)
+
+Pour faire une prédiction, on **propage** les données de gauche à droite :
+
+```
+z1 = W1 · x + b1        (pré-activation couche 1)
+a1 = ReLU(z1)           (activation)
+
+z2 = W2 · a1 + b2        (pré-activation sortie)
+ŷ  = sigmoid(z2)         (prédiction finale)
+```
+
+Chaque couche fait : **combinaison linéaire + activation non-linéaire**. La **non-linéarité** des activations est ce qui permet au réseau de représenter des **fonctions arbitraires**.
+
+::: {.callout-important}
+## 💡 Sans activation non-linéaire, pas de deep learning
+Si toutes les activations étaient linéaires (`f(x) = x`), empiler N couches **reviendrait à une seule couche** linéaire. Les activations non-linéaires (ReLU, sigmoid) sont **indispensables**.
+:::
+
+# 2. Le problème XOR : résolu avec 3 neurones !
+
+## 🎯 Rappel
+
+Tu te souviens ? XOR est **impossible** pour un perceptron. Voyons si un MLP minuscule peut y arriver.
+
+```{python}
+# Données XOR
+X_xor = np.array([[0, 0], [0, 1], [1, 0], [1, 1]], dtype=float)
+y_xor = np.array([0, 1, 1, 0])
+
+print("Données XOR :")
+for x, y in zip(X_xor, y_xor):
+    print(f"  {x} → {y}")
+```
+
+## 🏗️ Construire un MLP à la main
+
+On va utiliser sklearn pour ce premier test :
+
+```{python}
+# MLP : 2 entrées → 3 neurones cachés (tanh) → 1 sortie
+mlp = MLPClassifier(
+    hidden_layer_sizes=(3,),     # 1 couche cachée de 3 neurones
+    activation="tanh",
+    solver="lbfgs",              # bon pour petits datasets
+    max_iter=2000,
+    random_state=42
+)
+mlp.fit(X_xor, y_xor)
+
+# Prédictions
+pred = mlp.predict(X_xor)
+print(f"\nPrédictions : {pred}")
+print(f"Vraies valeurs : {y_xor}")
+print(f"Accuracy : {(pred == y_xor).mean():.2%}")
+```
+
+🎉 **100% !** Le MLP a résolu XOR. Visualisons la **frontière** qu'il a apprise :
+
+```{python}
+#| label: fig-xor-solved
+#| fig-cap: "Un MLP résout XOR — frontière non-linéaire"
+
+# Grille pour visualiser
+xx, yy = np.meshgrid(np.linspace(-0.5, 1.5, 200), np.linspace(-0.5, 1.5, 200))
+grid = np.c_[xx.ravel(), yy.ravel()]
+Z = mlp.predict_proba(grid)[:, 1].reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(8, 7))
+contour = ax.contourf(xx, yy, Z, levels=20, cmap="RdBu_r", alpha=0.6)
+plt.colorbar(contour, label="P(y=1)")
+
+# Contour de décision (P=0.5)
+ax.contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=2)
+
+# Points
+ax.scatter(X_xor[y_xor == 0, 0], X_xor[y_xor == 0, 1], s=400, c="steelblue",
+           edgecolor="black", linewidth=2, label="Classe 0", zorder=5)
+ax.scatter(X_xor[y_xor == 1, 0], X_xor[y_xor == 1, 1], s=400, c="crimson",
+           edgecolor="black", linewidth=2, label="Classe 1", zorder=5)
+
+ax.set_title("MLP (2→3→1) résout XOR avec une frontière courbée")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : la frontière n'est **pas une droite**. Elle suit la structure XOR des données. C'est exactement ce que le perceptron **ne pouvait pas** faire.
+
+# 3. La rétropropagation : comment ça apprend ?
+
+## 🤔 Le problème
+
+Pour un perceptron, on savait quoi faire : `w += lr * erreur * x`. Simple.
+
+Pour un MLP, c'est **plus compliqué** :
+- Si le modèle se trompe, **quel poids ajuster** ?
+- Le poids `w1` de la couche cachée n'est **pas directement** connecté à la sortie
+- Comment calculer sa **responsabilité** dans l'erreur finale ?
+
+## 💡 L'idée de la backprop
+
+En 4 étapes :
+
+```
+1. FORWARD   : propage les données, obtiens la prédiction ŷ
+2. LOSS      : calcule l'erreur L = Loss(y_vrai, ŷ)
+3. BACKWARD  : propage l'erreur EN ARRIÈRE via la chain rule
+               pour calculer ∂L/∂w pour chaque poids
+4. UPDATE    : w = w - learning_rate * ∂L/∂w
+```
+
+**L'astuce mathématique** : la **règle de la chaîne** (chain rule du calcul diff) permet de calculer les gradients par **produits matriciels** rapides, de la sortie vers l'entrée.
+
+## 📐 L'intuition visuelle
+
+Imagine une chaîne d'opérations :
+
+```
+x  →  [W1, b1]  →  ReLU  →  [W2, b2]  →  sigmoid  →  ŷ  →  Loss
+```
+
+La backprop remonte cette chaîne, en calculant à chaque étape "combien cette opération contribue à l'erreur".
+
+```{python}
+#| label: fig-backprop
+#| fig-cap: "Forward (bleu) vs Backward (rouge)"
+
+fig, ax = plt.subplots(figsize=(13, 4))
+ax.set_xlim(-0.5, 10); ax.set_ylim(-1, 3)
+ax.axis("off")
+
+# Boîtes
+boxes = [
+    (0.5, 1.5, "x"),
+    (2, 1.5, "W1, b1"),
+    (3.5, 1.5, "ReLU"),
+    (5, 1.5, "W2, b2"),
+    (6.5, 1.5, "sigmoid"),
+    (8, 1.5, "ŷ"),
+    (9.3, 1.5, "Loss"),
+]
+for x, y, label in boxes:
+    color = "lightyellow" if "," in label or label in ["ReLU", "sigmoid"] else "lightblue"
+    if label == "Loss":
+        color = "lightcoral"
+    elif label == "ŷ":
+        color = "lightgreen"
+    ax.add_patch(plt.Rectangle((x - 0.3, y - 0.3), 0.8, 0.6,
+                                 facecolor=color, edgecolor="black", linewidth=2))
+    ax.text(x + 0.1, y, label, ha="center", va="center", fontsize=11, fontweight="bold")
+
+# Flèches FORWARD (bleues, en haut)
+for i in range(len(boxes) - 1):
+    x1 = boxes[i][0] + 0.5
+    x2 = boxes[i + 1][0] - 0.3
+    ax.annotate("", xy=(x2, 2.1), xytext=(x1, 2.1),
+                 arrowprops=dict(arrowstyle="->", color="steelblue", lw=2))
+ax.text(5, 2.7, "FORWARD : calcule la prédiction", ha="center",
+        color="steelblue", fontsize=12, fontweight="bold")
+
+# Flèches BACKWARD (rouges, en bas)
+for i in range(len(boxes) - 1, 0, -1):
+    x1 = boxes[i][0] - 0.3
+    x2 = boxes[i - 1][0] + 0.5
+    ax.annotate("", xy=(x2, 0.9), xytext=(x1, 0.9),
+                 arrowprops=dict(arrowstyle="->", color="crimson", lw=2))
+ax.text(5, 0.2, "BACKWARD : propage les gradients ∂L/∂w via la chain rule",
+        ha="center", color="crimson", fontsize=12, fontweight="bold")
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🔢 Les formules clés (sans panique)
+
+Pour un MLP binaire avec sigmoid en sortie et cross-entropy :
+
+**Forward** :
+```
+z1 = W1 x + b1
+a1 = ReLU(z1)
+z2 = W2 a1 + b2
+ŷ  = sigmoid(z2)
+L  = -[y log(ŷ) + (1-y) log(1-ŷ)]  # cross-entropy
+```
+
+**Backward** (de droite à gauche) :
+```
+dL/dz2 = ŷ - y                    (gradient de la sortie)
+dL/dW2 = dL/dz2 * a1.T            (gradient des poids de sortie)
+dL/db2 = dL/dz2
+
+dL/da1 = W2.T * dL/dz2            (gradient remontant vers cachée)
+dL/dz1 = dL/da1 * ReLU'(z1)       (gradient pré-activation cachée)
+dL/dW1 = dL/dz1 * x.T              (gradient poids cachée)
+dL/db1 = dL/dz1
+```
+
+**Update** :
+```
+W1 = W1 - lr * dL/dW1
+b1 = b1 - lr * dL/db1
+W2 = W2 - lr * dL/dW2
+b2 = b2 - lr * dL/db2
+```
+
+Ça semble lourd, mais c'est **juste une multiplication matricielle** par couche. Passons à l'implémentation.
+
+# 4. MLP from scratch en NumPy
+
+On va implémenter **tout** à la main : forward, backward, training loop.
+
+```{python}
+# Fonctions utiles
+def relu(x):
+    return np.maximum(0, x)
+
+def relu_deriv(x):
+    return (x > 0).astype(float)
+
+def sigmoid(x):
+    # Version stable numériquement
+    return np.where(x >= 0, 1 / (1 + np.exp(-x)), np.exp(x) / (1 + np.exp(x)))
+
+def binary_cross_entropy(y_true, y_pred):
+    eps = 1e-12  # évite log(0)
+    y_pred = np.clip(y_pred, eps, 1 - eps)
+    return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+```
+
+## 🏗️ Classe MLP
+
+```{python}
+class MLP:
+    """MLP à 1 couche cachée, pour classification binaire."""
+    
+    def __init__(self, n_input, n_hidden, seed=42):
+        rng = np.random.default_rng(seed)
+        # Initialisation "Xavier" : petits poids, mais pas nuls
+        self.W1 = rng.normal(0, np.sqrt(2 / n_input), (n_input, n_hidden))
+        self.b1 = np.zeros(n_hidden)
+        self.W2 = rng.normal(0, np.sqrt(2 / n_hidden), (n_hidden, 1))
+        self.b2 = np.zeros(1)
+    
+    def forward(self, X):
+        """Propagation avant. Stocke les valeurs pour la backprop."""
+        self.X = X
+        self.z1 = X @ self.W1 + self.b1
+        self.a1 = relu(self.z1)
+        self.z2 = self.a1 @ self.W2 + self.b2
+        self.y_pred = sigmoid(self.z2).ravel()
+        return self.y_pred
+    
+    def backward(self, y_true, lr=0.1):
+        """Rétropropagation + mise à jour."""
+        n = len(y_true)
+        
+        # Gradient de la sortie (sigmoid + BCE donne une formule simple)
+        dz2 = (self.y_pred - y_true).reshape(-1, 1) / n
+        
+        # Gradients couche de sortie
+        dW2 = self.a1.T @ dz2
+        db2 = dz2.sum(axis=0)
+        
+        # Remonter à la couche cachée
+        da1 = dz2 @ self.W2.T
+        dz1 = da1 * relu_deriv(self.z1)
+        
+        # Gradients couche cachée
+        dW1 = self.X.T @ dz1
+        db1 = dz1.sum(axis=0)
+        
+        # Mise à jour (descente de gradient)
+        self.W1 -= lr * dW1
+        self.b1 -= lr * db1
+        self.W2 -= lr * dW2
+        self.b2 -= lr * db2
+    
+    def fit(self, X, y, lr=0.1, n_epochs=1000, verbose=False):
+        """Entraînement complet."""
+        self.losses = []
+        for epoch in range(n_epochs):
+            y_pred = self.forward(X)
+            loss = binary_cross_entropy(y, y_pred)
+            self.losses.append(loss)
+            self.backward(y, lr=lr)
+            if verbose and (epoch + 1) % 100 == 0:
+                print(f"Époque {epoch + 1} : loss = {loss:.4f}")
+    
+    def predict(self, X):
+        return (self.forward(X) >= 0.5).astype(int)
+```
+
+## 🧪 Test : résoudre XOR
+
+```{python}
+# Entraîner sur XOR
+mlp = MLP(n_input=2, n_hidden=4, seed=0)
+mlp.fit(X_xor, y_xor, lr=0.5, n_epochs=2000, verbose=True)
+
+pred = mlp.predict(X_xor)
+print(f"\nPrédictions : {pred}")
+print(f"Vérité      : {y_xor}")
+print(f"Accuracy    : {(pred == y_xor).mean():.2%}")
+```
+
+## 📉 Courbe de loss
+
+```{python}
+#| label: fig-loss-curve
+#| fig-cap: "Courbe d'apprentissage du MLP sur XOR"
+
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.plot(mlp.losses, linewidth=2)
+ax.set_xlabel("Époque")
+ax.set_ylabel("Loss (binary cross-entropy)")
+ax.set_title("Descente de la loss pendant l'entraînement")
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : la loss **descend régulièrement** → l'apprentissage fonctionne. Ce sera ton meilleur **diagnostic** en DL.
+
+## 🎨 Visualiser la frontière apprise
+
+```{python}
+#| label: fig-xor-from-scratch
+#| fig-cap: "Frontière apprise par notre MLP from scratch"
+
+xx, yy = np.meshgrid(np.linspace(-0.5, 1.5, 200), np.linspace(-0.5, 1.5, 200))
+grid = np.c_[xx.ravel(), yy.ravel()]
+Z = mlp.forward(grid).reshape(xx.shape)
+
+fig, ax = plt.subplots(figsize=(8, 7))
+contour = ax.contourf(xx, yy, Z, levels=20, cmap="RdBu_r", alpha=0.6)
+plt.colorbar(contour, label="P(y=1)")
+ax.contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=2)
+
+ax.scatter(X_xor[y_xor == 0, 0], X_xor[y_xor == 0, 1], s=400, c="steelblue",
+           edgecolor="black", linewidth=2, label="Classe 0", zorder=5)
+ax.scatter(X_xor[y_xor == 1, 0], X_xor[y_xor == 1, 1], s=400, c="crimson",
+           edgecolor="black", linewidth=2, label="Classe 1", zorder=5)
+ax.set_title("XOR résolu par NOTRE MLP from scratch ✨")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Victoire** : avec seulement **4 neurones cachés**, on résout un problème qu'aucun perceptron ne peut. La combinaison de plusieurs ReLU produit une frontière **courbée**.
+
+## ✏️ Exercice 1 — Résoudre make_moons avec notre MLP
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Utilise **notre MLP from scratch** pour résoudre `make_moons` :
+
+```python
+from sklearn.datasets import make_moons
+X, y = make_moons(n_samples=500, noise=0.1, random_state=42)
+```
+
+1. Entraîne un MLP avec **8 neurones cachés** pendant **3000 époques** (`lr=0.1`)
+2. Calcule l'accuracy
+3. Trace la **courbe de loss**
+4. Visualise la **frontière de décision**
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X, y = make_moons(n_samples=500, noise=0.1, random_state=42)
+
+mlp_moons = MLP(n_input=2, n_hidden=8, seed=42)
+mlp_moons.fit(X, y, lr=0.1, n_epochs=3000)
+
+pred = mlp_moons.predict(X)
+acc = (pred == y).mean()
+print(f"Accuracy : {acc:.3f}")
+
+# Figures
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+# Loss
+axes[0].plot(mlp_moons.losses, linewidth=2)
+axes[0].set_xlabel("Époque"); axes[0].set_ylabel("Loss")
+axes[0].set_title("Courbe d'apprentissage")
+axes[0].grid(True, alpha=0.3)
+
+# Frontière
+xx, yy = np.meshgrid(
+    np.linspace(X[:, 0].min() - 0.3, X[:, 0].max() + 0.3, 200),
+    np.linspace(X[:, 1].min() - 0.3, X[:, 1].max() + 0.3, 200)
+)
+grid = np.c_[xx.ravel(), yy.ravel()]
+Z = mlp_moons.forward(grid).reshape(xx.shape)
+contour = axes[1].contourf(xx, yy, Z, levels=20, cmap="RdBu_r", alpha=0.5)
+axes[1].contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=2)
+axes[1].scatter(X[y == 0, 0], X[y == 0, 1], s=20, c="steelblue", edgecolor="black")
+axes[1].scatter(X[y == 1, 0], X[y == 1, 1], s=20, c="crimson", edgecolor="black")
+axes[1].set_title(f"Frontière apprise — accuracy {acc:.2%}")
+plt.colorbar(contour, ax=axes[1])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : on atteint ~99% d'accuracy. Le MLP suit la **forme des croissants** — chose impossible avec un perceptron qui plafonnait à 75%.
+:::
+
+# 5. Les fonctions de perte : MSE vs cross-entropy
+
+## 🎯 Pourquoi c'est important
+
+La **loss** dit au réseau "quelle est l'erreur à minimiser". Le **choix** dépend du problème.
+
+| Problème | Loss recommandée |
+|---|---|
+| **Régression** (prédire un prix, une valeur continue) | **MSE** (Mean Squared Error) |
+| **Classification binaire** (0/1) | **Binary Cross-Entropy** (BCE) |
+| **Classification multi-classes** (3+ classes) | **Categorical Cross-Entropy** |
+
+## 📐 Formules
+
+**MSE** (régression) :
+$$\text{MSE} = \frac{1}{n}\sum_{i=1}^{n}(y_i - \hat{y}_i)^2$$
+
+**Binary Cross-Entropy** :
+$$\text{BCE} = -\frac{1}{n}\sum_{i=1}^{n} \left[y_i \log(\hat{y}_i) + (1-y_i) \log(1-\hat{y}_i)\right]$$
+
+**Categorical Cross-Entropy** (pour K classes) :
+$$\text{CCE} = -\frac{1}{n}\sum_{i=1}^{n}\sum_{k=1}^{K} y_{i,k} \log(\hat{y}_{i,k})$$
+
+## 🤔 Pourquoi pas MSE pour la classification ?
+
+En théorie on pourrait, mais c'est **une mauvaise idée** :
+
+1. **Gradients plats** : avec MSE + sigmoid, le gradient devient très petit pour les prédictions sûres mais fausses → apprentissage bloqué
+2. **Incompatibilité avec les probabilités** : MSE traite ŷ=0.9 vs y=1 comme une "petite erreur" alors qu'il y en a une **plus grave** (confiance faible)
+3. **Cross-entropy pénalise davantage** les prédictions très confiantes **mais fausses**
+
+```{python}
+#| label: fig-loss-comparison
+#| fig-cap: "MSE vs Cross-entropy : comportement différent sur la classification"
+
+y_pred = np.linspace(0.01, 0.99, 100)
+
+# Pour y_true = 1
+mse = (1 - y_pred) ** 2
+bce = -np.log(y_pred)
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(y_pred, mse, linewidth=2.5, label="MSE")
+ax.plot(y_pred, bce, linewidth=2.5, label="Cross-entropy")
+ax.set_xlabel("ŷ (prédiction)")
+ax.set_ylabel("Loss (pour y_vrai = 1)")
+ax.set_title("Pénalité de l'erreur pour y_true = 1")
+ax.legend(fontsize=11)
+ax.grid(True, alpha=0.3)
+ax.set_ylim(0, 5)
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : quand le modèle prédit **ŷ proche de 0 alors que y=1** (grosse erreur de classification), la **cross-entropy explose** (bon !), tandis que le MSE est plafonné à 1.
+
+**Règle** : **toujours cross-entropy pour classification**.
+
+# 6. Classification multi-classes : softmax
+
+## 🎯 Le problème
+
+Si tu as **3+ classes** (ex: Iris : 3 espèces), il te faut :
+- **3 neurones en sortie** (un par classe)
+- **Softmax** comme activation de sortie
+- **Categorical cross-entropy** comme loss
+
+## 🧮 Softmax : transformer en probabilités
+
+Softmax prend N scores bruts et retourne N probabilités qui **somment à 1** :
+
+$$\text{softmax}(z_i) = \frac{e^{z_i}}{\sum_j e^{z_j}}$$
+
+```{python}
+def softmax(z):
+    """Version stable numériquement (soustraction du max)."""
+    exp_z = np.exp(z - np.max(z, axis=-1, keepdims=True))
+    return exp_z / exp_z.sum(axis=-1, keepdims=True)
+
+# Exemple
+scores = np.array([2.0, 1.0, 0.1])
+probas = softmax(scores)
+print(f"Scores bruts     : {scores}")
+print(f"Après softmax    : {probas.round(3)}")
+print(f"Somme            : {probas.sum():.3f}")
+```
+
+**Observation** : softmax **accentue les différences** entre scores → le plus grand score devient bien plus probable que les autres.
+
+## 🏗️ Architecture pour multi-classes
+
+```
+Entrée  →  Cachée(s) avec ReLU  →  Sortie avec N neurones → softmax → probabilités
+```
+
+Pour Iris : 4 → 10 → 3, avec **softmax** à la sortie.
+
+## 🧪 Test sur Iris
+
+```{python}
+from sklearn.datasets import load_iris
+
+iris = load_iris()
+X, y = iris.data, iris.target
+X = StandardScaler().fit_transform(X)
+
+# sklearn pour aller vite
+mlp_iris = MLPClassifier(
+    hidden_layer_sizes=(10,),
+    activation="relu",
+    solver="adam",
+    max_iter=500,
+    random_state=42
+)
+mlp_iris.fit(X, y)
+
+acc = mlp_iris.score(X, y)
+print(f"Accuracy Iris : {acc:.3f}")
+print(f"\nProbas du 1er exemple (softmax en interne) :")
+print(f"  {mlp_iris.predict_proba(X[:1])[0].round(3)}")
+print(f"  → Classe prédite : {mlp_iris.predict(X[:1])[0]} (vraie = {y[0]})")
+```
+
+## ✏️ Exercice 2 — Impact du nombre de neurones cachés
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur `make_moons(n_samples=500, noise=0.2)`, teste **4 architectures** avec notre MLP :
+
+- 2 neurones cachés
+- 5 neurones cachés
+- 20 neurones cachés
+- 100 neurones cachés
+
+Pour chaque, entraîne pendant 2000 époques avec `lr=0.1`.
+
+1. Trace les **4 frontières** en 2×2 subplots
+2. Calcule l'accuracy sur un test set
+3. Commente : **qu'est-ce qui se passe avec 100 neurones sur 500 exemples ?**
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X, y = make_moons(n_samples=500, noise=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+fig, axes = plt.subplots(2, 2, figsize=(13, 12))
+
+for ax, n_h in zip(axes.flat, [2, 5, 20, 100]):
+    mlp_test = MLP(n_input=2, n_hidden=n_h, seed=42)
+    mlp_test.fit(X_train, y_train, lr=0.1, n_epochs=2000)
+    
+    acc_train = (mlp_test.predict(X_train) == y_train).mean()
+    acc_test = (mlp_test.predict(X_test) == y_test).mean()
+    
+    # Visualisation
+    xx, yy = np.meshgrid(
+        np.linspace(X[:, 0].min() - 0.3, X[:, 0].max() + 0.3, 150),
+        np.linspace(X[:, 1].min() - 0.3, X[:, 1].max() + 0.3, 150)
+    )
+    Z = mlp_test.forward(np.c_[xx.ravel(), yy.ravel()]).reshape(xx.shape)
+    ax.contourf(xx, yy, Z, levels=20, cmap="RdBu_r", alpha=0.5)
+    ax.contour(xx, yy, Z, levels=[0.5], colors="black", linewidths=1.5)
+    ax.scatter(X_train[y_train == 0, 0], X_train[y_train == 0, 1], s=15, 
+               c="steelblue", edgecolor="black", linewidth=0.3)
+    ax.scatter(X_train[y_train == 1, 0], X_train[y_train == 1, 1], s=15,
+               c="crimson", edgecolor="black", linewidth=0.3)
+    ax.set_title(f"{n_h} neurones cachés\nTrain: {acc_train:.2%}, Test: {acc_test:.2%}")
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("Impact du nombre de neurones", fontweight="bold", fontsize=14, y=1.01)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+
+- **2 neurones** : sous-capacité → **underfitting**, la frontière est trop simple
+- **5 neurones** : bon compromis, frontière propre
+- **20 neurones** : toujours bon, un peu plus "serré" autour des données
+- **100 neurones** : **overfitting** potentiel → la frontière devient tarabiscotée pour coller au bruit, accuracy train >> test
+
+**Leçon** : plus de neurones n'est **pas toujours mieux**. Il faut trouver le bon équilibre. On verra dans la Notion 6.4 comment **régulariser** pour éviter l'overfitting.
+:::
+
+# 7. Validation sur scikit-learn
+
+Pour finir, comparons notre MLP from scratch à celui de sklearn :
+
+```{python}
+# Dataset
+X, y = make_moons(n_samples=500, noise=0.1, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+# Notre MLP
+notre_mlp = MLP(n_input=2, n_hidden=8, seed=42)
+notre_mlp.fit(X_train, y_train, lr=0.1, n_epochs=3000)
+acc_nous = (notre_mlp.predict(X_test) == y_test).mean()
+
+# MLP sklearn
+sk_mlp = MLPClassifier(hidden_layer_sizes=(8,), activation="relu",
+                        max_iter=3000, random_state=42, learning_rate_init=0.1)
+sk_mlp.fit(X_train, y_train)
+acc_sk = sk_mlp.score(X_test, y_test)
+
+print(f"Accuracy test :")
+print(f"  Notre MLP   : {acc_nous:.3f}")
+print(f"  sklearn MLP : {acc_sk:.3f}")
+```
+
+Les deux sont **très proches** (~98-99%). Notre implémentation est validée !
+
+# 🏁 Exercice bilan — MLP sur problème 3-classes
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+On va classifier **Iris** (3 classes, 4 features) avec le MLP de sklearn.
+
+1. Charge Iris et fais un split 80/20 stratifié
+2. **Standardise** les features
+3. Entraîne un MLP `(16,)` avec `activation="relu"` et `solver="adam"`, 500 époques
+4. Affiche accuracy train et test
+5. Trace la **courbe de loss** (`mlp.loss_curve_`)
+6. **Bonus** : essaie avec 2 couches cachées `(16, 8)`. Est-ce mieux ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import load_iris
+
+iris = load_iris()
+X, y = iris.data, iris.target
+
+# Split + scaling
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
+scaler = StandardScaler()
+X_train_sc = scaler.fit_transform(X_train)
+X_test_sc = scaler.transform(X_test)
+
+# MLP à 1 couche cachée
+mlp1 = MLPClassifier(hidden_layer_sizes=(16,), activation="relu",
+                      solver="adam", max_iter=500, random_state=42)
+mlp1.fit(X_train_sc, y_train)
+
+# MLP à 2 couches
+mlp2 = MLPClassifier(hidden_layer_sizes=(16, 8), activation="relu",
+                      solver="adam", max_iter=500, random_state=42)
+mlp2.fit(X_train_sc, y_train)
+
+# Affichage
+print(f"MLP (16,)      : train {mlp1.score(X_train_sc, y_train):.3f}, test {mlp1.score(X_test_sc, y_test):.3f}")
+print(f"MLP (16, 8)    : train {mlp2.score(X_train_sc, y_train):.3f}, test {mlp2.score(X_test_sc, y_test):.3f}")
+
+# Courbes de loss
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.plot(mlp1.loss_curve_, linewidth=2, label="(16,)")
+ax.plot(mlp2.loss_curve_, linewidth=2, label="(16, 8)")
+ax.set_xlabel("Époque"); ax.set_ylabel("Loss")
+ax.set_title("Courbe de loss — MLP sur Iris")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : sur Iris (dataset simple), 1 ou 2 couches donnent des résultats similaires. **Ajouter de la profondeur** est utile quand le problème est **plus complexe** (images, texte).
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **MLP** | Empilement de couches denses avec activations non-linéaires |
+| **Couche cachée** | Entre entrée et sortie, produit des représentations |
+| **Forward pass** | Calcule la prédiction (gauche → droite) |
+| **Backward pass** | Calcule les gradients via chain rule (droite → gauche) |
+| **Update** | `w -= lr * ∂L/∂w` pour chaque paramètre |
+| **Cross-entropy** | Loss standard pour classification |
+| **Softmax** | Activation de sortie pour multi-classes |
+| **ReLU** | Activation cachée par défaut en 2025 |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours standardiser** (comme pour le ML classique)
+2. **ReLU** en cachée, **sigmoid** ou **softmax** en sortie
+3. **Cross-entropy** pour la classification (jamais MSE)
+4. **Watch the loss curve** : si elle ne descend pas → problème (lr, init, archi)
+5. **Commencer petit** : 1 couche cachée, puis ajouter si besoin
+
+## 🚨 Les pièges à éviter
+
+1. **Pas de non-linéarité** → le MLP devient une régression linéaire
+2. **MSE pour classification** → apprentissage bloqué
+3. **lr mal choisi** → ne converge pas ou explose
+4. **Trop de neurones d'un coup** → overfitting
+5. **Pas de standardisation** → le MLP apprend mal ou pas du tout
+
+## 🚀 La suite
+
+Tu sais maintenant implémenter un MLP **à la main**. Mais pour des réseaux plus grands (CNN, Transformers...), c'est **impossible** de tout coder from scratch.
+
+Dans la [**Notion 6.3 — PyTorch**](notion_6_3_pytorch.qmd), on va découvrir le framework qui :
+
+- **Calcule les gradients automatiquement** (autograd)
+- Fournit tous les **blocs** prêts à l'emploi (couches, activations, optimizers)
+- Exploite le **GPU** pour des speedups énormes
+- Est le **standard** en recherche et industrie (PyTorch > TensorFlow aujourd'hui)
+
+On va refaire le même MLP en PyTorch… en 10 lignes au lieu de 60.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Modifie notre classe `MLP` pour supporter **2 couches cachées** :
+
+```python
+class MLP2(MLP):
+    def __init__(self, n_input, n_hidden1, n_hidden2, seed=42):
+        # W1: n_input x n_hidden1
+        # W2: n_hidden1 x n_hidden2
+        # W3: n_hidden2 x 1
+        ...
+    
+    def forward(self, X):
+        # 3 couches au lieu de 2
+        ...
+    
+    def backward(self, y_true, lr):
+        # 3 jeux de gradients à calculer
+        ...
+```
+
+C'est l'exercice qui **cristallise** la compréhension de la backprop. Si tu y arrives, tu maîtrises le DL sous le capot !
+:::

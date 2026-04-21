@@ -60,7 +60,7 @@ book:
       chapters:
         - modules/module_06/index.qmd
         - modules/module_06/notion_6_1_perceptron.qmd
-        # - modules/module_06/notion_6_2_mlp.qmd
+        - modules/module_06/notion_6_2_mlp.qmd
         # - modules/module_06/notion_6_3_pytorch.qmd
         # - modules/module_06/notion_6_4_entrainement.qmd
         # - modules/module_06/notion_6_5_cnn.qmd

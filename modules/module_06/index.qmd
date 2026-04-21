@@ -31,7 +31,7 @@ C'est la technologie derrière : ChatGPT, la reconnaissance faciale, la traducti
 | Notion | Thème | Durée |
 |:---:|---|:---:|
 | **6.1** | [Introduction + perceptron](notion_6_1_perceptron.qmd) | 3-4 h |
-| **6.2** | MLP + rétropropagation _(à venir)_ | 4-5 h |
+| **6.2** | [MLP et rétropropagation](notion_6_2_mlp.qmd) | 4-5 h |
 | **6.3** | PyTorch : le framework _(à venir)_ | 4-5 h |
 | **6.4** | Techniques d'entraînement _(à venir)_ | 3-4 h |
 | **6.5** | CNN : vision par ordinateur _(à venir)_ | 4-5 h |
