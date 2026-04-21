@@ -1,0 +1,1011 @@
+---
+title: "Notion 6.5 — CNN pour la vision par ordinateur"
+subtitle: "Convolutions, pooling, et la révolution 2012 du deep learning"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_06/notion_6_5_cnn_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_06/notion_6_5_cnn_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_06_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notion 6.4 (techniques d'entraînement)  
+**Objectif** : comprendre et implémenter un CNN pour classer des images, utiliser la data augmentation
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre les **convolutions 2D** et **pooling** visuellement
+- Construire un **CNN** en PyTorch (LeNet-like)
+- Classer des images sur **MNIST** et **Fashion-MNIST**
+- Visualiser les **filtres appris** et les **feature maps**
+- Appliquer la **data augmentation** pour améliorer la généralisation
+- Comparer MLP vs CNN → comprendre pourquoi le CNN **domine** en vision
+
+## 🎯 Pourquoi les CNN ?
+
+Tu pourrais aplatir une image 28×28 en vecteur 784D et utiliser un MLP. **Mais c'est une mauvaise idée** :
+
+- **Perte spatiale** : deux pixels voisins ne sont plus liés après aplatissement
+- **Pas d'invariance** : un chat en haut-gauche vs bas-droite → pour un MLP, tout est différent
+- **Explosion paramètres** : pour une image couleur 224×224, un MLP dense aurait des millions de poids **inutiles**
+
+Les **CNN** (Convolutional Neural Networks) résolvent tout ça :
+- **Partage de poids** : le même filtre s'applique partout dans l'image
+- **Invariance translationnelle** : un chat est reconnu peu importe sa position
+- **Efficacité** : beaucoup moins de paramètres
+- **Hiérarchie de features** : arêtes → formes → objets
+
+**L'année 2012** : AlexNet (CNN profond) explose ImageNet avec un score jamais vu (**+10 points** vs méthodes classiques). Début de l'ère DL moderne.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+import torchvision
+import torchvision.transforms as transforms
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+torch.manual_seed(42)
+
+print(f"✅ PyTorch {torch.__version__}, torchvision {torchvision.__version__}")
+```
+
+# 1. La convolution 2D : l'intuition
+
+## 🎨 Qu'est-ce qu'une convolution ?
+
+Une **convolution** applique un petit **filtre** (kernel) sur toute l'image, en calculant à chaque position une somme pondérée des pixels voisins.
+
+Le filtre **"glisse"** sur l'image pixel par pixel. À chaque position :
+- Multiplication élément par élément entre le filtre et la zone couverte
+- Somme → nouvelle valeur dans la sortie
+
+C'est **comme un scanneur** qui cherche un motif spécifique dans l'image.
+
+```{python}
+#| label: fig-convolution-idea
+#| fig-cap: "La convolution : un filtre qui glisse sur l'image"
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+
+# Image d'entrée (exemple simple 5x5)
+image = np.array([
+    [1, 2, 3, 0, 1],
+    [0, 1, 2, 3, 1],
+    [1, 0, 1, 2, 3],
+    [2, 1, 0, 1, 2],
+    [1, 2, 1, 0, 1],
+])
+
+# Filtre 3x3 : détection contours
+kernel = np.array([
+    [-1, -1, -1],
+    [-1,  8, -1],
+    [-1, -1, -1],
+])
+
+# Calculer la convolution 3x3 (sortie 3x3)
+sortie = np.zeros((3, 3))
+for i in range(3):
+    for j in range(3):
+        sortie[i, j] = (image[i:i+3, j:j+3] * kernel).sum()
+
+# Image
+axes[0].imshow(image, cmap="Blues", vmin=0, vmax=3)
+for (i, j), v in np.ndenumerate(image):
+    axes[0].text(j, i, int(v), ha="center", va="center", fontsize=12)
+axes[0].set_title("Image 5×5")
+axes[0].set_xticks([]); axes[0].set_yticks([])
+
+# Rectangle pour montrer où on applique
+from matplotlib.patches import Rectangle
+axes[0].add_patch(Rectangle((-0.5, -0.5), 3, 3, fill=False, edgecolor="red", linewidth=3))
+
+# Filtre
+axes[1].imshow(kernel, cmap="RdBu_r", vmin=-2, vmax=9)
+for (i, j), v in np.ndenumerate(kernel):
+    couleur = "white" if abs(v) > 3 else "black"
+    axes[1].text(j, i, int(v), ha="center", va="center", fontsize=14, color=couleur)
+axes[1].set_title("Filtre 3×3\n(détection contour)")
+axes[1].set_xticks([]); axes[1].set_yticks([])
+
+# Sortie
+axes[2].imshow(sortie, cmap="Reds")
+for (i, j), v in np.ndenumerate(sortie):
+    axes[2].text(j, i, f"{v:.0f}", ha="center", va="center", fontsize=12)
+axes[2].set_title("Sortie 3×3\n(= image après filtre)")
+axes[2].set_xticks([]); axes[2].set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+## 🔬 Démonstration : vrais filtres sur une vraie image
+
+Appliquons différents filtres pour voir ce qu'ils détectent :
+
+```{python}
+#| label: fig-filters-real
+#| fig-cap: "Différents filtres et leurs effets"
+
+from scipy.signal import convolve2d
+
+# Créer une "image" synthétique (carré gradient + cercle)
+img = np.zeros((50, 50))
+img[10:40, 10:40] = np.outer(np.linspace(0, 1, 30), np.linspace(0, 1, 30))
+# Cercle au centre
+yy, xx = np.ogrid[:50, :50]
+mask = (xx - 25)**2 + (yy - 25)**2 < 64
+img[mask] = 0.5
+
+# Différents filtres
+filtres = {
+    "Original": np.array([[0, 0, 0], [0, 1, 0], [0, 0, 0]]),
+    "Flou (blur)": np.ones((3, 3)) / 9,
+    "Contour (edge)": np.array([[-1, -1, -1], [-1, 8, -1], [-1, -1, -1]]),
+    "Sobel vertical": np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]]),
+    "Sobel horizontal": np.array([[-1, -2, -1], [0, 0, 0], [1, 2, 1]]),
+    "Netteté": np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]),
+}
+
+fig, axes = plt.subplots(2, 3, figsize=(14, 8))
+for ax, (nom, f) in zip(axes.flat, filtres.items()):
+    resultat = convolve2d(img, f, mode="same", boundary="symm")
+    ax.imshow(resultat, cmap="gray")
+    ax.set_title(nom, fontsize=12)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- Le filtre **Contour** détecte les bords
+- **Sobel vertical/horizontal** détectent les changements selon une direction
+- Le filtre **Flou** lisse l'image
+- La **Netteté** fait l'inverse
+
+**Dans un CNN** : on ne définit **pas** les filtres à la main. Ils sont **appris automatiquement** par backprop.
+
+## 🎛️ Les paramètres d'une conv
+
+| Paramètre | Signification |
+|---|---|
+| **`in_channels`** | Nombre de canaux d'entrée (1 pour noir/blanc, 3 pour RGB) |
+| **`out_channels`** | Nombre de filtres différents (= nb canaux de sortie) |
+| **`kernel_size`** | Taille du filtre (typique : 3 ou 5) |
+| **`stride`** | Pas du glissement (1 = pixel par pixel) |
+| **`padding`** | Ajout de zéros autour pour garder la taille |
+
+## 🧪 Première conv en PyTorch
+
+```{python}
+# Une couche de convolution 2D
+conv = nn.Conv2d(
+    in_channels=1,      # image noir et blanc
+    out_channels=16,    # 16 filtres différents
+    kernel_size=3,      # 3x3
+    stride=1,
+    padding=1,           # garder la taille
+)
+
+print(f"Nombre de paramètres du filtre : {sum(p.numel() for p in conv.parameters())}")
+# = 16 filtres * (1 * 3 * 3) poids + 16 biais = 144 + 16 = 160
+```
+
+**Formule paramètres conv** : `out_channels × (in_channels × kernel_size² + 1)`.
+
+Ici : 16 × (1 × 9 + 1) = **160 paramètres**. Pour comparer, un MLP équivalent aurait des milliers de paramètres.
+
+## 🧪 Appliquer la conv
+
+```{python}
+# Image d'entrée factice (batch=1, channel=1, 28x28)
+img_fake = torch.randn(1, 1, 28, 28)
+
+# Après conv
+sortie = conv(img_fake)
+print(f"Shape entrée : {img_fake.shape}")
+print(f"Shape sortie : {sortie.shape}")
+# 1, 16, 28, 28 : toujours 28x28 (grâce au padding=1), mais 16 canaux maintenant
+```
+
+# 2. Le pooling
+
+## 🎯 Le rôle
+
+Après la convolution, on veut **réduire la résolution** tout en gardant l'info principale. **Pooling** = sous-échantillonnage.
+
+Deux variantes :
+- **Max pooling** : prend le max dans chaque fenêtre (le plus populaire)
+- **Average pooling** : prend la moyenne
+
+```{python}
+#| label: fig-pooling
+#| fig-cap: "Max pooling 2×2"
+
+img_exemple = np.array([
+    [1, 3, 2, 4],
+    [5, 6, 7, 8],
+    [1, 1, 2, 2],
+    [3, 3, 4, 4],
+])
+
+# Max pool 2x2
+max_pool = np.zeros((2, 2))
+for i in range(2):
+    for j in range(2):
+        bloc = img_exemple[i*2:i*2+2, j*2:j*2+2]
+        max_pool[i, j] = bloc.max()
+
+fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+
+axes[0].imshow(img_exemple, cmap="Blues", vmin=0, vmax=8)
+for (i, j), v in np.ndenumerate(img_exemple):
+    axes[0].text(j, i, int(v), ha="center", va="center", fontsize=14)
+axes[0].set_title("Avant (4×4)")
+axes[0].set_xticks([]); axes[0].set_yticks([])
+
+# Montrer les blocs 2x2
+from matplotlib.patches import Rectangle
+for i in range(2):
+    for j in range(2):
+        axes[0].add_patch(Rectangle((j*2 - 0.5, i*2 - 0.5), 2, 2, fill=False,
+                                      edgecolor="red", linewidth=2))
+
+axes[1].imshow(max_pool, cmap="Reds", vmin=0, vmax=8)
+for (i, j), v in np.ndenumerate(max_pool):
+    axes[1].text(j, i, int(v), ha="center", va="center", fontsize=14)
+axes[1].set_title("Après max pool 2×2")
+axes[1].set_xticks([]); axes[1].set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Effet** :
+- Taille **divisée par 2** (ou par la taille du pool)
+- Garde le **signal le plus fort** (pour max pool)
+- Introduit une petite **invariance** (le motif peut bouger d'un pixel sans changer la sortie)
+
+## 🔧 Pooling en PyTorch
+
+```{python}
+# Max pooling 2x2
+pool = nn.MaxPool2d(kernel_size=2, stride=2)
+
+# Appliqué sur notre sortie de conv précédente (1, 16, 28, 28)
+apres_pool = pool(sortie)
+print(f"Avant pool : {sortie.shape}")
+print(f"Après pool : {apres_pool.shape}")
+# 1, 16, 14, 14 : taille spatiale divisée par 2
+```
+
+# 3. Architecture classique : LeNet (1998)
+
+## 🏗️ L'architecture originale de Yann LeCun
+
+LeNet-5, pour reconnaître les chiffres MNIST, structure type :
+
+```
+Image (1×28×28)
+  ↓ Conv 5×5 (6 filtres) + ReLU
+(6×24×24)
+  ↓ MaxPool 2×2
+(6×12×12)
+  ↓ Conv 5×5 (16 filtres) + ReLU
+(16×8×8)
+  ↓ MaxPool 2×2
+(16×4×4)
+  ↓ Flatten → vecteur (256)
+  ↓ Linear → ReLU
+(120)
+  ↓ Linear → ReLU
+(84)
+  ↓ Linear
+(10)  [logits pour 10 chiffres]
+```
+
+Pattern typique : **Conv → Pool → Conv → Pool → Flatten → Linear → Linear**
+
+## 🧪 LeNet en PyTorch
+
+```{python}
+class LeNet(nn.Module):
+    """LeNet-like pour images 28×28."""
+    
+    def __init__(self, n_classes=10):
+        super().__init__()
+        # Bloc convolutif
+        self.conv1 = nn.Conv2d(1, 6, kernel_size=5, padding=2)    # 1 -> 6, 28x28
+        self.pool = nn.MaxPool2d(2, 2)                             # 28 -> 14
+        self.conv2 = nn.Conv2d(6, 16, kernel_size=5)               # 14 -> 10, puis pool -> 5
+        
+        # Tête classification
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)  # 16 canaux * 5*5 = 400
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, n_classes)
+    
+    def forward(self, x):
+        # Bloc convolutif
+        x = self.pool(F.relu(self.conv1(x)))   # (B, 6, 14, 14)
+        x = self.pool(F.relu(self.conv2(x)))   # (B, 16, 5, 5)
+        
+        # Aplatissement
+        x = x.view(x.size(0), -1)   # (B, 400)
+        
+        # Tête
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)   # logits
+        return x
+
+# Instancier et tester
+modele = LeNet(n_classes=10)
+print(modele)
+
+# Nb de paramètres
+total = sum(p.numel() for p in modele.parameters())
+print(f"\nTotal paramètres : {total:,}")
+```
+
+# 4. Entraîner sur MNIST
+
+## 📥 Charger MNIST (le "Hello World" de la vision)
+
+```{python}
+# Charger MNIST directement depuis torchvision
+transform = transforms.Compose([
+    transforms.ToTensor(),      # conversion PIL -> Tensor + normalisation [0,1]
+    transforms.Normalize((0.1307,), (0.3081,))  # mean/std de MNIST
+])
+
+# Datasets (téléchargement auto la 1ère fois)
+train_set = torchvision.datasets.MNIST(
+    root="/tmp/mnist", train=True, download=True, transform=transform
+)
+test_set = torchvision.datasets.MNIST(
+    root="/tmp/mnist", train=False, download=True, transform=transform
+)
+
+print(f"Train : {len(train_set)} images")
+print(f"Test  : {len(test_set)} images")
+print(f"Shape d'une image : {train_set[0][0].shape}")
+print(f"Classes : {train_set.classes}")
+```
+
+## 🎨 Visualiser quelques images
+
+```{python}
+#| label: fig-mnist-samples
+#| fig-cap: "Exemples d'images MNIST"
+
+fig, axes = plt.subplots(2, 5, figsize=(12, 5))
+for ax, i in zip(axes.flat, range(10)):
+    img, label = train_set[i]
+    # img est normalisé, on "dénormalise" pour l'affichage
+    img_display = img.squeeze() * 0.3081 + 0.1307
+    ax.imshow(img_display, cmap="gray")
+    ax.set_title(f"Label : {label}")
+    ax.axis("off")
+plt.tight_layout()
+plt.show()
+```
+
+## 🚀 Entraînement
+
+```{python}
+# DataLoaders
+train_loader = DataLoader(train_set, batch_size=128, shuffle=True)
+test_loader = DataLoader(test_set, batch_size=256, shuffle=False)
+
+# Modèle + optimizer
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+modele = LeNet(n_classes=10).to(device)
+loss_fn = nn.CrossEntropyLoss()
+optimizer = optim.Adam(modele.parameters(), lr=1e-3)
+
+print(f"Device : {device}")
+```
+
+```{python}
+# Training loop (rapide : 3 epochs suffisent sur MNIST)
+import time
+
+n_epochs = 3
+train_losses, test_accs = [], []
+
+for epoch in range(n_epochs):
+    t0 = time.time()
+    
+    # Entraînement
+    modele.train()
+    epoch_losses = []
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        logits = modele(Xb)
+        loss = loss_fn(logits, yb)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        epoch_losses.append(loss.item())
+    train_losses.append(np.mean(epoch_losses))
+    
+    # Évaluation
+    modele.eval()
+    correct, total = 0, 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            preds = modele(Xb).argmax(dim=1)
+            correct += (preds == yb).sum().item()
+            total += yb.size(0)
+    acc = correct / total
+    test_accs.append(acc)
+    
+    print(f"Époque {epoch+1}/{n_epochs} | Loss {train_losses[-1]:.4f} | Test acc {acc:.4f} | {time.time()-t0:.1f}s")
+```
+
+**Observation** : en 3 époques (quelques minutes sur CPU, quelques secondes sur GPU), on atteint **> 98%** d'accuracy sur MNIST. **Impressionnant** pour un modèle aussi simple.
+
+## 📊 Comparer avec un MLP
+
+```{python}
+# MLP équivalent pour comparer
+class MLPMnist(nn.Module):
+    def __init__(self, n_classes=10):
+        super().__init__()
+        self.fc1 = nn.Linear(28 * 28, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, n_classes)
+    def forward(self, x):
+        x = x.view(x.size(0), -1)  # aplatir
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        return self.fc3(x)
+
+# Entraîner le MLP
+mlp = MLPMnist().to(device)
+optimizer = optim.Adam(mlp.parameters(), lr=1e-3)
+
+for epoch in range(3):
+    mlp.train()
+    for Xb, yb in train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(mlp(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+
+# Évaluer
+mlp.eval()
+correct, total = 0, 0
+with torch.no_grad():
+    for Xb, yb in test_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        correct += (mlp(Xb).argmax(dim=1) == yb).sum().item()
+        total += yb.size(0)
+acc_mlp = correct / total
+
+# Comparaison
+total_params_cnn = sum(p.numel() for p in modele.parameters())
+total_params_mlp = sum(p.numel() for p in mlp.parameters())
+
+print(f"\n=== Comparaison après 3 époques ===")
+print(f"MLP  : accuracy {acc_mlp:.4f} | {total_params_mlp:,} paramètres")
+print(f"CNN  : accuracy {test_accs[-1]:.4f} | {total_params_cnn:,} paramètres")
+```
+
+**Observations classiques** :
+- Le CNN atteint **> 98%**, le MLP plafonne autour de **97%**
+- **Mais** : sur MNIST (images simples), l'écart reste modeste
+- Sur des images plus complexes (CIFAR-10, ImageNet), l'écart devient **énorme** (30+ points)
+
+# 5. Visualiser ce que le CNN a appris
+
+## 👁️ Les filtres
+
+```{python}
+#| label: fig-filters-learned
+#| fig-cap: "Les 6 filtres appris par la première conv"
+
+# Récupérer les poids de la première conv
+filtres = modele.conv1.weight.data.cpu().numpy()
+print(f"Shape des filtres : {filtres.shape}")   # (6, 1, 5, 5)
+
+fig, axes = plt.subplots(1, 6, figsize=(12, 3))
+for ax, i in zip(axes, range(6)):
+    ax.imshow(filtres[i, 0], cmap="RdBu_r")
+    ax.set_title(f"Filtre {i+1}")
+    ax.set_xticks([]); ax.set_yticks([])
+plt.suptitle("Filtres appris par la 1ère conv (chaque carré = ce que cherche le filtre)")
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : les filtres sont devenus des **détecteurs** de patterns (arêtes, coins, diagonales). Ils n'ont **pas été définis à la main** — ils ont **émergé** de l'entraînement.
+
+## 🔍 Les feature maps (sorties intermédiaires)
+
+```{python}
+#| label: fig-feature-maps
+#| fig-cap: "Activations après la 1ère conv pour un 7"
+
+# Prendre une image test
+img, label = train_set[0]  # un 5
+img_batch = img.unsqueeze(0).to(device)
+
+# Extraire la sortie après conv1
+modele.eval()
+with torch.no_grad():
+    conv1_out = F.relu(modele.conv1(img_batch))
+
+conv1_out_cpu = conv1_out.cpu().squeeze().numpy()
+print(f"Shape : {conv1_out_cpu.shape}")   # (6, 28, 28)
+
+fig, axes = plt.subplots(1, 7, figsize=(18, 3))
+
+# Image originale
+axes[0].imshow(img.squeeze().numpy() * 0.3081 + 0.1307, cmap="gray")
+axes[0].set_title(f"Input ({label})")
+axes[0].axis("off")
+
+# 6 feature maps
+for ax, i in zip(axes[1:], range(6)):
+    ax.imshow(conv1_out_cpu[i], cmap="viridis")
+    ax.set_title(f"Feature {i+1}")
+    ax.axis("off")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Chaque carte** montre ce que "voit" un filtre dans l'image. Certains s'activent sur les **contours**, d'autres sur des **patterns spécifiques**.
+
+## ✏️ Exercice 1 — Tester le modèle sur Fashion-MNIST
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Fashion-MNIST = MNIST mais avec **10 types de vêtements** au lieu de chiffres. Même format (28×28 en gris) mais **plus difficile**.
+
+1. Charge Fashion-MNIST avec `torchvision.datasets.FashionMNIST`
+2. Entraîne **le même LeNet** (instancier à nouveau pour partir de zéro)
+3. Compare l'accuracy avec celle sur MNIST
+4. Regarde le nom des classes : `train_set.classes`
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Charger Fashion-MNIST
+transform_fmnist = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.2860,), (0.3530,))  # stats Fashion-MNIST
+])
+
+f_train = torchvision.datasets.FashionMNIST(
+    root="/tmp/fmnist", train=True, download=True, transform=transform_fmnist
+)
+f_test = torchvision.datasets.FashionMNIST(
+    root="/tmp/fmnist", train=False, download=True, transform=transform_fmnist
+)
+
+print(f"Classes Fashion-MNIST : {f_train.classes}")
+
+f_train_loader = DataLoader(f_train, batch_size=128, shuffle=True)
+f_test_loader = DataLoader(f_test, batch_size=256)
+
+# Même archi, nouveau modèle
+fmodele = LeNet(n_classes=10).to(device)
+f_optimizer = optim.Adam(fmodele.parameters(), lr=1e-3)
+
+for epoch in range(3):
+    fmodele.train()
+    for Xb, yb in f_train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(fmodele(Xb), yb)
+        f_optimizer.zero_grad(); loss.backward(); f_optimizer.step()
+
+# Évaluer
+fmodele.eval()
+correct = 0; total = 0
+with torch.no_grad():
+    for Xb, yb in f_test_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        correct += (fmodele(Xb).argmax(dim=1) == yb).sum().item()
+        total += yb.size(0)
+acc_fmnist = correct / total
+
+print(f"\nAccuracy Fashion-MNIST : {acc_fmnist:.4f}")
+print(f"(vs MNIST : {test_accs[-1]:.4f})")
+```
+
+**Observation** : Fashion-MNIST est **plus difficile** (on obtient ~89% au lieu de 98%). Les vêtements se ressemblent plus que les chiffres (pull vs t-shirt, chaussure vs botte). Il faudra des **archis plus puissantes** (ou du transfer learning — Notion 6.6).
+:::
+
+# 6. Data augmentation pour les images
+
+## 🎯 L'idée
+
+En classification d'images, on a rarement **assez de données**. La **data augmentation** crée de nouvelles images à partir des existantes via des transformations :
+
+- Rotation
+- Flip horizontal
+- Translation
+- Zoom
+- Changement de luminosité/contraste
+
+**Bénéfice** : le modèle voit "plus" d'exemples → généralise mieux.
+
+## 🧪 Avec torchvision
+
+```{python}
+# Pipeline de transformations avec augmentation
+transform_augment = transforms.Compose([
+    transforms.RandomRotation(degrees=10),               # ±10°
+    transforms.RandomAffine(degrees=0, translate=(0.1, 0.1)),  # translation ±10%
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+
+# Transform sans augmentation (pour le test)
+transform_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.1307,), (0.3081,))
+])
+
+# Train avec augmentation, test sans
+train_aug = torchvision.datasets.MNIST(
+    root="/tmp/mnist", train=True, download=True, transform=transform_augment
+)
+
+print(f"✅ Dataset avec augmentation créé")
+```
+
+## 🎨 Visualiser l'augmentation
+
+```{python}
+#| label: fig-augmentation
+#| fig-cap: "Une même image sous plusieurs transformations"
+
+# Récupérer la même image plusieurs fois → elle sera différente à chaque fois
+fig, axes = plt.subplots(2, 6, figsize=(14, 5))
+
+# Ligne 1 : original
+for i in range(6):
+    img, label = train_set[i]  # sans augmentation
+    axes[0, i].imshow(img.squeeze() * 0.3081 + 0.1307, cmap="gray")
+    axes[0, i].set_title(f"Original ({label})", fontsize=9)
+    axes[0, i].axis("off")
+
+# Ligne 2 : augmentations aléatoires du même exemple 0
+img_0, lbl_0 = train_aug[0]
+for i in range(6):
+    # Récupérer une version augmentée (torchvision applique une aug différente chaque call)
+    img, _ = train_aug[0]
+    axes[1, i].imshow(img.squeeze() * 0.3081 + 0.1307, cmap="gray")
+    axes[1, i].set_title(f"Aug {i+1}", fontsize=9)
+    axes[1, i].axis("off")
+
+plt.suptitle("Ligne 1 : images originales | Ligne 2 : augmentations différentes de la même", fontsize=11)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : même chiffre, **6 versions différentes**. Le réseau voit donc **virtuellement** plus de données.
+
+## ⚠️ Attention
+
+Les transformations doivent **préserver la sémantique** :
+- Sur MNIST : pas de flip horizontal (un "3" miroir n'est plus un "3")
+- Sur les voitures : flip horizontal OK (une voiture miroir reste une voiture)
+- Rotation **excessive** → label change (6 rotatée à 180° devient un 9)
+
+**Règle** : data augmentation **adaptée au domaine**.
+
+## ✏️ Exercice 2 — Mesurer l'impact de la data augmentation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée **deux datasets** MNIST réduits :
+- **Version 1** : 5000 images train, sans augmentation
+- **Version 2** : 5000 images train, avec augmentation
+
+Pour chacun :
+1. Entraîne **LeNet** 5 époques
+2. Compare l'accuracy **test** (sur le test set complet)
+3. La data augmentation aide-t-elle quand on a **peu de données** ?
+
+**Indice** : utilise `torch.utils.data.Subset` pour prendre 5000 images.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from torch.utils.data import Subset
+
+# Subset de 5000 images
+indices = np.random.choice(len(train_set), 5000, replace=False).tolist()
+
+# Sans augmentation
+train_small = Subset(train_set, indices)
+# Avec augmentation (on réutilise train_aug)
+train_small_aug = Subset(train_aug, indices)
+
+def entrainer_et_evaluer(dataset, epochs=5):
+    torch.manual_seed(42)
+    loader = DataLoader(dataset, batch_size=128, shuffle=True)
+    m = LeNet(n_classes=10).to(device)
+    opt = optim.Adam(m.parameters(), lr=1e-3)
+    
+    for ep in range(epochs):
+        m.train()
+        for Xb, yb in loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            loss = loss_fn(m(Xb), yb)
+            opt.zero_grad(); loss.backward(); opt.step()
+    
+    # Eval sur le test set complet (10k)
+    m.eval()
+    correct = 0; total = 0
+    with torch.no_grad():
+        for Xb, yb in test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (m(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    return correct / total
+
+acc_sans = entrainer_et_evaluer(train_small)
+acc_avec = entrainer_et_evaluer(train_small_aug)
+
+print(f"Sans augmentation : {acc_sans:.4f}")
+print(f"Avec augmentation : {acc_avec:.4f}")
+print(f"Gain : {(acc_avec - acc_sans) * 100:+.2f} points")
+```
+
+**Observation typique** : la data augmentation apporte **1-3 points** sur MNIST (limité car dataset déjà "propre"). Sur des datasets plus complexes (CIFAR-10), elle peut ajouter **5-10 points**. C'est **gratuit** : il suffit d'ajouter 2 lignes de transforms.
+:::
+
+# 7. Pourquoi le CNN bat le MLP sur les images
+
+## 🔍 Résumé des avantages
+
+| Aspect | MLP | CNN |
+|---|---|---|
+| **Structure spatiale** | Ignorée (flatten) | Préservée |
+| **Invariance translation** | Non | Oui |
+| **Partage de poids** | Non (chaque connexion unique) | Oui (même filtre partout) |
+| **Nb paramètres** | Énorme sur grandes images | Modéré |
+| **Profondeur utile** | Limitée | Très profonde possible |
+
+## 📊 Illustration : décalage de 1 pixel
+
+Pour un MLP, un chiffre **décalé d'1 pixel** = une image **complètement différente** (tous les poids voient de nouvelles entrées).
+
+Pour un CNN, c'est **presque la même chose** (les filtres trouvent le chiffre peu importe où).
+
+C'est **l'invariance par translation** — la propriété **magique** des CNN.
+
+# 🏁 Exercice bilan — CNN profond sur Fashion-MNIST avec augmentation
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis un **CNN plus profond** (3 blocs conv) avec :
+- **BatchNorm** après chaque conv
+- **Dropout** dans la tête dense
+- **Data augmentation** (rotation + flip horizontal OK pour vêtements)
+- **Adam** avec scheduler cosine
+- **Early stopping**
+
+Dataset : Fashion-MNIST.
+
+**Target** : > 90% d'accuracy test (vs 89% avec LeNet simple).
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Transform avec augmentation pour vêtements
+transform_fmnist_aug = transforms.Compose([
+    transforms.RandomHorizontalFlip(),   # OK pour vêtements
+    transforms.RandomRotation(degrees=5),
+    transforms.ToTensor(),
+    transforms.Normalize((0.2860,), (0.3530,))
+])
+
+transform_fmnist_test = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize((0.2860,), (0.3530,))
+])
+
+f_train_aug = torchvision.datasets.FashionMNIST(
+    root="/tmp/fmnist", train=True, download=True, transform=transform_fmnist_aug
+)
+f_test_t = torchvision.datasets.FashionMNIST(
+    root="/tmp/fmnist", train=False, download=True, transform=transform_fmnist_test
+)
+
+f_train_loader = DataLoader(f_train_aug, batch_size=128, shuffle=True)
+f_test_loader = DataLoader(f_test_t, batch_size=256)
+
+class DeepCNN(nn.Module):
+    def __init__(self, n_classes=10):
+        super().__init__()
+        # Bloc 1 : 28 -> 14
+        self.conv1 = nn.Conv2d(1, 32, 3, padding=1)
+        self.bn1 = nn.BatchNorm2d(32)
+        # Bloc 2 : 14 -> 7
+        self.conv2 = nn.Conv2d(32, 64, 3, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
+        # Bloc 3 : 7 -> 3
+        self.conv3 = nn.Conv2d(64, 128, 3, padding=1)
+        self.bn3 = nn.BatchNorm2d(128)
+        self.pool = nn.MaxPool2d(2, 2)
+        
+        # Tête
+        self.drop = nn.Dropout(0.3)
+        self.fc1 = nn.Linear(128 * 3 * 3, 256)
+        self.fc2 = nn.Linear(256, n_classes)
+    
+    def forward(self, x):
+        x = self.pool(F.relu(self.bn1(self.conv1(x))))   # 28 -> 14
+        x = self.pool(F.relu(self.bn2(self.conv2(x))))   # 14 -> 7
+        x = self.pool(F.relu(self.bn3(self.conv3(x))))   # 7 -> 3
+        x = x.view(x.size(0), -1)
+        x = self.drop(x)
+        x = F.relu(self.fc1(x))
+        x = self.drop(x)
+        return self.fc2(x)
+
+torch.manual_seed(42)
+modele_deep = DeepCNN(10).to(device)
+optimizer = optim.Adam(modele_deep.parameters(), lr=1e-3)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=5)
+
+n_params = sum(p.numel() for p in modele_deep.parameters())
+print(f"Paramètres : {n_params:,}")
+
+# Training
+best_acc = 0.0
+for epoch in range(5):
+    t0 = time.time()
+    modele_deep.train()
+    losses = []
+    for Xb, yb in f_train_loader:
+        Xb, yb = Xb.to(device), yb.to(device)
+        loss = loss_fn(modele_deep(Xb), yb)
+        optimizer.zero_grad(); loss.backward(); optimizer.step()
+        losses.append(loss.item())
+    scheduler.step()
+    
+    # Eval
+    modele_deep.eval()
+    correct = 0; total = 0
+    with torch.no_grad():
+        for Xb, yb in f_test_loader:
+            Xb, yb = Xb.to(device), yb.to(device)
+            correct += (modele_deep(Xb).argmax(dim=1) == yb).sum().item()
+            total += yb.size(0)
+    acc = correct / total
+    best_acc = max(best_acc, acc)
+    print(f"Époque {epoch+1} | Loss {np.mean(losses):.4f} | Test acc {acc:.4f} | {time.time()-t0:.1f}s")
+
+print(f"\n🎯 Meilleure accuracy Fashion-MNIST : {best_acc:.4f}")
+```
+
+**Résultat attendu** : ~91-92% avec ce CNN profond + augmentation. C'est **+2-3 points** par rapport à LeNet simple, **gratuit** grâce à une meilleure archi et la data aug.
+
+Les modèles de **l'état de l'art** atteignent ~96% sur Fashion-MNIST (ResNet, ensemble methods, transfer learning). On en parlera en 6.6.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Convolution 2D** | Filtre qui glisse sur l'image, détecte des motifs |
+| **`nn.Conv2d`** | `in_channels`, `out_channels`, `kernel_size`, `stride`, `padding` |
+| **Max pooling** | Réduction spatiale, garde l'info principale |
+| **Feature map** | Sortie d'une couche conv (pattern détecté) |
+| **LeNet** | Archi classique : Conv-Pool-Conv-Pool-FC-FC-FC |
+| **Flatten** | Aplatir un tenseur 4D en 2D avant les FC |
+| **Data augmentation** | Transformer les images pour augmenter la diversité |
+| **torchvision** | Datasets + transformations prêtes à l'emploi |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Conv → BN → ReLU → Pool** : pattern classique du bloc convolutif
+2. **Plus on descend**, plus on augmente le nombre de canaux
+3. **Réduire la taille spatiale** progressivement avec pool
+4. **Data augmentation adaptée** au domaine (pas de flip pour MNIST)
+5. **Normaliser** les images en entrée (`transforms.Normalize`)
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier `.view()`** entre conv et fully connected → erreur de shape
+2. **Data augmentation sur le test** → fausse l'évaluation
+3. **Pas de padding** → la taille diminue de manière imprévue
+4. **Trop de pools** → taille spatiale = 0 → erreur
+5. **Oublier de `.to(device)`** les images ET le modèle
+
+## 🚀 La suite
+
+Tu sais maintenant construire un CNN from scratch. Mais entraîner un **ResNet-50** sur ImageNet, c'est **plusieurs semaines de GPU**. Heureusement, on peut **réutiliser** des modèles déjà entraînés.
+
+Dans la [**Notion 6.6 — Transfer Learning**](notion_6_6_transfer.qmd) :
+- **Modèles pré-entraînés** sur ImageNet (ResNet, VGG, EfficientNet)
+- **Feature extraction** : geler le modèle et ajouter sa tête
+- **Fine-tuning** : ré-entraîner légèrement
+- Résoudre un problème **avec 100 images** et 95% d'accuracy
+
+C'est la **technique la plus utilisée en pratique** : 80% des projets vision en entreprise utilisent du transfer learning.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Entraîne un **CNN sur CIFAR-10** (10 classes d'objets en couleur, 32×32 RGB) :
+
+```python
+train_cifar = torchvision.datasets.CIFAR10(
+    root="/tmp/cifar", train=True, download=True,
+    transform=transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+    ])
+)
+```
+
+**Attention** : `in_channels=3` au lieu de 1 (images RGB).
+
+CIFAR-10 est **plus difficile** : un CNN simple plafonne à ~70%. Avec ResNet, on monte à 95%. C'est le cas d'usage parfait pour **transfer learning** dans la prochaine notion.
+:::
