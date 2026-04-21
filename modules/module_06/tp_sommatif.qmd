@@ -63,8 +63,8 @@ Tu es **data scientist** dans une startup, **MetalCheck**, qui développe une so
 |---|---:|---:|---:|---|
 | `ok` | 320 | 80 | 400 | Pièce saine |
 | `rayure` | 64 | 16 | 80 | Défaut mineur |
-| `fissure` | 30 | 10 | 40 | Défaut critique |
-| **Total** | **414** | **106** | **520** | |
+| `fissure` | 32 | 8 | 40 | Défaut critique |
+| **Total** | **416** | **104** | **520** | |
 
 ::: {.callout-warning}
 ## ⚠️ Particularités importantes
@@ -715,7 +715,7 @@ Problème : **8% de fissures** seulement. Le modèle peut être "tenté" de nég
 
 ```{python}
 # Calculer les poids : inverse de la fréquence, normalisés
-n_par_classe = np.array([30, 320, 64])  # fissure, ok, rayure (ordre ImageFolder)
+n_par_classe = np.array([32, 320, 64])  # fissure, ok, rayure (ordre ImageFolder)
 freq = n_par_classe / n_par_classe.sum()
 poids = 1.0 / freq
 poids = poids / poids.sum() * len(poids)  # normaliser pour moyenne = 1
