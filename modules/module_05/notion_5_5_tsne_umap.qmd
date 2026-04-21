@@ -1,0 +1,766 @@
+---
+title: "Notion 5.5 — Visualisation non-linéaire : t-SNE et UMAP"
+subtitle: "Voir la structure cachée des données haute dimension"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_5_tsne_umap_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_5_tsne_umap_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 2 à 3 heures  
+**Prérequis** : Notion 5.4 (PCA)  
+**Objectif** : maîtriser t-SNE et UMAP pour la visualisation, connaître leurs limites
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **intuitivement** t-SNE et UMAP (sans se noyer dans les maths)
+- Les appliquer sur des données haute dimension pour **visualiser**
+- Régler les **hyperparamètres clés** (`perplexity`, `n_neighbors`, `min_dist`)
+- Éviter les **pièges d'interprétation** (distances, clusters illusoires)
+- Savoir **quand utiliser** t-SNE, UMAP ou PCA
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as vu à la fin de la Notion 5.4 : **la PCA rate la structure non-linéaire** (swiss roll, chiffres...). C'est un **outil génial** pour comprendre la variance et faire de la compression, mais **pas toujours le meilleur pour visualiser**.
+
+Les algorithmes de cette notion :
+
+- **t-SNE** (2008) — a révolutionné la visualisation ML. Il préserve les **voisinages locaux**.
+- **UMAP** (2018) — alternative moderne, plus rapide, souvent meilleur sur la **structure globale**.
+
+Quand tu vois un joli scatter plot coloré montrant « voici les 10 classes séparées magnifiquement » dans un article ML, **c'est du t-SNE ou de l'UMAP** derrière.
+
+⚠️ **Attention** : ces algos sont des **outils de visualisation**, **pas des outils de preprocessing** pour le ML. On verra pourquoi.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+from sklearn.preprocessing import StandardScaler
+from sklearn.datasets import load_digits, make_swiss_roll, make_blobs
+
+import umap  # pip install umap-learn
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print(f"✅ Environnement prêt")
+print(f"   UMAP : {umap.__version__}")
+```
+
+::: {.callout-note}
+## Installation
+Si UMAP n'est pas installé : `pip install umap-learn`
+:::
+
+# 1. La promesse : MNIST séparé en 2D
+
+## 🎬 Voici ce qu'on cherche à obtenir
+
+On travaille sur MNIST (digits 8×8, 10 classes). Avec la **PCA**, on obtenait des classes mélangées. Regardons ce que font **t-SNE** et **UMAP** :
+
+```{python}
+#| label: fig-pca-vs-tsne-vs-umap
+#| fig-cap: "PCA vs t-SNE vs UMAP sur MNIST digits"
+
+digits = load_digits()
+X = digits.data
+y = digits.target
+
+X_scaled = StandardScaler().fit_transform(X)
+
+# 3 méthodes
+X_pca = PCA(n_components=2).fit_transform(X_scaled)
+X_tsne = TSNE(n_components=2, random_state=42, perplexity=30).fit_transform(X_scaled)
+X_umap = umap.UMAP(n_components=2, random_state=42, n_neighbors=15).fit_transform(X_scaled)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+
+for ax, X_reduit, titre in zip(
+    axes,
+    [X_pca, X_tsne, X_umap],
+    ["PCA (linéaire)", "t-SNE", "UMAP"]
+):
+    scatter = ax.scatter(X_reduit[:, 0], X_reduit[:, 1], c=y, cmap="tab10",
+                         s=20, alpha=0.7, edgecolor="white", linewidth=0.3)
+    ax.set_title(titre, fontsize=14, fontweight="bold")
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("Même dataset, 3 méthodes : laquelle sépare le mieux les 10 chiffres ?",
+             fontweight="bold", fontsize=13, y=1.02)
+plt.colorbar(scatter, ax=axes, fraction=0.02, pad=0.04, label="Classe")
+plt.tight_layout()
+plt.show()
+```
+
+**Observation spectaculaire** :
+
+- **PCA** : classes très mélangées, des taches confuses
+- **t-SNE** : **10 groupes nets et séparés**, chacun correspondant à un chiffre
+- **UMAP** : similaire à t-SNE, parfois encore mieux séparé, plus rapide
+
+**Remarque importante** : t-SNE et UMAP **ne connaissent pas les labels** (non-supervisé !). Ils retrouvent les 10 chiffres **juste** en regardant les pixels. C'est **bluffant**.
+
+Voyons maintenant **comment ça marche**.
+
+# 2. t-SNE : l'intuition
+
+## 🎨 L'idée centrale
+
+t-SNE = **t-distributed Stochastic Neighbor Embedding**.
+
+L'idée en une phrase : **« préserver les voisinages »**.
+
+- Deux points **proches** en haute dimension doivent rester **proches** en 2D
+- Deux points **éloignés** en haute dimension doivent rester **éloignés** en 2D
+
+On abandonne l'idée de **distances précises** — on garde seulement les **voisinages relatifs**.
+
+## 🧮 Comment ça marche ?
+
+Sans entrer dans les maths en détail :
+
+1. **En haute dimension** : pour chaque point, on calcule la **probabilité** que chaque autre point soit son "voisin" (selon une gaussienne)
+2. **En 2D** : on place des points au hasard, puis on les déplace pour que les probabilités de voisinage **correspondent** à celles de la haute dimension
+3. On utilise une **distribution t de Student** en 2D (plus "large" que la gaussienne) pour éviter que tout se colle au centre
+
+C'est un processus **itératif** — le résultat évolue au fil des itérations.
+
+## 🎛️ L'hyperparamètre clé : `perplexity`
+
+La **perplexity** contrôle « combien de voisins » on considère :
+
+- **Perplexity faible** (~5) : clusters très locaux, peut fragmenter
+- **Perplexity moyenne** (~30) : le défaut de sklearn, bon compromis
+- **Perplexity élevée** (~100) : considère plus de voisins, clusters plus larges
+
+**Règle** : entre **5 et 50**. Pour un dataset de taille N, une règle courante est `perplexity = min(N/3, 50)`.
+
+## 🧪 Impact de `perplexity`
+
+```{python}
+#| label: fig-perplexity
+#| fig-cap: "Impact de la perplexity sur t-SNE"
+
+# Sous-échantillon de MNIST pour rapidité
+np.random.seed(0)
+idx = np.random.choice(len(X_scaled), 500, replace=False)
+X_sub = X_scaled[idx]
+y_sub = y[idx]
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+for ax, perp in zip(axes, [5, 15, 30, 100]):
+    X_t = TSNE(n_components=2, perplexity=perp, random_state=42,
+                max_iter=500).fit_transform(X_sub)
+    ax.scatter(X_t[:, 0], X_t[:, 1], c=y_sub, cmap="tab10", s=25, alpha=0.7)
+    ax.set_title(f"perplexity = {perp}", fontsize=12)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("Impact de la perplexity : de fragmenté à trop global",
+             fontweight="bold", fontsize=13, y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** :
+- **perp=5** : clusters **fragmentés** (certains chiffres scindés en petits groupes)
+- **perp=15 à 30** : **bon équilibre**, clusters bien formés
+- **perp=100** : clusters **trop larges**, classes voisines se chevauchent
+
+## 🚀 Utilisation type
+
+```{python}
+# Exemple standard
+tsne = TSNE(
+    n_components=2,
+    perplexity=30,      # défaut
+    max_iter=1000,      # ou n_iter pour anciennes versions
+    random_state=42
+)
+X_embed = tsne.fit_transform(X_scaled)
+
+print(f"Shape avant : {X_scaled.shape}")
+print(f"Shape après : {X_embed.shape}")
+```
+
+## ⚠️ Les 4 règles d'or de t-SNE
+
+::: {.callout-warning}
+## Pièges d'interprétation
+
+1. **Les distances n'ont pas de sens** — Deux clusters éloignés dans le plot peuvent être "proches" dans les données réelles (et inversement).
+
+2. **Les tailles de cluster n'ont pas de sens** — Un gros cluster en t-SNE peut correspondre à peu de points, et inversement.
+
+3. **Chaque run peut donner un résultat différent** — fixer `random_state`, mais les **positions absolues** changent toujours.
+
+4. **Jamais pour l'entraînement ML** — t-SNE n'a pas de méthode `transform()` propre : tu ne peux pas projeter un nouveau point après coup. C'est un **outil de visualisation uniquement**.
+:::
+
+## ✏️ Exercice 1 — t-SNE avec différentes perplexity
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Prends le dataset Iris (4 features, 3 espèces, 150 lignes) :
+
+```python
+from sklearn.datasets import load_iris
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+y_iris = iris.target
+```
+
+1. Applique t-SNE avec **3 perplexities différentes** : 5, 30, 50
+2. Affiche les 3 projections **côte à côte** (colorer par espèce)
+3. Quelle perplexity donne la meilleure séparation visuelle ?
+4. Compare avec la **PCA 2D** du même dataset (vu en 5.4) — t-SNE apporte-t-il plus sur Iris ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import load_iris
+
+iris = load_iris()
+X_iris = StandardScaler().fit_transform(iris.data)
+y_iris = iris.target
+
+# PCA pour comparaison
+X_pca_iris = PCA(n_components=2).fit_transform(X_iris)
+
+fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+
+# PCA
+for classe in range(3):
+    mask = y_iris == classe
+    axes[0].scatter(X_pca_iris[mask, 0], X_pca_iris[mask, 1], s=60, alpha=0.7,
+                     label=iris.target_names[classe], edgecolor="black")
+axes[0].set_title("PCA 2D")
+axes[0].legend(fontsize=8)
+axes[0].set_xticks([]); axes[0].set_yticks([])
+
+# t-SNE avec 3 perplexities
+for ax, perp in zip(axes[1:], [5, 30, 50]):
+    X_t = TSNE(n_components=2, perplexity=perp, random_state=42).fit_transform(X_iris)
+    for classe in range(3):
+        mask = y_iris == classe
+        ax.scatter(X_t[mask, 0], X_t[mask, 1], s=60, alpha=0.7, edgecolor="black")
+    ax.set_title(f"t-SNE (perp={perp})")
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("PCA vs t-SNE (différentes perplexities) sur Iris",
+             fontweight="bold", y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** :
+- Sur **Iris**, la PCA marche déjà très bien (dataset simple, quasi-linéaire)
+- t-SNE sépare aussi bien, mais pas **spectaculairement** mieux
+- t-SNE brille surtout sur des **données complexes** (images, texte) — sur des petits datasets tabulaires simples, **la PCA peut suffire**
+
+**Leçon** : t-SNE n'est pas systématiquement meilleur. Il faut **tester** selon ton cas.
+:::
+
+# 3. UMAP : l'alternative moderne
+
+## 🎨 La promesse
+
+**UMAP** = **U**niform **M**anifold **A**pproximation and **P**rojection (2018).
+
+Par rapport à t-SNE :
+
+- **Plus rapide** (5-10× sur gros datasets)
+- **Meilleure préservation de la structure globale** (les distances entre clusters ont plus de sens)
+- Possède une méthode `transform()` pour **projeter de nouveaux points** (contrairement à t-SNE)
+- Résultats plus **stables** d'un run à l'autre
+
+## 🎛️ Les 2 hyperparamètres clés
+
+| Paramètre | Rôle |
+|---|---|
+| **`n_neighbors`** | Nombre de voisins considérés (équivalent de `perplexity`) |
+| **`min_dist`** | Distance minimum entre points dans l'embedding |
+
+**`n_neighbors`** (typique 5-50) :
+- Faible → préserve la structure **locale**
+- Élevé → préserve la structure **globale**
+- **Défaut : 15**
+
+**`min_dist`** (entre 0 et 1) :
+- Faible (ex: 0.1) → clusters **serrés et distincts**
+- Élevé (ex: 0.5) → clusters **étalés, plus uniformes**
+- **Défaut : 0.1**
+
+## 🧪 Impact des hyperparamètres
+
+```{python}
+#| label: fig-umap-params
+#| fig-cap: "Impact de n_neighbors et min_dist sur UMAP"
+
+# Sous-échantillon
+np.random.seed(0)
+idx = np.random.choice(len(X_scaled), 600, replace=False)
+X_sub = X_scaled[idx]
+y_sub = y[idx]
+
+fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+
+# Ligne 1 : varier n_neighbors (min_dist=0.1)
+for ax, n_neigh in zip(axes[0], [5, 15, 50]):
+    X_u = umap.UMAP(n_neighbors=n_neigh, min_dist=0.1, random_state=42).fit_transform(X_sub)
+    ax.scatter(X_u[:, 0], X_u[:, 1], c=y_sub, cmap="tab10", s=25, alpha=0.7)
+    ax.set_title(f"n_neighbors={n_neigh}, min_dist=0.1", fontsize=11)
+    ax.set_xticks([]); ax.set_yticks([])
+
+# Ligne 2 : varier min_dist (n_neighbors=15)
+for ax, md in zip(axes[1], [0.0, 0.1, 0.8]):
+    X_u = umap.UMAP(n_neighbors=15, min_dist=md, random_state=42).fit_transform(X_sub)
+    ax.scatter(X_u[:, 0], X_u[:, 1], c=y_sub, cmap="tab10", s=25, alpha=0.7)
+    ax.set_title(f"n_neighbors=15, min_dist={md}", fontsize=11)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("Exploration des hyperparamètres UMAP",
+             fontweight="bold", fontsize=13, y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+**Ligne 1 (n_neighbors)** :
+- **5** : structure très locale, petits îlots
+- **15** : équilibre (défaut)
+- **50** : structure plus globale, clusters allongés
+
+**Ligne 2 (min_dist)** :
+- **0.0** : clusters **ultra-compacts**
+- **0.1** : défaut, clusters séparés et lisibles
+- **0.8** : clusters **étalés** qui commencent à se toucher
+
+## 🚀 Utilisation type
+
+```{python}
+# Exemple standard
+reducer = umap.UMAP(
+    n_components=2,
+    n_neighbors=15,      # défaut
+    min_dist=0.1,        # défaut
+    random_state=42
+)
+X_embed = reducer.fit_transform(X_scaled)
+print(f"Shape : {X_embed.shape}")
+```
+
+## ⭐ UMAP a un `transform()` utilisable
+
+Contrairement à t-SNE, UMAP peut **projeter de nouveaux points** après coup :
+
+```{python}
+# Entraîner sur une partie
+reducer = umap.UMAP(random_state=42).fit(X_scaled[:1000])
+
+# Projeter de nouveaux points (inédit)
+X_nouveau = X_scaled[1000:1100]
+X_nouveau_embed = reducer.transform(X_nouveau)
+
+print(f"Nouveaux points projetés : {X_nouveau_embed.shape}")
+```
+
+**Utilité** : on peut **sauvegarder** un UMAP entraîné et l'appliquer à de nouveaux données. Pratique pour des **dashboards** mis à jour sans tout recalculer.
+
+## ✏️ Exercice 2 — UMAP sur le swiss roll
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu te souviens du **swiss roll** de la Notion 5.4 ? La PCA l'aplatissait sans le dérouler.
+
+```python
+from sklearn.datasets import make_swiss_roll
+X_swiss, color = make_swiss_roll(n_samples=1000, random_state=42)
+```
+
+1. Visualise le swiss roll en **3D** (coloré par `color`)
+2. Applique une **PCA 2D** et affiche
+3. Applique un **UMAP 2D** (`n_neighbors=10, min_dist=0.1`) et affiche
+4. Quelle méthode "déroule" vraiment le rouleau ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_swiss_roll
+
+X_swiss, color = make_swiss_roll(n_samples=1000, random_state=42)
+
+# PCA
+X_pca_s = PCA(n_components=2).fit_transform(X_swiss)
+
+# UMAP
+X_umap_s = umap.UMAP(n_components=2, n_neighbors=10, min_dist=0.1,
+                     random_state=42).fit_transform(X_swiss)
+
+fig = plt.figure(figsize=(18, 5))
+
+# 3D
+ax1 = fig.add_subplot(131, projection="3d")
+ax1.scatter(X_swiss[:, 0], X_swiss[:, 1], X_swiss[:, 2], c=color, cmap="viridis", s=15)
+ax1.set_title("Swiss roll original (3D)")
+
+# PCA
+ax2 = fig.add_subplot(132)
+ax2.scatter(X_pca_s[:, 0], X_pca_s[:, 1], c=color, cmap="viridis", s=15)
+ax2.set_title("PCA : aplatit (couleurs mélangées)")
+
+# UMAP
+ax3 = fig.add_subplot(133)
+ax3.scatter(X_umap_s[:, 0], X_umap_s[:, 1], c=color, cmap="viridis", s=15)
+ax3.set_title("UMAP : DÉROULE le rouleau !")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation magnifique** :
+
+- **PCA** : les couleurs sont **mélangées** → les points sont dans le bon espace mais pas ordonnés
+- **UMAP** : les couleurs forment un **dégradé continu** → UMAP a **déroulé** le rouleau, respectant la topologie
+
+C'est la **démonstration** de la différence fondamentale : PCA capture la variance, UMAP capture la **structure du manifold**.
+:::
+
+# 4. t-SNE vs UMAP : quand utiliser quoi ?
+
+## 📋 Tableau de décision
+
+| Critère | t-SNE | UMAP |
+|---|:---:|:---:|
+| **Vitesse** | ⭐⭐ | ⭐⭐⭐⭐ |
+| **Qualité des clusters locaux** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Qualité de la structure globale** | ⭐⭐ | ⭐⭐⭐⭐ |
+| **Stabilité entre runs** | ⭐⭐ | ⭐⭐⭐⭐ |
+| **Peut transformer de nouveaux points** | ❌ | ✅ |
+| **Maturité / Fiabilité** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| **Gros datasets (>10k)** | ⚠️ lent | ✅ rapide |
+
+## 💡 Recommandation pratique
+
+- **UMAP par défaut** en 2025 : plus rapide, plus stable, meilleure structure globale
+- **t-SNE** si tu veux vraiment du **cluster local** ultra-fin (publication scientifique, par exemple)
+- **PCA** reste utile pour **comprendre la variance** et **le prétraitement ML** (eux ne servent pas à ça !)
+
+## 🎯 Le workflow typique en EDA
+
+```
+1. PCA (variance cumulée) → combien de vraies dimensions ?
+2. UMAP 2D (quick) → aperçu de la structure
+3. Si besoin d'inspection fine → t-SNE
+4. Coloration par clusters (k-means) ou métadonnées
+```
+
+# 5. Les pièges de l'interprétation
+
+## 🚨 Piège 1 : les distances ne sont pas euclidiennes
+
+Deux clusters éloignés **visuellement** dans un plot t-SNE peuvent être **proches** dans les données réelles. L'algorithme préserve les **voisins**, pas les distances.
+
+**Test** : imagine 3 clusters sphériques de même taille. Si un cluster est à 10 unités et un autre à 1000, t-SNE peut les placer à la même distance visuelle.
+
+## 🚨 Piège 2 : les tailles des clusters sont trompeuses
+
+Un cluster qui paraît **gros** en t-SNE peut correspondre à **peu de points**. La taille visuelle dépend de la **dispersion interne**, pas du nombre de points.
+
+## 🚨 Piège 3 : pas d'axes interprétables
+
+Contrairement à la PCA (où PC1 = direction de variance max), les axes de t-SNE et UMAP **n'ont pas de sens**. Ne dis jamais : « L'axe X représente telle caractéristique. »
+
+## 🚨 Piège 4 : résultat non-déterministe (même avec random_state)
+
+Sur certaines versions, même avec `random_state` fixé, les positions peuvent varier légèrement. Ne te base pas sur **la position absolue** — seulement sur **la structure globale**.
+
+## 🚨 Piège 5 : ne pas utiliser comme preprocessing ML
+
+**NE JAMAIS** faire :
+
+```python
+# ❌ MAUVAIS — pour t-SNE, impossible de transformer de nouveaux points
+X_tsne = TSNE(...).fit_transform(X_train)
+modele.fit(X_tsne, y_train)
+# Comment on projette X_test maintenant ???
+```
+
+t-SNE et UMAP sont des **outils de visualisation**, pas de prétraitement pour le ML. Pour le ML, utilise la **PCA**.
+
+## ✏️ Exercice 3 — Démontrer le piège des distances
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Génère **3 blobs** à des distances différentes :
+
+```python
+from sklearn.datasets import make_blobs
+
+# Cluster 0 à (0, 0), cluster 1 à (5, 0), cluster 2 à (50, 0)
+# → Cluster 2 est LOIN des deux autres
+centres = [[0, 0, 0], [5, 0, 0], [50, 0, 0]]
+X_3b, y_3b = make_blobs(n_samples=300, centers=centres, cluster_std=1.0, random_state=42)
+```
+
+1. Visualise les données en 2D (ignorer la 3ᵉ dimension, prendre `[:, :2]`)
+2. Applique **t-SNE** (perplexity=30) et visualise
+3. **Observation** : t-SNE place-t-il le cluster 2 **50× plus loin** ? Ou égalise-t-il les distances ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 3
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.datasets import make_blobs
+
+centres = [[0, 0, 0], [5, 0, 0], [50, 0, 0]]
+X_3b, y_3b = make_blobs(n_samples=300, centers=centres, cluster_std=1.0, random_state=42)
+
+X_tsne_3b = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_3b)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Données originales (2 premières dims)
+for c in range(3):
+    mask = y_3b == c
+    axes[0].scatter(X_3b[mask, 0], X_3b[mask, 1], s=40, alpha=0.7,
+                     label=f"Cluster {c}", edgecolor="black")
+axes[0].set_title("Données originales (x0 vs x1)")
+axes[0].legend()
+
+# t-SNE
+for c in range(3):
+    mask = y_3b == c
+    axes[1].scatter(X_tsne_3b[mask, 0], X_tsne_3b[mask, 1], s=40, alpha=0.7,
+                     label=f"Cluster {c}", edgecolor="black")
+axes[1].set_title("t-SNE : distances égalisées ?")
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation capitale** : dans les données originales, le cluster 2 est à **50 unités** des autres. En t-SNE, il peut apparaître **à peu près aussi loin** que les 2 autres entre eux. 
+
+**Les distances visuelles en t-SNE/UMAP ne sont PAS proportionnelles aux distances réelles.** Toujours s'en souvenir quand on interprète un plot.
+:::
+
+# 🏁 Exercice bilan — Pipeline de visualisation complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Sur le dataset `digits` (MNIST 8×8) :
+
+1. **Analyse exploratoire avec PCA** :
+   - Trace la courbe de **variance cumulée**
+   - Combien de composantes pour 95% ?
+2. **Visualisation 2D avec 3 méthodes** :
+   - PCA 2D
+   - t-SNE (perplexity=30)
+   - UMAP (n_neighbors=15, min_dist=0.1)
+3. **Commentaire** : laquelle sépare le mieux les 10 classes ?
+4. **Bonus** : applique un **k-means à k=10** sur le résultat de UMAP. Le clustering retrouve-t-il les chiffres ?
+5. Calcule l'**ARI** entre labels k-means et vrais labels. Score ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from sklearn.cluster import KMeans
+from sklearn.metrics import adjusted_rand_score
+
+digits = load_digits()
+X_dig = digits.data
+y_dig = digits.target
+
+X_scaled = StandardScaler().fit_transform(X_dig)
+
+# 1. PCA variance cumulée
+pca_full = PCA().fit(X_scaled)
+cumul = np.cumsum(pca_full.explained_variance_ratio_)
+n_95 = np.argmax(cumul >= 0.95) + 1
+
+fig, ax = plt.subplots(figsize=(10, 4))
+ax.plot(range(1, len(cumul) + 1), cumul * 100, linewidth=2)
+ax.axhline(95, color="red", linestyle="--", alpha=0.5, label=f"95% → {n_95} comp.")
+ax.axvline(n_95, color="red", linestyle="--", alpha=0.5)
+ax.set_xlabel("Composantes"); ax.set_ylabel("Variance cumulée (%)")
+ax.set_title("MNIST — Variance cumulée")
+ax.legend(); ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+print(f"95% de variance atteinte avec {n_95} composantes")
+```
+
+```{python}
+# 2. PCA, t-SNE, UMAP en 2D
+X_pca_2d = PCA(n_components=2).fit_transform(X_scaled)
+X_tsne_2d = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_scaled)
+X_umap_2d = umap.UMAP(n_components=2, n_neighbors=15, min_dist=0.1,
+                      random_state=42).fit_transform(X_scaled)
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+for ax, X_r, nom in zip(axes, [X_pca_2d, X_tsne_2d, X_umap_2d],
+                         ["PCA", "t-SNE", "UMAP"]):
+    sc = ax.scatter(X_r[:, 0], X_r[:, 1], c=y_dig, cmap="tab10", s=15, alpha=0.7)
+    ax.set_title(f"{nom}", fontsize=14, fontweight="bold")
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**3. Commentaire** :
+- **PCA** : classes mélangées
+- **t-SNE** : **10 groupes bien distincts** ✨
+- **UMAP** : similaire à t-SNE, souvent aussi net et **plus rapide**
+
+```{python}
+# 4-5. k-means sur UMAP + ARI
+km = KMeans(n_clusters=10, n_init=10, random_state=42)
+labels_km = km.fit_predict(X_umap_2d)
+
+ari = adjusted_rand_score(y_dig, labels_km)
+print(f"ARI entre k-means(UMAP) et vrais chiffres : {ari:.3f}")
+print("(0 = aléatoire, 1 = parfait)")
+
+# Visualiser
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+axes[0].scatter(X_umap_2d[:, 0], X_umap_2d[:, 1], c=y_dig, cmap="tab10", s=15, alpha=0.7)
+axes[0].set_title("Vrais labels")
+
+axes[1].scatter(X_umap_2d[:, 0], X_umap_2d[:, 1], c=labels_km, cmap="tab10", s=15, alpha=0.7)
+axes[1].set_title(f"k-means k=10 sur UMAP (ARI={ari:.3f})")
+
+for ax in axes:
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout()
+plt.show()
+```
+
+**Résultat bluffant** : ARI souvent > 0.8, voire 0.9. k-means appliqué **sur l'embedding UMAP** retrouve **presque parfaitement les 10 chiffres**, sans avoir vu les labels !
+
+C'est un **workflow classique** en EDA : utiliser UMAP pour visualiser, puis clusterer dans l'espace réduit pour des labels automatiques.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **t-SNE** | Préserve les voisinages locaux, bon pour petits datasets |
+| **UMAP** | Alternative moderne, rapide, structure globale préservée |
+| **perplexity** (t-SNE) | 5-50, défaut 30 |
+| **n_neighbors** (UMAP) | 5-50, défaut 15 |
+| **min_dist** (UMAP) | 0-1, défaut 0.1 — compacité des clusters |
+| **Usage** | **Visualisation uniquement**, pas pour modélisation |
+| **PCA vs t-SNE/UMAP** | PCA = variance, t-SNE/UMAP = voisinages |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **UMAP par défaut** pour explorer des données haute dimension
+2. **Standardiser** avant (comme pour PCA)
+3. **Ne pas interpréter les distances** entre clusters
+4. **Ne pas utiliser** comme preprocessing ML
+5. **Combiner PCA + UMAP** sur très gros datasets (PCA pour réduire puis UMAP)
+
+## 🚨 Les pièges à éviter
+
+1. **Conclure que deux clusters éloignés sont différents** → juste visuel
+2. **Comparer la taille des clusters** → dépend de la dispersion
+3. **Essayer de donner du sens aux axes** → ils n'en ont pas
+4. **Utiliser t-SNE comme transformer sklearn** → pas de `transform()`
+5. **Oublier `random_state`** → résultats non reproductibles
+
+## 🚀 La suite
+
+Dans la [**Notion 5.6 — Détection d'anomalies**](notion_5_6_anomalies.qmd), on bascule dans la **3e famille** du non-supervisé :
+
+- **Isolation Forest** : algorithme rapide, robuste, industriel
+- **Local Outlier Factor (LOF)** : basé sur la densité locale
+- **One-class SVM** : approche par frontière de décision
+- Applications : fraude, pannes industrielles, cybersécurité
+- **Combiner** détection d'anomalies avec clustering et supervisé
+
+Ensuite, le TP sommatif mettra tout en œuvre sur un vrai cas métier.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Télécharge le dataset **"Fashion-MNIST"** (10 classes de vêtements) ou charge simplement **un dataset image** que tu as sous la main :
+
+```python
+from sklearn.datasets import fetch_openml
+# fashion = fetch_openml("Fashion-MNIST", as_frame=False)  # gros, ~30s
+# X = fashion.data[:3000]; y = fashion.target[:3000].astype(int)
+```
+
+Applique **UMAP en 2D** et visualise. Tu verras les 10 types de vêtements se séparer magnifiquement — c'est **le pouvoir** des embeddings non-linéaires.
+
+**Conseil** : standardise toujours avant, et commence avec `n_neighbors=30` pour les gros datasets.
+:::
