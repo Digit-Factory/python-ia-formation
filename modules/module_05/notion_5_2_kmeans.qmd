@@ -1,0 +1,896 @@
+---
+title: "Notion 5.2 — Clustering k-means"
+subtitle: "L'algorithme le plus utilisé au monde pour grouper des données"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_05/notion_5_2_kmeans_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_05/notion_5_2_kmeans_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_05_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notion 5.1  
+**Objectif** : maîtriser k-means de A à Z, savoir choisir le bon `k`, comprendre ses limites
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **précisément** comment fonctionne k-means (algorithme de Lloyd)
+- L'implémenter **from scratch** en NumPy
+- Choisir le bon `k` via la **méthode du coude** et la **silhouette**
+- Éviter les pièges : **standardisation**, initialisation, clusters non-convexes
+- Utiliser **k-means++** pour une initialisation plus robuste
+- Savoir quand k-means **ne convient pas**
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as découvert k-means en Notion 5.1. C'est **l'algorithme de clustering le plus utilisé au monde** :
+
+- **Simple et rapide** : s'entraîne en secondes sur des millions de points
+- **Intuitif** : on peut expliquer son fonctionnement à un non-technicien
+- **Scalable** : des variantes (mini-batch) fonctionnent sur des gigaoctets
+
+Mais c'est aussi l'algorithme le plus **mal utilisé**. Cette notion va te donner :
+1. Une **compréhension profonde** de son fonctionnement
+2. Les **bons réflexes** pour l'utiliser correctement
+3. Les **signaux d'alerte** pour savoir quand passer à autre chose
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from sklearn.cluster import KMeans
+from sklearn.datasets import make_blobs, make_moons
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score, silhouette_samples
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Comment fonctionne k-means ?
+
+## 🎬 L'algorithme en 4 étapes
+
+k-means est ce qu'on appelle l'**algorithme de Lloyd**. C'est une boucle simple :
+
+```
+1. INITIALISATION : placer k centres au hasard
+2. ASSIGNATION   : chaque point → cluster du centre le plus proche
+3. MISE À JOUR   : recalculer chaque centre = moyenne de ses points
+4. RÉPÉTER 2-3 jusqu'à convergence (centres ne bougent plus)
+```
+
+C'est tout. Vraiment.
+
+## 🎨 Visualiser l'algorithme étape par étape
+
+```{python}
+#| label: fig-kmeans-iterations
+#| fig-cap: "k-means itération par itération"
+
+# Générer des données
+np.random.seed(42)
+X, _ = make_blobs(n_samples=200, centers=3, cluster_std=1.0, random_state=42)
+
+def kmeans_manuel(X, k, n_iter=5, seed=0):
+    """Implémentation pédagogique de k-means avec historique."""
+    rng = np.random.default_rng(seed)
+    # Initialisation : k points aléatoires comme centres
+    idx = rng.choice(len(X), k, replace=False)
+    centres = X[idx].copy()
+    
+    historique = [(centres.copy(), None)]
+    
+    for it in range(n_iter):
+        # Étape 2 : assignation
+        distances = np.linalg.norm(X[:, None] - centres[None, :], axis=2)
+        labels = distances.argmin(axis=1)
+        
+        # Étape 3 : mise à jour
+        nouveaux_centres = np.array([X[labels == i].mean(axis=0) for i in range(k)])
+        
+        historique.append((nouveaux_centres.copy(), labels.copy()))
+        
+        # Convergence ?
+        if np.allclose(centres, nouveaux_centres):
+            break
+        centres = nouveaux_centres
+    
+    return historique
+
+# Faire tourner
+historique = kmeans_manuel(X, k=3, n_iter=5, seed=7)
+
+# Visualiser les itérations
+fig, axes = plt.subplots(2, 3, figsize=(16, 9))
+axes = axes.ravel()
+
+for i, (centres, labels) in enumerate(historique[:6]):
+    ax = axes[i]
+    if labels is None:
+        ax.scatter(X[:, 0], X[:, 1], c="gray", s=40, alpha=0.5, edgecolor="black")
+        ax.set_title(f"Init : centres aléatoires")
+    else:
+        ax.scatter(X[:, 0], X[:, 1], c=labels, cmap="viridis", s=40, alpha=0.7, edgecolor="black")
+        ax.set_title(f"Itération {i}")
+    ax.scatter(centres[:, 0], centres[:, 1], marker="X", s=300, c="red", 
+               edgecolor="black", linewidth=2, zorder=10)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.suptitle("k-means : les centres se déplacent jusqu'à stabilisation", fontweight="bold", fontsize=13)
+plt.tight_layout()
+plt.show()
+```
+
+**Observations** :
+- À l'**initialisation**, les centres sont placés au hasard
+- À chaque itération, les centres se **rapprochent du "cœur"** de leur groupe
+- Au bout de quelques itérations, ils **convergent** (ne bougent plus)
+
+C'est **très rapide** : souvent < 10 itérations pour converger.
+
+## 📐 L'objectif mathématique
+
+Formellement, k-means **minimise l'inertie** (somme des distances au centre du cluster) :
+
+$$\text{Inertie} = \sum_{i=1}^{n} \min_{j=1..k} \|x_i - c_j\|^2$$
+
+où :
+- `x_i` : un point du dataset
+- `c_j` : le centre du cluster j
+- `||.||²` : distance euclidienne au carré
+
+**En français** : on veut que **chaque point soit aussi proche que possible de son centre**.
+
+## 🔢 Implémentation from scratch
+
+Voici l'implémentation complète en ~20 lignes :
+
+```{python}
+def mon_kmeans(X, k, max_iter=100, seed=0):
+    """
+    Implémentation éducative de k-means.
+    
+    Retourne les labels de cluster et les centres.
+    """
+    rng = np.random.default_rng(seed)
+    
+    # 1. Initialisation : k points au hasard
+    idx_init = rng.choice(len(X), k, replace=False)
+    centres = X[idx_init].copy()
+    
+    for it in range(max_iter):
+        # 2. Assignation : chaque point au centre le plus proche
+        # Broadcasting : (n, 1, d) - (1, k, d) → (n, k, d) → (n, k)
+        distances = np.linalg.norm(X[:, None, :] - centres[None, :, :], axis=2)
+        labels = distances.argmin(axis=1)
+        
+        # 3. Mise à jour : centre = moyenne des points du cluster
+        nouveaux_centres = np.array([
+            X[labels == i].mean(axis=0) if (labels == i).any() else centres[i]
+            for i in range(k)
+        ])
+        
+        # 4. Test de convergence
+        if np.allclose(centres, nouveaux_centres):
+            print(f"Convergence atteinte en {it + 1} itérations")
+            break
+        centres = nouveaux_centres
+    
+    return labels, centres
+```
+
+Testons :
+
+```{python}
+# Sur les blobs précédents
+labels_manuel, centres_manuel = mon_kmeans(X, k=3, seed=42)
+
+# Inertie calculée à la main
+distances_min = np.linalg.norm(X - centres_manuel[labels_manuel], axis=1)
+inertie_manuel = (distances_min ** 2).sum()
+print(f"Inertie (from scratch) : {inertie_manuel:.2f}")
+
+# Comparer à sklearn
+kmeans_sklearn = KMeans(n_clusters=3, n_init=10, random_state=42).fit(X)
+print(f"Inertie (sklearn)      : {kmeans_sklearn.inertia_:.2f}")
+```
+
+**Les deux valeurs sont proches** — on a bien reproduit l'algorithme de scikit-learn.
+
+## ✏️ Exercice 1 — Comprendre l'initialisation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+k-means est **sensible à l'initialisation** : selon le point de départ aléatoire, on peut tomber sur un **minimum local** (une mauvaise solution).
+
+1. Lance `mon_kmeans` avec **5 seeds différents** (0, 1, 2, 3, 4) sur le même dataset `X`
+2. Pour chaque résultat, calcule l'**inertie finale**
+3. Affiche toutes les inerties : observe-t-on des valeurs différentes ?
+4. Conclusion : pourquoi scikit-learn utilise-t-il `n_init=10` par défaut ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+inerties = []
+for seed in range(5):
+    labels, centres = mon_kmeans(X, k=3, seed=seed)
+    distances_min = np.linalg.norm(X - centres[labels], axis=1)
+    inertie = (distances_min ** 2).sum()
+    inerties.append(inertie)
+    print(f"Seed {seed} : inertie = {inertie:.2f}")
+
+print(f"\nMin : {min(inerties):.2f}")
+print(f"Max : {max(inerties):.2f}")
+print(f"Écart : {max(inerties) - min(inerties):.2f}")
+```
+
+**Observations** :
+- Les inerties peuvent varier **significativement** selon le seed
+- Parfois l'algo tombe sur un **minimum local** (pas l'optimum)
+- **Solution** : lancer plusieurs fois (`n_init=10` dans sklearn) et garder le meilleur résultat
+
+C'est un **piège classique** : sans plusieurs essais, on peut obtenir des résultats instables et médiocres.
+:::
+
+# 2. k-means++ : une initialisation intelligente
+
+## 🎯 Le problème de l'init aléatoire
+
+Avec une initialisation purement aléatoire, on peut **mettre 2 centres proches** dans le même vrai cluster. Résultat : mauvaise solution.
+
+## ✨ L'idée de k-means++
+
+Plutôt que tout aléatoire, on **choisit les centres successivement** en favorisant ceux qui sont **éloignés** des précédents :
+
+1. Premier centre : au hasard
+2. Deuxième centre : pris parmi les points **éloignés du premier**
+3. Troisième centre : pris parmi les points **éloignés des 1 et 2**
+4. Etc.
+
+Résultat : **convergence plus rapide** et **solutions plus stables**.
+
+**Bonne nouvelle** : c'est le **défaut** dans scikit-learn (`init="k-means++"`). Tu l'utilisais déjà sans le savoir.
+
+```{python}
+# k-means++ est implicite :
+kmeans = KMeans(n_clusters=3, init="k-means++", n_init=10, random_state=42)
+# "k-means++" est le défaut, on peut l'omettre
+```
+
+# 3. Choisir le bon `k` : méthode du coude
+
+## 🤔 Le problème
+
+En supervisé, tu as un test set pour évaluer. Mais en non supervisé ? Comment savoir si `k=3` ou `k=5` est mieux ?
+
+## 📉 L'intuition de la méthode du coude
+
+**L'inertie décroît toujours quand k augmente** :
+- `k = 1` : tout le monde dans un seul cluster → inertie énorme
+- `k = n` : chaque point est son propre cluster → inertie = 0
+
+Donc on ne peut pas juste "minimiser l'inertie" (ça donnerait `k = n`).
+
+**L'astuce** : chercher le **coude** — le moment où augmenter `k` **n'apporte plus beaucoup**.
+
+```{python}
+#| label: fig-elbow
+#| fig-cap: "Méthode du coude pour choisir k"
+
+# Dataset avec 4 vrais clusters
+np.random.seed(0)
+X_elbow, _ = make_blobs(n_samples=300, centers=4, cluster_std=1.0, random_state=0)
+
+# Calculer l'inertie pour k de 1 à 10
+inerties = []
+k_values = range(1, 11)
+for k in k_values:
+    km = KMeans(n_clusters=k, n_init=10, random_state=0)
+    km.fit(X_elbow)
+    inerties.append(km.inertia_)
+
+# Tracer
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Données
+axes[0].scatter(X_elbow[:, 0], X_elbow[:, 1], c="gray", s=40, alpha=0.6, edgecolor="black")
+axes[0].set_title("Dataset : combien de clusters ?")
+
+# Courbe de l'inertie
+axes[1].plot(k_values, inerties, "o-", linewidth=2, markersize=10, color="steelblue")
+axes[1].axvline(4, color="red", linestyle="--", alpha=0.7, label="Coude visible à k=4")
+axes[1].set_xlabel("Nombre de clusters k")
+axes[1].set_ylabel("Inertie")
+axes[1].set_title("Méthode du coude")
+axes[1].legend()
+axes[1].grid(True, alpha=0.3)
+axes[1].set_xticks(k_values)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** :
+- Jusqu'à `k=4` : l'inertie chute **fortement** → les clusters ajoutés sont utiles
+- Après `k=4` : la chute devient **marginale** → on ne gagne plus grand-chose
+
+Le "**coude**" (point d'inflexion) est à **k=4**. C'est le bon nombre de clusters.
+
+## ⚠️ Limites de la méthode du coude
+
+- Le coude n'est **pas toujours net** (parfois il y a plusieurs candidats)
+- **Subjectif** : 2 personnes peuvent ne pas être d'accord
+- Pas de **critère formel**
+
+C'est pourquoi on utilise souvent **en complément** la silhouette.
+
+# 4. La silhouette : un score objectif
+
+## 📐 Définition
+
+Pour chaque point `i`, la silhouette mesure à quel point il est **bien placé dans son cluster** :
+
+$$s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}$$
+
+où :
+- `a(i)` : distance moyenne de `i` aux autres points **de son cluster**
+- `b(i)` : distance moyenne de `i` aux points du **cluster le plus proche** (hors le sien)
+
+**Valeurs** :
+- `s(i) = 1` : point bien assigné (proche des siens, loin des autres)
+- `s(i) = 0` : point entre deux clusters
+- `s(i) = -1` : point mal assigné (il devrait être dans un autre cluster)
+
+On prend la **moyenne des silhouettes** de tous les points → un score global entre -1 et 1.
+
+## 🧪 Utilisation en pratique
+
+```{python}
+# Sur notre dataset blobs
+silhouettes = []
+for k in range(2, 11):  # silhouette pas défini pour k=1
+    km = KMeans(n_clusters=k, n_init=10, random_state=0)
+    labels = km.fit_predict(X_elbow)
+    s = silhouette_score(X_elbow, labels)
+    silhouettes.append(s)
+
+# DataFrame récap
+df_sil = pd.DataFrame({
+    "k": range(2, 11),
+    "silhouette": silhouettes
+})
+print(df_sil.round(3).to_string(index=False))
+```
+
+```{python}
+#| label: fig-silhouette-score
+#| fig-cap: "Score de silhouette en fonction de k"
+
+fig, ax = plt.subplots(figsize=(10, 5))
+ax.plot(range(2, 11), silhouettes, "o-", linewidth=2, markersize=10, color="coral")
+k_optimal = range(2, 11)[np.argmax(silhouettes)]
+ax.axvline(k_optimal, color="green", linestyle="--", label=f"Max à k={k_optimal}")
+ax.set_xlabel("k")
+ax.set_ylabel("Score de silhouette (moyen)")
+ax.set_title("Silhouette par k — plus haut = mieux")
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
+
+**Interprétation** : le `k` qui **maximise la silhouette** est souvent un bon choix. Ici, `k=4` gagne (cohérent avec la méthode du coude).
+
+## 🎨 Le "silhouette plot" : diagnostic visuel détaillé
+
+Pour un `k` donné, on peut tracer la silhouette de **chaque point**, groupée par cluster :
+
+```{python}
+#| label: fig-silhouette-plot
+#| fig-cap: "Silhouette plot pour k=4"
+
+km = KMeans(n_clusters=4, n_init=10, random_state=0)
+labels = km.fit_predict(X_elbow)
+sil_samples = silhouette_samples(X_elbow, labels)
+sil_avg = silhouette_score(X_elbow, labels)
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+y_lower = 10
+colors = plt.cm.viridis(np.linspace(0, 1, 4))
+
+for i in range(4):
+    cluster_sils = sil_samples[labels == i]
+    cluster_sils.sort()
+    
+    size_cluster_i = cluster_sils.shape[0]
+    y_upper = y_lower + size_cluster_i
+    
+    ax.fill_betweenx(
+        np.arange(y_lower, y_upper), 0, cluster_sils,
+        facecolor=colors[i], edgecolor=colors[i], alpha=0.7
+    )
+    ax.text(-0.05, y_lower + 0.5 * size_cluster_i, f"Cluster {i}")
+    y_lower = y_upper + 10
+
+ax.axvline(sil_avg, color="red", linestyle="--", label=f"Silhouette moyenne = {sil_avg:.3f}")
+ax.set_xlabel("Score de silhouette")
+ax.set_ylabel("Points (regroupés par cluster)")
+ax.set_title("Silhouette plot : tous les clusters sont-ils 'bons' ?")
+ax.legend()
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** :
+- Tous les clusters ont des points avec **silhouette > 0.4** → bonne séparation
+- Aucun point n'est **négatif** → pas de mauvaises assignations
+- Les 4 clusters sont **de taille comparable** → bonne répartition
+
+**Signal d'alerte** : si un cluster a beaucoup de silhouettes **négatives** ou proches de 0, c'est qu'il est mal formé.
+
+## ✏️ Exercice 2 — Combien de clusters dans ce dataset mystère ?
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```python
+# Dataset mystère
+from sklearn.datasets import make_blobs
+X_mystere, _ = make_blobs(
+    n_samples=500, 
+    centers=[[0, 0], [5, 5], [5, 0], [0, 5], [2.5, 2.5]],
+    cluster_std=0.8, random_state=42
+)
+```
+
+1. Visualise le dataset. Combien de clusters penses-tu qu'il y a ?
+2. Calcule l'inertie pour `k` de 1 à 10 et trace la courbe du coude
+3. Calcule le score de silhouette pour `k` de 2 à 10
+4. Quel `k` te semble le meilleur selon chaque méthode ?
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 2
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+X_mystere, vrais_labels = make_blobs(
+    n_samples=500, 
+    centers=[[0, 0], [5, 5], [5, 0], [0, 5], [2.5, 2.5]],
+    cluster_std=0.8, random_state=42
+)
+
+# 1. Visualiser
+fig, ax = plt.subplots(figsize=(8, 6))
+ax.scatter(X_mystere[:, 0], X_mystere[:, 1], c="gray", s=40, alpha=0.6, edgecolor="black")
+ax.set_title("Dataset mystère — combien de clusters ?")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+# 2 et 3. Courbes
+inerties = []
+silhouettes = []
+for k in range(1, 11):
+    km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels = km.fit_predict(X_mystere)
+    inerties.append(km.inertia_)
+    if k > 1:
+        silhouettes.append(silhouette_score(X_mystere, labels))
+    else:
+        silhouettes.append(np.nan)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+axes[0].plot(range(1, 11), inerties, "o-", linewidth=2)
+axes[0].set_xlabel("k"); axes[0].set_ylabel("Inertie")
+axes[0].set_title("Méthode du coude")
+axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(range(2, 11), silhouettes[1:], "o-", linewidth=2, color="coral")
+axes[1].set_xlabel("k"); axes[1].set_ylabel("Silhouette moyenne")
+axes[1].set_title("Silhouette")
+axes[1].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Analyse** :
+- Le vrai `k` est **5**, mais le cluster central (à [2.5, 2.5]) **chevauche** les autres
+- La silhouette peut favoriser `k=4` car les clusters sont **mieux séparés**
+- Le coude peut être **flou**
+
+**Leçon importante** : les deux métriques peuvent **ne pas être d'accord**. C'est le moment de :
+- Visualiser tes clusters
+- Discuter avec le métier
+- Choisir selon **ton objectif**
+:::
+
+# 5. Le piège absolu : la standardisation
+
+## 🚨 k-means dépend de la **distance**
+
+k-means utilise la distance euclidienne. Si tes features ont des **échelles très différentes**, la distance sera **dominée** par les grandes.
+
+**Exemple** :
+- `age` ∈ [20, 70]
+- `salaire` ∈ [20 000, 100 000]
+
+La distance entre 2 personnes sera quasi exclusivement dictée par le salaire. L'âge ne compte plus.
+
+**Solution** : **toujours standardiser** avant k-means.
+
+## 🧪 Démonstration
+
+```{python}
+# Créer un dataset avec des échelles très différentes
+np.random.seed(42)
+n = 300
+df_clients = pd.DataFrame({
+    "age": np.concatenate([
+        np.random.normal(25, 3, 100),     # jeunes
+        np.random.normal(45, 3, 100),     # actifs
+        np.random.normal(65, 3, 100),     # retraités
+    ]),
+    "revenus": np.concatenate([
+        np.random.normal(25000, 3000, 100),   # jeunes
+        np.random.normal(55000, 5000, 100),   # actifs
+        np.random.normal(30000, 3000, 100),   # retraités
+    ])
+})
+
+# 3 vrais groupes par âge : jeunes, actifs, retraités
+
+X_clients = df_clients.values
+
+# k-means SANS standardisation
+km_brut = KMeans(n_clusters=3, n_init=10, random_state=42)
+labels_brut = km_brut.fit_predict(X_clients)
+
+# k-means AVEC standardisation
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X_clients)
+km_scaled = KMeans(n_clusters=3, n_init=10, random_state=42)
+labels_scaled = km_scaled.fit_predict(X_scaled)
+
+# Visualisation
+fig, axes = plt.subplots(1, 2, figsize=(15, 5))
+
+axes[0].scatter(df_clients["age"], df_clients["revenus"], c=labels_brut, 
+                cmap="viridis", s=40, alpha=0.7, edgecolor="black")
+axes[0].set_title("SANS standardisation\n(clustering dominé par les revenus)", fontweight="bold")
+axes[0].set_xlabel("Âge"); axes[0].set_ylabel("Revenus")
+
+axes[1].scatter(df_clients["age"], df_clients["revenus"], c=labels_scaled,
+                cmap="viridis", s=40, alpha=0.7, edgecolor="black")
+axes[1].set_title("AVEC standardisation\n(clustering équilibré)", fontweight="bold")
+axes[1].set_xlabel("Âge"); axes[1].set_ylabel("Revenus")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** :
+- **Sans scaling** : les clusters sont des **bandes horizontales** — k-means ne voit quasiment que les revenus
+- **Avec scaling** : les clusters respectent **les deux dimensions** — on retrouve bien les 3 groupes d'âge
+
+## 📜 La règle d'or
+
+**AVANT k-means, TOUJOURS standardiser**. Sauf si **toutes tes features** sont déjà à la même échelle naturelle (ex: toutes des pourcentages).
+
+```python
+# Pipeline type
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+pipeline = Pipeline([
+    ("scaler", StandardScaler()),
+    ("kmeans", KMeans(n_clusters=3, n_init=10, random_state=42))
+])
+pipeline.fit(X)
+labels = pipeline.named_steps["kmeans"].labels_
+```
+
+# 6. Les autres limites de k-means
+
+## 🚫 Limite 1 : clusters non-convexes
+
+Tu l'as vu en Notion 5.1 : k-means **rate** les croissants.
+
+```{python}
+#| label: fig-moons-fail
+#| fig-cap: "k-means rate les clusters non-convexes"
+
+X_moons, _ = make_moons(n_samples=300, noise=0.05, random_state=0)
+km = KMeans(n_clusters=2, n_init=10, random_state=0)
+labels = km.fit_predict(X_moons)
+
+fig, ax = plt.subplots(figsize=(9, 5))
+ax.scatter(X_moons[:, 0], X_moons[:, 1], c=labels, cmap="coolwarm", s=40, alpha=0.7, edgecolor="black")
+ax.scatter(km.cluster_centers_[:, 0], km.cluster_centers_[:, 1],
+           marker="X", s=300, c="black", edgecolor="white", linewidth=2)
+ax.set_title("k-means ne peut pas suivre la forme des croissants")
+plt.tight_layout()
+plt.show()
+```
+
+**Solution** : passer à **DBSCAN** (Notion 5.3).
+
+## 🚫 Limite 2 : clusters de tailles très inégales
+
+Si tu as 1000 points dans un gros groupe et 20 dans un petit, k-means peut **"manger"** le petit dans le gros.
+
+## 🚫 Limite 3 : clusters de densités différentes
+
+k-means suppose implicitement que tous les clusters ont **la même variance**. Si un cluster est beaucoup plus étalé qu'un autre, k-means peut le **scinder**.
+
+## 🚫 Limite 4 : il faut connaître `k`
+
+Coude et silhouette aident mais **ne garantissent rien**. Parfois, il n'y a **pas de bon k** (les données n'ont pas de structure claire).
+
+## ✅ Quand utiliser k-means ?
+
+**Utilise k-means quand** :
+- ✅ Tu as beaucoup de données (rapide)
+- ✅ Les clusters sont **approximativement sphériques**
+- ✅ Tu as une idée **raisonnable** de `k`
+- ✅ Tu peux standardiser tes features
+
+**Cherche autre chose quand** :
+- ❌ Formes complexes (croissants, anneaux, spirales)
+- ❌ Tailles très inégales
+- ❌ Tu ne sais pas combien de clusters
+- ❌ Il y a beaucoup d'outliers (ils tirent les centres)
+
+# 🏁 Exercice bilan — Segmentation client complète
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu es data scientist dans un e-commerce. On te demande de **segmenter les clients** pour cibler les campagnes.
+
+```python
+np.random.seed(42)
+n = 600
+
+# Dataset : clients d'un e-commerce
+df = pd.DataFrame({
+    "frequence_achats_an": np.concatenate([
+        np.random.gamma(8, 1, 200),    # Très actifs
+        np.random.gamma(3, 1, 250),    # Moyens
+        np.random.gamma(1, 1, 150),    # Inactifs
+    ]),
+    "panier_moyen_eur": np.concatenate([
+        np.random.normal(45, 15, 200),  # Très actifs
+        np.random.normal(80, 25, 250),  # Moyens
+        np.random.normal(30, 10, 150),  # Inactifs
+    ]),
+    "anciennete_mois": np.concatenate([
+        np.random.uniform(12, 60, 200),
+        np.random.uniform(6, 36, 250),
+        np.random.uniform(0, 24, 150),
+    ]),
+})
+
+df["panier_moyen_eur"] = df["panier_moyen_eur"].clip(lower=5)
+df["frequence_achats_an"] = df["frequence_achats_an"].clip(lower=0.1)
+```
+
+**Mission** :
+
+1. Charge le dataset, affiche head() et décris les statistiques.
+2. **Standardise** les données (indispensable !).
+3. Utilise la **méthode du coude** et la **silhouette** pour trouver le bon `k` (teste k de 2 à 8).
+4. Applique k-means avec le `k` choisi. Affiche le nombre de clients par cluster.
+5. **Caractérise** chaque cluster : calcule les moyennes de chaque feature par cluster.
+6. **Nomme** chaque cluster selon son profil (ex: « Très actifs à fort panier »).
+7. Propose une **action marketing** adaptée à chaque segment.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+np.random.seed(42)
+n = 600
+
+df = pd.DataFrame({
+    "frequence_achats_an": np.concatenate([
+        np.random.gamma(8, 1, 200),
+        np.random.gamma(3, 1, 250),
+        np.random.gamma(1, 1, 150),
+    ]),
+    "panier_moyen_eur": np.concatenate([
+        np.random.normal(45, 15, 200),
+        np.random.normal(80, 25, 250),
+        np.random.normal(30, 10, 150),
+    ]),
+    "anciennete_mois": np.concatenate([
+        np.random.uniform(12, 60, 200),
+        np.random.uniform(6, 36, 250),
+        np.random.uniform(0, 24, 150),
+    ]),
+})
+df["panier_moyen_eur"] = df["panier_moyen_eur"].clip(lower=5)
+df["frequence_achats_an"] = df["frequence_achats_an"].clip(lower=0.1)
+
+# 1. Stats
+print(df.describe().round(2))
+```
+
+```{python}
+# 2. Standardisation
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(df)
+```
+
+```{python}
+# 3. Coude + silhouette
+inerties = []
+silhouettes = []
+for k in range(1, 9):
+    km = KMeans(n_clusters=k, n_init=10, random_state=42)
+    labels = km.fit_predict(X_scaled)
+    inerties.append(km.inertia_)
+    if k > 1:
+        silhouettes.append(silhouette_score(X_scaled, labels))
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 4))
+axes[0].plot(range(1, 9), inerties, "o-")
+axes[0].set_xlabel("k"); axes[0].set_ylabel("Inertie")
+axes[0].set_title("Coude"); axes[0].grid(True, alpha=0.3)
+
+axes[1].plot(range(2, 9), silhouettes, "o-", color="coral")
+axes[1].set_xlabel("k"); axes[1].set_ylabel("Silhouette")
+axes[1].set_title("Silhouette"); axes[1].grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+k_optimal = np.argmax(silhouettes) + 2  # +2 car silhouettes commence à k=2
+print(f"k optimal selon silhouette : {k_optimal}")
+```
+
+```{python}
+# 4. Clustering final
+km_final = KMeans(n_clusters=k_optimal, n_init=10, random_state=42)
+df["cluster"] = km_final.fit_predict(X_scaled)
+
+print(f"Nombre de clients par cluster :")
+print(df["cluster"].value_counts().sort_index())
+```
+
+```{python}
+# 5. Profil de chaque cluster
+profils = df.groupby("cluster").agg({
+    "frequence_achats_an": "mean",
+    "panier_moyen_eur": "mean",
+    "anciennete_mois": "mean",
+}).round(1)
+
+profils["n_clients"] = df["cluster"].value_counts().sort_index().values
+print("\nProfil moyen par cluster :")
+print(profils)
+```
+
+```{python}
+# 6-7. Nommer et actions (à adapter selon tes clusters)
+print("\n=== PROPOSITIONS MARKETING ===")
+for c in sorted(df["cluster"].unique()):
+    profil = profils.loc[c]
+    print(f"\nCluster {c} ({profil['n_clients']:.0f} clients) :")
+    print(f"  Fréquence : {profil['frequence_achats_an']} achats/an")
+    print(f"  Panier moyen : {profil['panier_moyen_eur']} €")
+    print(f"  Ancienneté : {profil['anciennete_mois']} mois")
+
+# Exemple générique :
+print("\n\nActions marketing à adapter :")
+print("- Très actifs + gros panier → programme VIP, avant-premières")
+print("- Moyens actifs → upsell, recommandations personnalisées")
+print("- Inactifs / nouveaux → campagnes de réactivation, offres de bienvenue")
+```
+
+**Leçon** : la **vraie valeur** d'un clustering est dans **l'interprétation**. Un beau cluster silhouette=0.6 n'a aucune valeur s'il n'a pas de sens métier. Un cluster à 0.4 avec un nom clair (« retraités patrimoniaux ») est **100× plus utile**.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Algorithme** | 4 étapes : init, assignation, mise à jour, convergence |
+| **Inertie** | Somme des distances² au centre — à minimiser |
+| **k-means++** | Initialisation intelligente (défaut dans sklearn) |
+| **Méthode du coude** | Tracer l'inertie vs k, chercher le point d'inflexion |
+| **Silhouette** | Score objectif entre -1 et 1 — plus haut = mieux |
+| **Standardisation** | **Obligatoire** avant k-means |
+| **Limites** | Clusters convexes uniquement, k à fixer, sensible aux outliers |
+
+## 🧠 Les 6 réflexes à prendre
+
+1. **Toujours standardiser** (StandardScaler) avant k-means
+2. **n_init=10** minimum pour éviter les minimums locaux
+3. **random_state** fixé pour la reproductibilité
+4. **Combiner coude ET silhouette** pour choisir k
+5. **Caractériser et nommer** les clusters (pas juste le numéro)
+6. **Valider avec le métier** : un cluster = une action distincte ?
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier de standardiser** → clusters dominés par la feature à grande échelle
+2. **`n_init=1`** → risque de minimum local
+3. **Se fier à l'inertie seule** pour choisir k → elle diminue toujours
+4. **k-means sur des données non-convexes** → résultats aberrants
+5. **Clustering sans interprétation métier** → inutile en production
+
+## 🚀 La suite
+
+Dans la [**Notion 5.3 — Clustering avancé**](notion_5_3_clustering_avance.qmd), tu vas découvrir :
+
+- **DBSCAN** : clustering basé sur la densité (gère les croissants !)
+- **Clustering hiérarchique** : dendrogramme, plusieurs niveaux de granularité
+- Comment choisir **quel algorithme** pour quelle situation
+- Comparaison rigoureuse k-means / DBSCAN / hiérarchique
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Sur le dataset Iris (4 dimensions, 3 vraies espèces) :
+
+1. Applique k-means avec k=3 (sans les labels !)
+2. Compare avec les vrais labels via l'**Adjusted Rand Index** (`adjusted_rand_score`)
+3. Essaie **avec et sans** standardisation : quel est le gain ?
+
+Tu verras concrètement l'importance du preprocessing. Dans ce cas, la standardisation fait passer l'ARI de ~0.44 à ~0.62. **Énorme gain** gratuit !
+:::
