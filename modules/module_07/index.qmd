@@ -29,7 +29,7 @@ Ce module te fait passer de "utilisateur" de ChatGPT à **ingénieur·e IA gén�
 | Notion | Thème | Durée |
 |:---:|---|:---:|
 | **7.1** | [Embeddings et représentation du texte](notion_7_1_embeddings.qmd) | 3-4 h |
-| **7.2** | Architecture Transformer (vulgarisation) _(à venir)_ | 3 h |
+| **7.2** | [Architecture Transformer (vulgarisée)](notion_7_2_transformer.qmd) | 3 h |
 | **7.3** | Utiliser un LLM via API _(à venir)_ | 3-4 h |
 | **7.4** | RAG : brancher un LLM sur ses docs _(à venir)_ | 4-5 h |
 | **7.5** | Agents et tool-use _(à venir)_ | 3-4 h |

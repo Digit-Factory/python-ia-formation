@@ -1,0 +1,883 @@
+---
+title: "Notion 7.2 — Architecture Transformer (vulgarisée)"
+subtitle: "Comprendre ce qui fait tourner ChatGPT, Claude et Gemini"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_07/notion_7_2_transformer_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_07/notion_7_2_transformer_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_07_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notion 7.1 (embeddings) + Module 6 (deep learning)  
+**Objectif** : comprendre l'intuition des Transformers sans se noyer dans les maths
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre pourquoi les **Transformers** ont remplacé les RNN/LSTM
+- Expliquer le mécanisme d'**attention** avec tes mots
+- Distinguer **encoder-only** (BERT), **decoder-only** (GPT), **encoder-decoder** (T5)
+- Comprendre comment un LLM **génère du texte** (autoregressive)
+- Savoir lire un article de recherche sur un nouveau modèle **sans paniquer**
+
+## 🎯 Pourquoi cette notion ?
+
+Les Transformers sont **la technologie** derrière TOUT ce qui est IA générative moderne :
+- **ChatGPT, Claude, Gemini, Llama** → Transformers
+- **Midjourney, Stable Diffusion, DALL-E** → Transformers (diffusion + CLIP)
+- **Whisper (Speech-to-Text)** → Transformer
+- **AlphaFold 2 (protein folding)** → Transformer
+
+Comprendre leur fonctionnement te permet de :
+1. **Lire les articles** de recherche sans être perdu·e
+2. **Choisir le bon modèle** pour ton projet
+3. **Comprendre les limites** (context window, hallucinations) et leurs causes
+4. **Anticiper les évolutions** (GPT-5, Claude 5...)
+
+::: {.callout-important}
+## 💡 Philosophie de cette notion
+On **ne va pas** réimplémenter un Transformer from scratch. Il existe d'excellents tutos pour ça (notamment "The Annotated Transformer"). 
+
+Ici, l'objectif est d'**acquérir une intuition solide** pour **utiliser** les Transformers efficacement. Les détails d'implémentation sont moins importants que la **compréhension** de ce qu'ils font.
+:::
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+print("✅ Environnement prêt")
+```
+
+# 1. Le problème que les Transformers résolvent
+
+## 📜 Un peu d'histoire (2014-2017)
+
+Avant les Transformers, pour traiter du texte, on utilisait des **réseaux récurrents** :
+- **RNN** (Recurrent Neural Network)
+- **LSTM** (Long Short-Term Memory)
+- **GRU** (Gated Recurrent Unit)
+
+**Idée** : lire le texte **mot par mot**, en gardant une "mémoire" du contexte dans un état caché.
+
+```
+"Le chat dort sur le canapé"
+   ↓    ↓    ↓    ↓   ↓    ↓
+  [h1][h2][h3][h4][h5][h6]
+```
+
+Chaque état `h_i` dépend du mot actuel + l'état précédent.
+
+## 🚨 Les 3 gros problèmes des RNN
+
+### Problème 1 : Mémoire à long terme qui s'évapore
+
+Pour une phrase longue, les premiers mots sont "oubliés" par le moment où on arrive à la fin :
+
+> "Le **chat** que j'ai adopté l'année dernière après avoir déménagé dans cette nouvelle maison en banlieue parisienne, **dort**."
+
+Le LSTM a du mal à relier "chat" (début) à "dort" (fin) → **gradients qui s'évanouissent**.
+
+### Problème 2 : Pas de parallélisme
+
+On lit les mots **dans l'ordre**. Impossible de traiter **tous les mots en même temps** sur GPU → entraînement ultra lent sur gros textes.
+
+### Problème 3 : Difficulté à capturer des dépendances à longue distance
+
+Dans « Marie, qui vient de Toulouse, **parle** français », le verbe dépend de "Marie" (5 mots plus loin). Les RNN galèrent.
+
+## 💡 La solution : « Attention Is All You Need » (2017)
+
+En **juin 2017**, une équipe de Google publie un article qui va tout changer : ["Attention Is All You Need"](https://arxiv.org/abs/1706.03762).
+
+L'idée : **supprimer** complètement la récurrence, et remplacer par un mécanisme d'**attention**.
+
+**Conséquences** :
+- ✅ **Parallélisation massive** → GPU utilisés à 100%
+- ✅ **Dépendances longues** capturées directement
+- ✅ **Performance** en hausse sur tous les benchmarks
+
+En 2018, **BERT** et **GPT-1** sortent. En 2022, **ChatGPT** devient le phénomène mondial.
+
+Tout commence avec cet article de 2017.
+
+# 2. L'attention : l'idée centrale
+
+## 🎯 L'intuition humaine
+
+Quand tu lis une phrase, **tu ne donnes pas la même importance à tous les mots**. Certains sont plus pertinents que d'autres pour comprendre un mot donné.
+
+**Exemple** : dans « Le **chat** noir **dort** sur le canapé rouge », pour comprendre "dort" :
+- ✅ "chat" est **très** pertinent (c'est le sujet)
+- ✅ "canapé" est **assez** pertinent (c'est le lieu)
+- ❌ "rouge" n'est **pas du tout** pertinent
+- ❌ "noir" n'est **pas très** pertinent pour cette info
+
+C'est ça **l'attention** : une manière mathématique de dire **à quels mots faire attention**.
+
+## 🧮 L'attention en formules (version light)
+
+Pour chaque mot dans la phrase, on calcule :
+
+```
+pour chaque autre mot j:
+    score(i, j) = "à quel point le mot j est pertinent pour le mot i"
+
+attention(i) = somme pondérée des représentations des mots j
+              (pondérée par les scores)
+```
+
+**Visuellement**, ça donne une **matrice d'attention** :
+
+```{python}
+#| label: fig-attention-simple
+#| fig-cap: "Matrice d'attention simplifiée"
+
+# Simulation d'une matrice d'attention pour une phrase simple
+mots = ["Le", "chat", "noir", "dort", "sur", "le", "canapé"]
+
+# Matrice d'attention simulée (valeurs qu'on pourrait observer)
+# Axe ligne = "mot qui regarde", axe colonne = "mot regardé"
+attention = np.array([
+    # Le    chat   noir   dort   sur    le   canapé
+    [0.80, 0.15, 0.02, 0.01, 0.01, 0.00, 0.01],  # Le
+    [0.10, 0.40, 0.30, 0.15, 0.02, 0.00, 0.03],  # chat
+    [0.05, 0.60, 0.25, 0.05, 0.01, 0.00, 0.04],  # noir
+    [0.02, 0.55, 0.08, 0.10, 0.05, 0.03, 0.17],  # dort  <-- regarde chat et canapé
+    [0.03, 0.10, 0.02, 0.30, 0.15, 0.10, 0.30],  # sur
+    [0.10, 0.05, 0.01, 0.03, 0.10, 0.30, 0.41],  # le
+    [0.02, 0.20, 0.05, 0.25, 0.08, 0.10, 0.30],  # canapé
+])
+
+fig, ax = plt.subplots(figsize=(9, 7))
+sns.heatmap(attention, annot=True, fmt=".2f", cmap="Purples",
+            xticklabels=mots, yticklabels=mots,
+            cbar_kws={"label": "Attention (0-1)"}, ax=ax)
+ax.set_title("Matrice d'attention (simulée) pour « Le chat noir dort sur le canapé »")
+ax.set_xlabel("Mot regardé (contexte)")
+ax.set_ylabel("Mot qui regarde")
+plt.tight_layout()
+plt.show()
+```
+
+**Lecture** : la ligne "dort" montre que ce verbe "regarde" surtout **"chat"** (sujet) et **"canapé"** (complément) — exactement ce qu'on attend sémantiquement.
+
+## 🔑 Queries, Keys, Values (Q, K, V)
+
+Pour calculer l'attention, le Transformer utilise **3 vecteurs** par mot :
+
+- **Query (Q)** : "Qu'est-ce que je cherche ?"
+- **Key (K)** : "Qu'est-ce que j'offre comme info ?"
+- **Value (V)** : "Voici mon contenu réel"
+
+**Analogie** : imagine une bibliothèque.
+- **Q** : ta requête "livres sur la cuisine italienne"
+- **K** : l'étiquette sur chaque livre
+- **V** : le contenu du livre
+
+Le mécanisme compare **ta Q** à **toutes les K**, trouve les livres pertinents, et te retourne **la somme pondérée de leurs V**.
+
+**Formule** (self-attention) :
+$$\text{Attention}(Q, K, V) = \text{softmax}\left(\frac{Q K^T}{\sqrt{d_k}}\right) V$$
+
+- `Q K^T` : **scores** de similarité (produit scalaire)
+- `sqrt(d_k)` : **stabilisation** numérique
+- `softmax` : normalise les scores en **proportions** qui somment à 1
+- `... V` : **pondération** des values par les scores
+
+::: {.callout-tip}
+## 💡 Ne sois pas effrayé·e par cette formule
+En pratique, tu n'auras **jamais** à la coder. La bibliothèque (PyTorch, HuggingFace) le fait pour toi. L'important est de **comprendre** :
+
+> L'attention produit, pour chaque mot, une **nouvelle représentation** qui est un **mélange pondéré** des représentations de **tous les autres mots**, où les poids dépendent de la **pertinence** contextuelle.
+:::
+
+## 🧪 Petite démo numérique
+
+Calculons une attention **à la main** sur un exemple minuscule :
+
+```{python}
+# Phrase : "chat dort"
+# Pour simplifier, on utilise des embeddings 2D
+
+# Les embeddings des mots (d_model = 2)
+embeddings = {
+    "chat": np.array([1.0, 0.5]),
+    "dort": np.array([0.6, 0.8]),
+}
+
+# Les matrices Q, K, V sont normalement apprises. Ici, on les met à l'identité pour simplifier.
+# Donc Q = K = V = embeddings
+X = np.array([embeddings["chat"], embeddings["dort"]])  # (2, 2)
+
+# Étape 1 : scores = Q @ K^T
+scores = X @ X.T
+print(f"Scores bruts :\n{scores}")
+# scores[i, j] = combien le mot i "attend" le mot j
+
+# Étape 2 : mise à l'échelle par sqrt(d_k)
+d_k = 2
+scores_scaled = scores / np.sqrt(d_k)
+print(f"\nScores mis à l'échelle :\n{scores_scaled.round(3)}")
+
+# Étape 3 : softmax par ligne (chaque ligne somme à 1)
+def softmax(x, axis=-1):
+    e_x = np.exp(x - x.max(axis=axis, keepdims=True))
+    return e_x / e_x.sum(axis=axis, keepdims=True)
+
+attention_poids = softmax(scores_scaled, axis=1)
+print(f"\nPoids d'attention (softmax) :\n{attention_poids.round(3)}")
+
+# Étape 4 : sortie = poids @ V
+sortie = attention_poids @ X
+print(f"\nSortie finale :\n{sortie.round(3)}")
+```
+
+**Observation** :
+- La sortie **n'est PAS** les embeddings d'origine
+- C'est un **mélange** de "chat" et "dort", pondéré par l'attention
+- Chaque mot reçoit maintenant une **représentation enrichie** par son contexte
+
+C'est **ça** le secret des Transformers : chaque mot devient **contextualisé**.
+
+## ✏️ Exercice 1 — Calculer une attention simple
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Soit 3 mots avec des embeddings 2D :
+- **rouge** : `[1.0, 0.0]`
+- **bleu** : `[0.9, 0.1]` (sémantiquement proche de rouge — tous deux "couleurs")
+- **table** : `[0.0, 1.0]` (sémantiquement lointain)
+
+1. Calcule les scores d'attention `Q @ K^T`
+2. Applique la mise à l'échelle (`/sqrt(d_k)`) puis le softmax
+3. À quoi s'attend chaque mot le plus ?
+4. Calcule la sortie `attention_poids @ V`
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+mots = ["rouge", "bleu", "table"]
+X = np.array([
+    [1.0, 0.0],
+    [0.9, 0.1],
+    [0.0, 1.0],
+])
+
+# Scores
+scores = X @ X.T
+print(f"Scores bruts :\n{pd.DataFrame(scores.round(2), index=mots, columns=mots)}")
+
+# Scaling + softmax
+d_k = 2
+poids = softmax(scores / np.sqrt(d_k), axis=1)
+print(f"\nPoids d'attention :\n{pd.DataFrame(poids.round(3), index=mots, columns=mots)}")
+
+# Sortie
+sortie = poids @ X
+print(f"\nSortie :")
+for mot, vec in zip(mots, sortie):
+    print(f"  {mot} → {vec.round(3)}")
+```
+
+**Observations** :
+- **rouge** regarde surtout **rouge** (0.47) et **bleu** (0.43) → 90% d'attention sur les couleurs
+- **bleu** fait de même
+- **table** se regarde surtout elle-même (0.53), avec peu d'attention aux couleurs
+
+**Leçon** : l'attention regroupe les concepts **sémantiquement proches**. C'est exactement le comportement qu'on veut pour "comprendre" le contexte.
+:::
+
+# 3. Multi-head attention
+
+## 🎯 Pourquoi plusieurs "têtes" ?
+
+Un problème du mécanisme simple : chaque mot n'a **qu'un seul "point de vue"** sur le contexte.
+
+Mais en réalité, un mot peut regarder ses voisins selon **plusieurs critères** :
+- Le **sujet grammatical**
+- La **proximité sémantique**
+- Les **relations temporelles**
+- Etc.
+
+## 💡 La solution : multi-head
+
+Au lieu d'**une** attention, on en calcule **plusieurs en parallèle** (par ex. 8 ou 12 "têtes"), chacune avec ses propres matrices Q, K, V apprises.
+
+**Chaque tête apprend une "manière de regarder"** différente :
+- Tête 1 : s'attache aux sujets grammaticaux
+- Tête 2 : s'attache aux relations "qui fait quoi"
+- Tête 3 : s'attache aux liens de cause à effet
+- ...
+
+Puis on **concatène** les sorties et on les passe dans une couche linéaire finale.
+
+```{python}
+#| label: fig-multihead
+#| fig-cap: "Multi-head attention : plusieurs têtes en parallèle"
+
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.set_xlim(-0.5, 10); ax.set_ylim(-0.5, 5)
+ax.axis("off")
+
+# Entrée
+ax.add_patch(plt.Rectangle((0, 2), 1.5, 1, facecolor="lightblue",
+                             edgecolor="black", linewidth=2))
+ax.text(0.75, 2.5, "Input\n(embeddings)", ha="center", va="center",
+        fontsize=10, fontweight="bold")
+
+# 4 têtes
+colors = ["lightyellow", "lightpink", "lightgreen", "lavender"]
+for i, color in enumerate(colors):
+    ax.add_patch(plt.Rectangle((3, 0.5 + i * 1.1), 2, 0.9, facecolor=color,
+                                 edgecolor="black", linewidth=1.5))
+    ax.text(4, 0.95 + i * 1.1, f"Tête {i+1}\nQ{i+1}, K{i+1}, V{i+1}",
+            ha="center", va="center", fontsize=9, fontweight="bold")
+    # Flèche input → tête
+    ax.annotate("", xy=(2.9, 0.95 + i * 1.1), xytext=(1.6, 2.5),
+                arrowprops=dict(arrowstyle="->", color="gray", lw=1.2))
+
+# Concaténation
+ax.add_patch(plt.Rectangle((6.5, 2), 1.3, 1, facecolor="wheat",
+                             edgecolor="black", linewidth=2))
+ax.text(7.15, 2.5, "Concat", ha="center", va="center", fontsize=10, fontweight="bold")
+
+# Flèches têtes → concat
+for i in range(4):
+    ax.annotate("", xy=(6.4, 2.5), xytext=(5.1, 0.95 + i * 1.1),
+                arrowprops=dict(arrowstyle="->", color="gray", lw=1.2))
+
+# Sortie
+ax.add_patch(plt.Rectangle((8.5, 2), 1.3, 1, facecolor="lightgreen",
+                             edgecolor="black", linewidth=2))
+ax.text(9.15, 2.5, "Output\n(contextualisé)", ha="center", va="center",
+        fontsize=10, fontweight="bold")
+ax.annotate("", xy=(8.4, 2.5), xytext=(7.9, 2.5),
+            arrowprops=dict(arrowstyle="->", color="black", lw=2))
+
+ax.set_title("Multi-head attention : chaque tête apprend un \"point de vue\" différent",
+              fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🔑 Valeurs typiques
+
+Dans les modèles modernes :
+
+| Modèle | Dim | Nb de têtes | Dim par tête |
+|---|:---:|:---:|:---:|
+| BERT-base | 768 | 12 | 64 |
+| BERT-large | 1024 | 16 | 64 |
+| GPT-2 | 1600 | 25 | 64 |
+| GPT-3 | 12288 | 96 | 128 |
+| GPT-4 | ??? | ??? | ??? (non public) |
+
+**Règle** : `dim_modele = nb_têtes × dim_par_tête`. La dim par tête reste **souvent 64** (norme historique).
+
+# 4. Positional encoding : l'ordre des mots
+
+## 🚨 Le problème
+
+Les Transformers traitent **tous les mots en parallèle**. Mais dans une phrase, **l'ordre compte** !
+
+> "Le chien mord l'homme" ≠ "L'homme mord le chien"
+
+Les embeddings **tout seuls** ne contiennent pas l'info d'ordre. Il faut l'ajouter.
+
+## 💡 La solution : positional encoding
+
+On **ajoute** un vecteur qui encode la **position** du mot dans la phrase :
+
+```
+embedding_final_du_mot = embedding_mot + positional_encoding_de_sa_position
+```
+
+Il existe 2 familles :
+
+### 1. Sinusoidal (original, Transformer 2017)
+
+Utilise des fonctions trigonométriques (sinus/cosinus) à différentes fréquences :
+
+$$PE(\text{pos}, 2i) = \sin\left(\frac{\text{pos}}{10000^{2i/d}}\right)$$
+
+Avantage : fonctionne même pour des phrases plus longues que vues à l'entraînement.
+
+### 2. Learned (BERT, GPT...)
+
+On apprend les positional encodings comme des embeddings normaux. Plus flexible, mais limité à la longueur max vue à l'entraînement.
+
+## 🎨 Visualiser le positional encoding sinusoidal
+
+```{python}
+#| label: fig-positional-encoding
+#| fig-cap: "Positional encoding sinusoidal"
+
+def positional_encoding(max_pos, d_model):
+    """Positional encoding comme dans le papier original."""
+    pos = np.arange(max_pos)[:, None]  # (max_pos, 1)
+    i = np.arange(d_model)[None, :]     # (1, d_model)
+    angle = pos / (10000 ** (2 * (i // 2) / d_model))
+    
+    pe = np.zeros((max_pos, d_model))
+    pe[:, 0::2] = np.sin(angle[:, 0::2])  # dimensions paires
+    pe[:, 1::2] = np.cos(angle[:, 1::2])  # dimensions impaires
+    return pe
+
+pe = positional_encoding(max_pos=50, d_model=64)
+
+fig, ax = plt.subplots(figsize=(11, 5))
+im = ax.imshow(pe, cmap="RdBu_r", aspect="auto", vmin=-1, vmax=1)
+plt.colorbar(im, ax=ax, label="Valeur")
+ax.set_xlabel("Dimension d'embedding")
+ax.set_ylabel("Position dans la phrase")
+ax.set_title("Positional encoding : chaque ligne = « signature » unique de la position")
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** : chaque ligne (= chaque position) a une **signature unique**, ce qui permet au modèle de distinguer les mots selon leur position.
+
+# 5. Les 3 grandes familles d'architectures
+
+Le Transformer original (2017) avait un **encoder + decoder** (traduction automatique). Depuis, **3 variantes** ont émergé selon le cas d'usage :
+
+```{python}
+#| label: fig-transformer-families
+#| fig-cap: "Les 3 familles d'architectures Transformer"
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 6))
+
+# Encoder-only
+ax = axes[0]
+ax.set_xlim(0, 4); ax.set_ylim(0, 8); ax.axis("off")
+# Couches encoder
+for y in [2, 4, 6]:
+    ax.add_patch(plt.Rectangle((1, y), 2, 1, facecolor="lightblue",
+                                 edgecolor="black", linewidth=1.5))
+    ax.text(2, y + 0.5, "Encoder", ha="center", va="center", fontsize=10)
+ax.arrow(2, 1.8, 0, -0.5, head_width=0.15, head_length=0.15, fc="black", ec="black")
+ax.text(2, 1.2, "Input", ha="center", fontsize=10, fontweight="bold")
+ax.arrow(2, 7.1, 0, 0.5, head_width=0.15, head_length=0.15, fc="black", ec="black")
+ax.text(2, 7.8, "Représentation", ha="center", fontsize=10, fontweight="bold")
+ax.set_title("Encoder-only\n(BERT, RoBERTa)", fontsize=12, fontweight="bold")
+ax.text(2, 0.5, "→ Classification, embeddings", ha="center", fontsize=9, style="italic")
+
+# Decoder-only
+ax = axes[1]
+ax.set_xlim(0, 4); ax.set_ylim(0, 8); ax.axis("off")
+for y in [2, 4, 6]:
+    ax.add_patch(plt.Rectangle((1, y), 2, 1, facecolor="lightyellow",
+                                 edgecolor="black", linewidth=1.5))
+    ax.text(2, y + 0.5, "Decoder\n(causal)", ha="center", va="center", fontsize=9)
+ax.arrow(2, 1.8, 0, -0.5, head_width=0.15, head_length=0.15, fc="black", ec="black")
+ax.text(2, 1.2, "Prompt", ha="center", fontsize=10, fontweight="bold")
+ax.arrow(2, 7.1, 0, 0.5, head_width=0.15, head_length=0.15, fc="black", ec="black")
+ax.text(2, 7.8, "Mot suivant", ha="center", fontsize=10, fontweight="bold")
+ax.set_title("Decoder-only\n(GPT, Llama, Claude)", fontsize=12, fontweight="bold")
+ax.text(2, 0.5, "→ Génération de texte", ha="center", fontsize=9, style="italic")
+
+# Encoder-Decoder
+ax = axes[2]
+ax.set_xlim(0, 6); ax.set_ylim(0, 8); ax.axis("off")
+# Encoder (gauche)
+for y in [2, 4, 6]:
+    ax.add_patch(plt.Rectangle((0.5, y), 1.8, 1, facecolor="lightblue",
+                                 edgecolor="black", linewidth=1.5))
+    ax.text(1.4, y + 0.5, "Enc", ha="center", va="center", fontsize=10)
+# Decoder (droite)
+for y in [2, 4, 6]:
+    ax.add_patch(plt.Rectangle((3.2, y), 1.8, 1, facecolor="lightyellow",
+                                 edgecolor="black", linewidth=1.5))
+    ax.text(4.1, y + 0.5, "Dec", ha="center", va="center", fontsize=10)
+# Cross-attention arrows
+for y in [2.5, 4.5, 6.5]:
+    ax.annotate("", xy=(3.1, y), xytext=(2.4, y),
+                arrowprops=dict(arrowstyle="->", color="purple", lw=1.5))
+ax.arrow(1.4, 1.8, 0, -0.5, head_width=0.1, head_length=0.1, fc="black", ec="black")
+ax.arrow(4.1, 1.8, 0, -0.5, head_width=0.1, head_length=0.1, fc="black", ec="black")
+ax.text(1.4, 1.2, "Source", ha="center", fontsize=9, fontweight="bold")
+ax.text(4.1, 1.2, "Cible\n(partielle)", ha="center", fontsize=9, fontweight="bold")
+ax.arrow(4.1, 7.1, 0, 0.5, head_width=0.1, head_length=0.1, fc="black", ec="black")
+ax.text(4.1, 7.8, "Cible (suite)", ha="center", fontsize=9, fontweight="bold")
+ax.set_title("Encoder-Decoder\n(T5, BART, Whisper)", fontsize=12, fontweight="bold")
+ax.text(3, 0.5, "→ Traduction, résumé", ha="center", fontsize=9, style="italic")
+
+plt.tight_layout()
+plt.show()
+```
+
+## 📊 Tableau comparatif
+
+| Architecture | Attention | Cas d'usage | Exemples |
+|---|---|---|---|
+| **Encoder-only** | Bidirectionnelle | Classification, embeddings | BERT, RoBERTa, DeBERTa |
+| **Decoder-only** | Causale (gauche → droite) | Génération de texte | GPT-4, Claude, Llama, Mistral |
+| **Encoder-Decoder** | Encoder bidirectionnel + cross-attention | Traduction, résumé | T5, BART, Whisper |
+
+## 🎯 Pourquoi decoder-only a gagné pour les LLM ?
+
+Au départ (2017-2019), on pensait que **BERT** (encoder-only) était supérieur pour comprendre le texte, et que GPT (decoder-only) serait limité à la génération.
+
+**Surprise** : avec la taille (+ de paramètres), **les decoder-only** comme GPT-3 ont montré qu'ils pouvaient **tout faire** :
+- Générer du texte ✅
+- Répondre à des questions ✅
+- Résumer, traduire, classifier... ✅
+
+**Pourquoi ?** Parce qu'en décodant, ils **regardent tout le contexte antérieur** à chaque token. Avec assez de données et de paramètres, ils apprennent **toutes les tâches** comme des cas particuliers de génération.
+
+**Conclusion** : en 2026, **quasi tous les LLM grand public sont decoder-only**. Claude, GPT-4, Llama, Gemini, Mistral, DeepSeek → tous decoder-only.
+
+# 6. Comment un LLM génère du texte
+
+## 🎬 Le processus autoregressive
+
+Un LLM decoder-only génère du texte **un token à la fois**, en utilisant **les tokens précédents** pour prédire **le suivant**.
+
+```
+Prompt : "La capitale de la France est"
+                          ↓
+          LLM prédit : "Paris"  (token le plus probable)
+                          ↓
+Contexte mis à jour : "La capitale de la France est Paris"
+                          ↓
+          LLM prédit : ","  (virgule ou autre)
+                          ↓
+Et ainsi de suite jusqu'au token spécial "stop"
+```
+
+## 🎲 Comment choisir le prochain token ?
+
+Le LLM produit à chaque étape une **distribution de probabilités** sur **tout le vocabulaire** (~50 000 tokens typiquement).
+
+**Stratégies de sampling** :
+
+### Greedy (le plus simple)
+Prendre toujours **le token le plus probable**. Résultat : déterministe mais **souvent répétitif**.
+
+### Temperature sampling
+Tirer aléatoirement selon les probas, avec un paramètre `temperature` :
+- `temperature = 0` : quasi-greedy
+- `temperature = 1` : échantillonnage selon les probas originales
+- `temperature = 2` : plus créatif, plus risqué
+
+### Top-k / Top-p (nucleus)
+Restreindre aux **k meilleurs** tokens (top-k) ou à ceux qui couvrent **p%** de la masse de proba (top-p, par ex. p=0.9).
+
+```{python}
+#| label: fig-sampling
+#| fig-cap: "Impact de la temperature sur la distribution"
+
+vocab = ["Paris", "Lyon", "Marseille", "Bordeaux", "Toulouse"]
+logits = np.array([5.0, 2.0, 1.5, 0.8, 0.3])  # Paris très favori
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+
+for ax, T in zip(axes, [0.1, 1.0, 3.0]):
+    probas = softmax(logits / T)
+    ax.bar(vocab, probas, color="steelblue", edgecolor="black")
+    ax.set_title(f"Temperature = {T}")
+    ax.set_ylabel("Probabilité")
+    ax.set_ylim(0, 1)
+    for i, p in enumerate(probas):
+        ax.text(i, p + 0.02, f"{p:.2f}", ha="center", fontsize=9)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Observation** :
+- `T=0.1` : quasi-déterministe (Paris écrase tout)
+- `T=1` : distribution naturelle (Paris très probable, autres possibles)
+- `T=3` : presque uniforme (créatif mais risque de non-sens)
+
+**Réglage typique** :
+- Code, faits, questions : `T = 0.0 - 0.3`
+- Discussion, rédaction : `T = 0.7 - 1.0`
+- Créativité, brainstorming : `T = 1.0 - 1.5`
+
+On reverra ça en détail en **Notion 7.3**.
+
+## ✏️ Exercice 2 — Illustrer la temperature
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Soit un vocabulaire de 6 mots avec les logits suivants :
+```python
+vocab = ["excellent", "bon", "correct", "médiocre", "mauvais", "nul"]
+logits = np.array([3.0, 2.5, 1.0, 0.5, 0.2, 0.0])
+```
+
+1. Calcule les probabilités pour `T = 0.1, 0.5, 1.0, 2.0`
+2. Trace les 4 distributions en barplot (2×2)
+3. Pour chaque T, simule **20 tirages** avec `np.random.choice(vocab, p=probas)` et compte les occurrences
+4. Conclus : quelle T pour un assistant factuel, un écrivain créatif ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+vocab = ["excellent", "bon", "correct", "médiocre", "mauvais", "nul"]
+logits = np.array([3.0, 2.5, 1.0, 0.5, 0.2, 0.0])
+
+fig, axes = plt.subplots(2, 2, figsize=(13, 9))
+
+for ax, T in zip(axes.flat, [0.1, 0.5, 1.0, 2.0]):
+    probas = softmax(logits / T)
+    
+    # Simulation de 20 tirages
+    rng = np.random.default_rng(42)
+    tirages = rng.choice(vocab, size=20, p=probas)
+    counts = pd.Series(tirages).value_counts().reindex(vocab, fill_value=0)
+    
+    ax.bar(vocab, probas, color="steelblue", edgecolor="black", alpha=0.6, label="Proba théorique")
+    ax.bar(vocab, counts.values / 20, color="coral", edgecolor="black", alpha=0.6, label="Fréquence (20 tirages)")
+    ax.set_title(f"Temperature = {T}")
+    ax.set_ylabel("Probabilité / fréquence")
+    ax.tick_params(axis="x", rotation=30)
+    ax.legend(fontsize=9)
+    ax.set_ylim(0, 1)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Conclusions** :
+- `T = 0.1` → presque toujours "excellent" : **factuel**, peu créatif
+- `T = 1.0` → naturel, "excellent" dominant mais les autres sortent
+- `T = 2.0` → presque uniforme : **créatif mais hasardeux**
+
+**En pratique** :
+- **Assistant factuel** : T = 0.0 à 0.3
+- **Écrivain créatif** : T = 0.8 à 1.2
+- **Brainstorming sauvage** : T = 1.5+
+:::
+
+# 7. Quelques limitations à connaître
+
+Pour bien utiliser un Transformer, il faut connaître ses **limites**.
+
+## 📐 Le context window
+
+Un LLM a un **contexte maximum** (en tokens) qu'il peut traiter :
+
+| Modèle | Context window |
+|---|---:|
+| GPT-3 (2020) | 2 048 |
+| GPT-3.5 | 4 096 puis 16 384 |
+| GPT-4 Turbo | 128 000 |
+| Claude 3 | 200 000 |
+| Gemini 1.5 Pro | 2 000 000 |
+
+**Pourquoi c'est limité ?** Parce que la complexité de l'attention est **O(n²)** : doubler la taille du contexte **quadruple** le coût de calcul.
+
+**Implications** :
+- Tu ne peux pas "coller" un livre de 1000 pages dans un prompt
+- **Solution** : le **RAG** (Notion 7.4) qui ne récupère que les passages pertinents
+
+## 🎭 Les hallucinations
+
+Les LLM peuvent **inventer** des faits avec aplomb :
+- Des citations qui n'existent pas
+- Des articles scientifiques fictifs
+- Des références légales erronées
+
+**Pourquoi ?** Parce qu'ils sont entraînés à **générer un texte plausible**, pas à **vérifier la vérité**.
+
+**Solutions partielles** :
+- Prompts qui demandent "je ne sais pas" si pas sûr
+- **RAG** pour ancrer les réponses sur des sources
+- **Fine-tuning** sur un domaine spécifique
+- **Vérification humaine** pour les cas critiques
+
+## 🧮 Difficultés classiques
+
+Les LLM ont encore des faiblesses sur :
+- **Maths** (surtout multi-étapes)
+- **Logique** formelle complexe
+- **Comptage** précis
+- **Citations** exactes
+- **Temporalité** récente (entraînement figé à une date)
+
+Solutions : **tool-use** (Notion 7.5) — donner au LLM une **calculatrice**, un **moteur de recherche**, etc.
+
+# 🏁 Exercice bilan — Mini-Transformer pour la compréhension
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Le but : manipuler **concrètement** les briques de l'attention pour **bien** les intégrer.
+
+Soit une phrase : **"le chat noir dort"**, avec des embeddings 4D suivants :
+
+```python
+mots = ["le", "chat", "noir", "dort"]
+X = np.array([
+    [0.1, 0.2, 0.0, 0.1],   # le (mot peu porteur de sens)
+    [0.8, 0.5, 0.3, 0.4],   # chat (sujet)
+    [0.6, 0.6, 0.2, 0.3],   # noir (attribut)
+    [0.3, 0.4, 0.7, 0.5],   # dort (verbe)
+])
+```
+
+**Mission** :
+
+1. Simule des matrices Q, K, V aléatoires (shape 4×4, entre -1 et 1, seed=42)
+2. Calcule Q, K, V à partir de X (produit matriciel)
+3. Calcule les scores : `Q_vectors @ K_vectors^T / sqrt(4)`
+4. Applique softmax par ligne
+5. Affiche la matrice d'attention en heatmap
+6. Calcule la sortie : `poids @ V_vectors`
+7. **Bonus** : change les embeddings (rapproche "noir" de "chat" en sémantique) et observe comment l'attention change.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+rng = np.random.default_rng(42)
+
+mots = ["le", "chat", "noir", "dort"]
+X = np.array([
+    [0.1, 0.2, 0.0, 0.1],
+    [0.8, 0.5, 0.3, 0.4],
+    [0.6, 0.6, 0.2, 0.3],
+    [0.3, 0.4, 0.7, 0.5],
+])
+
+# Matrices d'apprentissage W_Q, W_K, W_V (d_model x d_model)
+W_Q = rng.uniform(-1, 1, (4, 4))
+W_K = rng.uniform(-1, 1, (4, 4))
+W_V = rng.uniform(-1, 1, (4, 4))
+
+# Q, K, V
+Q = X @ W_Q
+K = X @ W_K
+V = X @ W_V
+
+# Scores et softmax
+scores = Q @ K.T / np.sqrt(4)
+poids = softmax(scores, axis=1)
+
+# Affichage
+fig, ax = plt.subplots(figsize=(7, 5))
+sns.heatmap(poids, annot=True, fmt=".2f", cmap="Purples",
+            xticklabels=mots, yticklabels=mots,
+            cbar_kws={"label": "Attention"}, ax=ax)
+ax.set_title("Matrice d'attention apprise (aléatoire pour la démo)")
+ax.set_xlabel("Mot regardé"); ax.set_ylabel("Mot qui regarde")
+plt.tight_layout()
+plt.show()
+
+# Sortie
+sortie = poids @ V
+print("Sortie pour chaque mot (mélange pondéré) :")
+for mot, vec in zip(mots, sortie):
+    print(f"  {mot:5s} → {vec.round(3)}")
+```
+
+**Observation pédagogique** :
+- Chaque mot a une **nouvelle représentation** (sortie) qui est un **mélange** de tous les V
+- Cette représentation est **contextualisée** : elle dépend de **tous les autres mots**
+- Dans un vrai Transformer, W_Q, W_K, W_V sont **appris par backprop** pour capturer des relations sémantiques pertinentes
+
+C'est exactement ce qui se passe **dans chaque couche** d'attention d'un Transformer, répété **sur plusieurs couches** (12 pour BERT-base, 96 pour GPT-3).
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Attention** | Chaque mot regarde tous les autres, pondéré par la pertinence |
+| **Q, K, V** | Query (ce que je cherche), Key (ce que j'offre), Value (contenu) |
+| **Multi-head** | Plusieurs "points de vue" en parallèle |
+| **Positional encoding** | Ajouté pour préserver l'ordre des mots |
+| **Encoder-only** | BERT : classification, embeddings |
+| **Decoder-only** | GPT/Claude/Llama : génération de texte |
+| **Encoder-decoder** | T5/BART : traduction, résumé |
+| **Autoregressive** | Génération token par token |
+| **Temperature** | Contrôle la créativité du sampling |
+| **Context window** | Limite de tokens traitables (O(n²)) |
+| **Hallucinations** | Invention de faits plausibles mais faux |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours** penser en termes de **tokens**, pas de mots (1 mot ≈ 1.3 token en anglais, 2 en français)
+2. **Comprendre le context window** de ton modèle (tu peux "remplir" mais c'est coûteux)
+3. **Régler la temperature** selon le cas d'usage (factuel vs créatif)
+4. **Savoir que les LLM hallucinent** → RAG + vérification
+5. **Decoder-only = standard** pour les LLM modernes
+
+## 🚨 Les pièges à éviter
+
+1. **Penser que les LLM "comprennent"** au sens humain — ils prédisent des tokens
+2. **Attendre un comportement factuel sans RAG** — ils hallucinent
+3. **Oublier le coût O(n²)** quand tu gonfles le contexte
+4. **Comparer un modèle sans connaître son archi** (encoder vs decoder)
+5. **Croire qu'une T=0 est "déterministe"** sur tous les providers (l'API peut avoir des différences subtiles)
+
+## 🚀 La suite
+
+Tu comprends maintenant **ce qui se passe** dans un LLM. Dans la [**Notion 7.3 — Utiliser un LLM via API**](notion_7_3_api_llm.qmd), on passe à la **pratique** :
+
+- Obtenir une **clé API Groq** (100% gratuite)
+- Premier appel en **5 lignes**
+- **Prompt engineering** : les techniques qui marchent
+- **Streaming** des réponses
+- **Structured output** (JSON, Pydantic)
+- **Basculer entre providers** (Groq / Anthropic / OpenAI)
+
+On arrête les théories et on construit notre premier système IA générative. 🚀
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+**Lis le papier "Attention Is All You Need" (2017)** : [arxiv.org/abs/1706.03762](https://arxiv.org/abs/1706.03762)
+
+Oui c'est un article de recherche, oui c'est dense. Mais avec ce que tu viens d'apprendre, tu devrais comprendre **80% du texte**. Les 20% restants (détails d'implémentation) sont pour les chercheurs.
+
+**C'est fondateur** : on parle de l'article **le plus cité** en IA de ces 10 dernières années.
+:::
