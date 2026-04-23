@@ -29,11 +29,11 @@ pydantic>=2.5.0
 python-dotenv>=1.0.0
 # RAG et vector store (notion 7.4)
 chromadb>=0.4.0
-# Tool use et agents (notion 7.5) — À VENIR
-# Fine-tuning (notion 7.6) — À VENIR
-# peft>=0.7.0
-# transformers>=4.35.0
-# datasets>=2.14.0
+# Fine-tuning (notion 7.6)
+peft>=0.7.0
+transformers>=4.35.0
+datasets>=2.14.0
+accelerate>=0.25.0
 
 # === MLOps (Module 8) — À VENIR ===
 # fastapi>=0.104.0
