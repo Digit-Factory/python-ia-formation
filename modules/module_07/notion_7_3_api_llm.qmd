@@ -1,0 +1,1043 @@
+---
+title: "Notion 7.3 — Utiliser un LLM via API"
+subtitle: "Ton premier chatbot en 5 lignes (100% gratuit)"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_07/notion_7_3_api_llm_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_07/notion_7_3_api_llm_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_07_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notions 7.1 et 7.2  
+**Objectif** : appeler un LLM via API, maîtriser les bases du prompt engineering, structurer les sorties
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Obtenir une **clé API Groq** (100% gratuite)
+- Faire ton premier appel à un LLM en **5 lignes**
+- Maîtriser le **prompt engineering** (system prompt, few-shot, chain of thought)
+- Utiliser le **streaming** pour voir la réponse s'écrire en direct
+- Forcer des **sorties structurées** (JSON, Pydantic)
+- **Changer de provider** (Groq → OpenAI → Anthropic) en 2 lignes
+- Gérer les **erreurs** et **rate limits** proprement
+
+## 🎯 Pourquoi cette notion ?
+
+C'est **LA notion pratique** du module. Tu vas passer de "théoricien des LLM" à **ingénieur·e qui construit**.
+
+Les LLM via API, c'est la forme la plus utilisée en production :
+- Pas besoin d'**entraîner** un modèle (économie de mois de travail)
+- Pas besoin de **GPU** coûteux
+- Modèles toujours **à jour**
+- Tu payes uniquement **ce que tu utilises** (ou rien avec Groq gratuit !)
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import os
+import json
+import numpy as np
+import pandas as pd
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairies nécessaires
+
+```bash
+pip install openai pydantic python-dotenv
+```
+
+- **openai** : SDK officiel, fonctionne aussi pour Groq (API compatible)
+- **pydantic** : pour forcer des sorties structurées
+- **python-dotenv** : gérer proprement tes clés API
+:::
+
+# 1. Obtenir une clé API Groq (100% gratuite)
+
+## 🎁 Pourquoi Groq ?
+
+On utilise **Groq** comme provider principal car :
+- 🆓 **Gratuit** avec free tier très généreux (14 400 requêtes/jour)
+- ⚡ **Ultra rapide** (Groq est connu pour son inférence éclair)
+- 🚀 Donne accès à **Llama 3.3 70B**, **Mixtral**, et d'autres modèles open source
+- 🔧 **Compatible SDK OpenAI** → tu apprends une syntaxe qui marche partout
+
+## 📝 Étapes pour obtenir ta clé
+
+1. **Va sur** [https://console.groq.com](https://console.groq.com)
+2. **Inscris-toi** (gratuit, GitHub ou email)
+3. **API Keys → Create API Key**
+4. **Copie la clé** (elle commence par `gsk_...`)
+5. **Sauvegarde-la** (tu ne pourras plus la voir après)
+
+## 🔒 Comment stocker ta clé proprement
+
+**❌ NE JAMAIS** mettre ta clé dans le code :
+```python
+# ❌ JAMAIS
+client = OpenAI(api_key="gsk_abc123...")
+```
+
+Si tu pushes ça sur GitHub → des bots volent ta clé en moins de 5 minutes.
+
+### ✅ Bonne pratique : variable d'environnement
+
+Crée un fichier `.env` dans ton projet :
+```
+GROQ_API_KEY=gsk_ta_vraie_cle_ici
+```
+
+**Important** : ajoute `.env` dans ton `.gitignore` pour ne jamais le commiter.
+
+Puis en Python :
+
+```python
+from dotenv import load_dotenv
+import os
+
+load_dotenv()  # lit le fichier .env
+api_key = os.getenv("GROQ_API_KEY")
+```
+
+# 2. Premier appel — Hello LLM !
+
+## 🚀 Le code minimal
+
+```{python}
+#| eval: false
+from openai import OpenAI
+
+# Client Groq (compatible OpenAI)
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",  # différence avec OpenAI
+)
+
+# Premier appel
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[
+        {"role": "user", "content": "Quelle est la capitale de la France ?"}
+    ],
+)
+
+print(response.choices[0].message.content)
+```
+
+**Sortie typique** :
+```
+La capitale de la France est Paris.
+```
+
+**En 10 lignes**, tu viens de discuter avec un LLM qui tourne dans un data center à Mountain View. 🎉
+
+## 🔍 Décortiquons le message
+
+La structure `messages` suit un format **standardisé** :
+
+```python
+messages = [
+    {"role": "system", "content": "Tu es un assistant cuisine."},
+    {"role": "user", "content": "Comment faire une omelette ?"},
+    {"role": "assistant", "content": "Voici une recette simple..."},
+    {"role": "user", "content": "Et avec des herbes ?"},
+]
+```
+
+Les 3 rôles :
+- **`system`** : donne une **persona** ou des **règles** globales
+- **`user`** : ce que l'utilisateur écrit
+- **`assistant`** : les **réponses précédentes** du modèle (pour conversation)
+
+## 🧪 Exemple avec system prompt
+
+```{python}
+#| eval: false
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[
+        {
+            "role": "system",
+            "content": "Tu es un assistant culinaire. "
+                       "Tu réponds toujours avec 3 recettes maximum, numérotées."
+        },
+        {"role": "user", "content": "Que faire avec des œufs ?"}
+    ],
+)
+
+print(response.choices[0].message.content)
+```
+
+**Sortie typique** :
+```
+1. Omelette aux fines herbes
+2. Œufs brouillés à la crème  
+3. Œufs au plat façon bénédictine
+```
+
+**Le system prompt oriente tout** : persona, format de réponse, contraintes, style.
+
+## 🎛️ Les paramètres à connaître
+
+```python
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[...],
+    temperature=0.7,       # créativité (0 = factuel, 1+ = créatif)
+    max_tokens=500,        # longueur max de la réponse
+    top_p=0.9,             # nucleus sampling
+    frequency_penalty=0,   # pénalise les mots déjà utilisés
+    presence_penalty=0,    # pénalise les sujets déjà abordés
+)
+```
+
+**Valeurs types** :
+- Factuel (code, FAQ, classif) : `temperature=0, max_tokens=500`
+- Discussion : `temperature=0.7, max_tokens=1000`
+- Créativité (storytelling) : `temperature=1.0, max_tokens=2000`
+
+## 💰 Comprendre les tokens et le coût
+
+Chaque requête consomme des **tokens** :
+- **Input tokens** : ton prompt
+- **Output tokens** : la réponse du LLM
+
+```{python}
+#| eval: false
+print(f"Tokens input  : {response.usage.prompt_tokens}")
+print(f"Tokens output : {response.usage.completion_tokens}")
+print(f"Total         : {response.usage.total_tokens}")
+```
+
+**Coûts typiques** (au 2026) :
+- Groq : **gratuit** dans la limite du free tier
+- OpenAI GPT-4o : ~**2.50$** par million de tokens input, **10$** output
+- Anthropic Claude 3.5 Sonnet : ~**3$** input, **15$** output
+- Llama via HuggingFace : **gratuit** si self-host
+
+**Conversion approximative** : 1 token ≈ 4 caractères ≈ 0.75 mot en anglais, 0.5 mot en français.
+
+## ✏️ Exercice 1 — Premier chatbot
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Configure ta clé API Groq dans un `.env`
+2. Crée une fonction `ask(question)` qui prend une question et retourne la réponse
+3. Teste avec 3 questions :
+   - "Explique-moi ce qu'est le machine learning en 2 phrases"
+   - "Donne-moi 5 idées de cadeaux pour ma mère (60 ans)"
+   - "Code une fonction Python qui inverse une string"
+4. **Bonus** : affiche le nombre de tokens consommés pour chaque appel
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice 1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
+
+def ask(question, model="llama-3.3-70b-versatile", temperature=0.7):
+    """Envoie une question à Groq et retourne la réponse + tokens."""
+    response = client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": question}],
+        temperature=temperature,
+    )
+    return {
+        "content": response.choices[0].message.content,
+        "tokens_in": response.usage.prompt_tokens,
+        "tokens_out": response.usage.completion_tokens,
+    }
+
+questions = [
+    "Explique-moi ce qu'est le machine learning en 2 phrases",
+    "Donne-moi 5 idées de cadeaux pour ma mère (60 ans)",
+    "Code une fonction Python qui inverse une string",
+]
+
+for q in questions:
+    result = ask(q)
+    print(f"\n=== Q: {q} ===")
+    print(result["content"])
+    print(f"Tokens : {result['tokens_in']} in + {result['tokens_out']} out")
+```
+
+**Observations attendues** :
+- Les réponses sont **différentes** à chaque appel (par défaut `temperature=0.7`)
+- Le nombre de tokens varie énormément selon la question
+- Code Python : quelques dizaines de tokens
+- 5 idées cadeaux : plusieurs centaines de tokens
+:::
+
+# 3. Prompt engineering : les techniques qui marchent
+
+Le **prompt engineering** est l'art de **bien formuler** tes demandes au LLM. C'est une compétence **critique** en 2026.
+
+## 📝 Technique 1 : Rôle et contexte explicites
+
+❌ **Mauvais** :
+```
+Écris un mail
+```
+
+✅ **Bon** :
+```
+Tu es responsable marketing. Rédige un email de relance client 
+pour un abonnement qui expire dans 7 jours. 
+Ton ton : professionnel mais chaleureux. 
+Longueur : 150 mots maximum.
+```
+
+**Règle** : plus tu donnes de contexte, meilleure est la réponse.
+
+## 📝 Technique 2 : Few-shot prompting
+
+Au lieu d'expliquer longuement, **montre des exemples** :
+
+```{python}
+#| eval: false
+few_shot_prompt = """Classifie les avis clients en POSITIF, NEGATIF ou NEUTRE.
+
+Avis : "Produit incroyable, je recommande !"
+Classe : POSITIF
+
+Avis : "Livraison en retard, emballage abîmé."
+Classe : NEGATIF
+
+Avis : "La couleur n'est pas exactement celle de la photo."
+Classe : NEUTRE
+
+Avis : "Le SAV a mis 3 semaines à me répondre. Inadmissible."
+Classe :"""
+
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[{"role": "user", "content": few_shot_prompt}],
+    temperature=0,
+    max_tokens=10,
+)
+print(response.choices[0].message.content)  # → NEGATIF
+```
+
+**Leçon** : 3 exemples valent mieux qu'un long texte d'instructions.
+
+## 📝 Technique 3 : Chain of Thought (CoT)
+
+Pour des problèmes complexes (maths, logique, raisonnement), demande au LLM de **réfléchir étape par étape** :
+
+❌ **Sans CoT** :
+```
+Si j'ai 3 pommes et j'en mange 2, combien reste-t-il ?
+```
+
+✅ **Avec CoT** :
+```
+Si j'ai 3 pommes et j'en mange 2, combien reste-t-il ?
+Réfléchis étape par étape avant de donner la réponse finale.
+```
+
+**Effet** : le LLM **améliore massivement** sa précision sur les problèmes multi-étapes en "déroulant" son raisonnement.
+
+## 📝 Technique 4 : Contraintes de format
+
+Précise **exactement** le format attendu :
+
+```
+Résume ce texte en :
+- Exactement 3 bullets
+- Chaque bullet commence par un verbe d'action
+- Pas de phrase de plus de 15 mots
+- En français
+```
+
+## 📝 Technique 5 : Délimitation claire
+
+Utilise des **balises** pour séparer instructions et contenu :
+
+```
+Résume le texte ci-dessous en 100 mots.
+
+<texte>
+{texte_utilisateur}
+</texte>
+
+Résumé :
+```
+
+**Avantage** : le LLM sait **exactement** où sont ses données, vs ses instructions. Protège aussi contre certaines **injections de prompt**.
+
+## 🏭 Le pattern "rôle-tâche-contexte-format"
+
+Un **template ultra efficace** :
+
+```
+[RÔLE]     Tu es un expert en {domaine}.
+[TÂCHE]    Ta mission est de {action}.
+[CONTEXTE] Voici les informations : {data}
+[FORMAT]   Réponds sous la forme : {format}
+[TON]      Sois {style}.
+```
+
+## ✏️ Exercice 2 — Améliorer un prompt
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu dois classifier des tickets de support client en 4 catégories : 
+`BUG`, `DEMANDE_FONCTIONNALITE`, `QUESTION`, `PLAINTE`.
+
+**Première version (faible)** :
+```
+Classe ce ticket : {ticket}
+```
+
+1. Réécris le prompt en appliquant les 5 techniques vues
+2. Teste-le sur ces 4 tickets :
+   ```
+   t1 = "L'appli crashe quand je clique sur 'Valider'"
+   t2 = "Est-ce que vous proposez un mode sombre ?"
+   t3 = "Pouvez-vous m'expliquer comment changer mon mot de passe ?"
+   t4 = "Votre service client est inadmissible, j'attends depuis 3 semaines !"
+   ```
+3. Vérifie que les résultats sont : BUG, DEMANDE_FONCTIONNALITE, QUESTION, PLAINTE
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+prompt_template = """Tu es un classificateur de tickets support.
+
+TÂCHE : classifier le ticket client dans UNE des 4 catégories :
+- BUG : un bug ou un comportement inattendu de l'application
+- DEMANDE_FONCTIONNALITE : demande d'ajout d'une nouvelle fonctionnalité
+- QUESTION : question sur comment utiliser le produit
+- PLAINTE : mécontentement général sur le service
+
+EXEMPLES :
+
+Ticket : "L'appli affiche une erreur 500 au login"
+Catégorie : BUG
+
+Ticket : "Serait-il possible d'ajouter l'export PDF ?"
+Catégorie : DEMANDE_FONCTIONNALITE
+
+Ticket : "Comment puis-je modifier ma signature d'email ?"
+Catégorie : QUESTION
+
+Ticket : "Je suis très déçu de la qualité de votre support."
+Catégorie : PLAINTE
+
+FORMAT : Réponds UNIQUEMENT par le nom de la catégorie, en majuscules, sans explication.
+
+Ticket : "{ticket}"
+Catégorie :"""
+
+tickets = [
+    "L'appli crashe quand je clique sur 'Valider'",
+    "Est-ce que vous proposez un mode sombre ?",
+    "Pouvez-vous m'expliquer comment changer mon mot de passe ?",
+    "Votre service client est inadmissible, j'attends depuis 3 semaines !",
+]
+
+for t in tickets:
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt_template.format(ticket=t)}],
+        temperature=0,  # factuel
+        max_tokens=20,
+    )
+    print(f"{t[:50]:50s} → {response.choices[0].message.content.strip()}")
+```
+
+**Résultat attendu** :
+```
+L'appli crashe quand je clique sur 'Valider'         → BUG
+Est-ce que vous proposez un mode sombre ?            → DEMANDE_FONCTIONNALITE
+Pouvez-vous m'expliquer comment changer mon mot ... → QUESTION
+Votre service client est inadmissible, j'attends ... → PLAINTE
+```
+
+**Techniques utilisées** :
+1. **Rôle** : "Tu es un classificateur de tickets support"
+2. **Description précise** des catégories
+3. **Few-shot** : 4 exemples typiques (un par catégorie)
+4. **Format strict** : "UNIQUEMENT par le nom, en majuscules"
+5. **Délimitation** : guillemets autour du ticket
+
+La précision passe d'un modèle à ~60% à **~95%** avec ces bonnes pratiques.
+:::
+
+# 4. Streaming : voir la réponse en direct
+
+Pour une meilleure UX (notamment en chatbot), on veut voir la réponse **s'écrire progressivement**, comme ChatGPT.
+
+## 🎬 Activer le streaming
+
+```{python}
+#| eval: false
+stream = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[
+        {"role": "user", "content": "Raconte-moi une histoire courte sur un robot."}
+    ],
+    stream=True,  # ← clé !
+)
+
+# Itérer sur les chunks
+for chunk in stream:
+    contenu = chunk.choices[0].delta.content
+    if contenu is not None:
+        print(contenu, end="", flush=True)
+print()  # saut de ligne final
+```
+
+**Effet** : les mots apparaissent **au fur et à mesure** que le modèle les génère. C'est **bien plus agréable** qu'attendre 10 secondes le texte complet.
+
+## 💡 Conseils streaming
+
+- **Flush** : utilise `print(..., flush=True)` pour forcer l'affichage immédiat
+- **Reconstruire le texte** : collecte les chunks si tu veux le résultat complet
+
+```python
+texte_complet = ""
+for chunk in stream:
+    contenu = chunk.choices[0].delta.content
+    if contenu:
+        texte_complet += contenu
+        print(contenu, end="", flush=True)
+```
+
+# 5. Structured output : forcer un JSON propre
+
+Souvent tu veux que le LLM renvoie **du JSON** exploitable, pas du texte libre.
+
+## ❌ Méthode naïve
+
+```python
+prompt = "Extrais le nom, l'âge et la ville de cette phrase. Réponds en JSON."
+# Problème : le LLM peut répondre "Voici le JSON que vous avez demandé: {...}"
+# → difficile à parser
+```
+
+## ✅ Méthode 1 : JSON mode
+
+La plupart des providers ont un mode JSON qui **force** une réponse parseable :
+
+```{python}
+#| eval: false
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[
+        {
+            "role": "system",
+            "content": "Tu extrais des informations structurées. "
+                       "Réponds uniquement en JSON valide."
+        },
+        {
+            "role": "user",
+            "content": "Jean Dupont, 35 ans, habite à Lyon."
+        }
+    ],
+    response_format={"type": "json_object"},
+    temperature=0,
+)
+
+# Parse directement
+data = json.loads(response.choices[0].message.content)
+print(data)
+# {"nom": "Jean Dupont", "age": 35, "ville": "Lyon"}
+```
+
+## ✅ Méthode 2 : Pydantic (plus robuste)
+
+Pour un **contrôle fort du schéma**, utilise **Pydantic** :
+
+```{python}
+from pydantic import BaseModel
+from typing import Literal
+
+class PersonneExtraite(BaseModel):
+    nom: str
+    age: int
+    ville: str
+    genre: Literal["homme", "femme", "inconnu"]
+
+# Test avec des données factices
+p = PersonneExtraite(nom="Jean Dupont", age=35, ville="Lyon", genre="homme")
+print(p.model_dump_json(indent=2))
+```
+
+Maintenant avec l'API :
+
+```{python}
+#| eval: false
+# On passe le schéma JSON de Pydantic au LLM
+schema = PersonneExtraite.model_json_schema()
+
+prompt = f"""Extrais les informations de la phrase et retourne-les dans ce schéma JSON :
+{json.dumps(schema, indent=2)}
+
+Phrase : "Marie Martin, 28 ans, vit à Marseille."
+
+Réponds uniquement en JSON valide, sans texte autour."""
+
+response = client.chat.completions.create(
+    model="llama-3.3-70b-versatile",
+    messages=[{"role": "user", "content": prompt}],
+    response_format={"type": "json_object"},
+    temperature=0,
+)
+
+# Validation Pydantic
+data = json.loads(response.choices[0].message.content)
+personne = PersonneExtraite(**data)  # valide le schéma
+print(personne)
+# PersonneExtraite(nom='Marie Martin', age=28, ville='Marseille', genre='femme')
+```
+
+**Avantages** :
+- ✅ **Schéma strict** (types, champs obligatoires)
+- ✅ **Validation automatique** (si le LLM hallucine un champ, erreur claire)
+- ✅ **Autocomplétion** dans ton IDE
+- ✅ **Documentation** automatique
+
+## 🎯 Pattern pro : helper function
+
+```{python}
+#| eval: false
+def extract_structured(prompt: str, schema_cls: type[BaseModel]) -> BaseModel:
+    """Extrait des données selon un schéma Pydantic."""
+    schema = schema_cls.model_json_schema()
+    full_prompt = f"""{prompt}
+
+Retourne la réponse dans ce schéma JSON exact :
+{json.dumps(schema, indent=2)}
+
+Réponds UNIQUEMENT en JSON valide."""
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": full_prompt}],
+        response_format={"type": "json_object"},
+        temperature=0,
+    )
+    data = json.loads(response.choices[0].message.content)
+    return schema_cls(**data)
+
+# Usage
+personne = extract_structured(
+    "Extrais : Sophie Lefèvre, 42 ans, habite à Bordeaux.",
+    PersonneExtraite
+)
+print(personne)
+```
+
+# 6. Changer de provider
+
+**Le code que tu viens d'apprendre fonctionne pour presque tous les providers**. C'est la beauté de l'API OpenAI standard.
+
+## 🔄 Les 3 providers principaux
+
+```{python}
+#| eval: false
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# --- Groq (gratuit) ---
+client_groq = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
+# model: "llama-3.3-70b-versatile", "mixtral-8x7b-32768"
+
+# --- OpenAI (payant) ---
+client_openai = OpenAI(
+    api_key=os.getenv("OPENAI_API_KEY"),
+    # pas de base_url → utilise celle par défaut d'OpenAI
+)
+# model: "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"
+
+# --- Ollama (local, gratuit) ---
+client_ollama = OpenAI(
+    api_key="ollama",  # factice
+    base_url="http://localhost:11434/v1",
+)
+# model: "llama3.2", "mistral", "qwen2.5-coder"
+```
+
+**Seules 2 choses changent** :
+- La **clé API**
+- La **base_url** et le **nom du modèle**
+
+Tout le reste du code (messages, streaming, JSON mode...) est **identique**.
+
+## 🧑‍⚕️ Anthropic Claude (SDK dédié)
+
+Anthropic a un SDK différent, mais le principe est similaire :
+
+```{python}
+#| eval: false
+# pip install anthropic
+from anthropic import Anthropic
+
+client_anthropic = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+
+response = client_anthropic.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=500,
+    messages=[{"role": "user", "content": "Bonjour !"}],
+)
+print(response.content[0].text)
+```
+
+**Différences clés avec OpenAI** :
+- `messages.create` au lieu de `chat.completions.create`
+- `max_tokens` est **obligatoire**
+- Accès via `response.content[0].text`
+
+## 💡 Règle du Saint Graal
+
+Construis ton code avec une **interface unique**, puis branche le provider via config :
+
+```{python}
+#| eval: false
+from dataclasses import dataclass
+
+@dataclass
+class LLMConfig:
+    provider: str
+    api_key: str
+    base_url: str | None
+    model: str
+
+CONFIGS = {
+    "groq": LLMConfig(
+        provider="groq",
+        api_key=os.getenv("GROQ_API_KEY"),
+        base_url="https://api.groq.com/openai/v1",
+        model="llama-3.3-70b-versatile",
+    ),
+    "openai": LLMConfig(
+        provider="openai",
+        api_key=os.getenv("OPENAI_API_KEY"),
+        base_url=None,
+        model="gpt-4o-mini",
+    ),
+    "ollama": LLMConfig(
+        provider="ollama",
+        api_key="ollama",
+        base_url="http://localhost:11434/v1",
+        model="llama3.2",
+    ),
+}
+
+def get_client(provider: str) -> tuple[OpenAI, str]:
+    cfg = CONFIGS[provider]
+    kwargs = {"api_key": cfg.api_key}
+    if cfg.base_url:
+        kwargs["base_url"] = cfg.base_url
+    return OpenAI(**kwargs), cfg.model
+
+# Basculer en 1 ligne
+client, model = get_client("groq")        # gratuit
+# client, model = get_client("openai")    # payant
+# client, model = get_client("ollama")    # local
+```
+
+**Avantage** : tu peux comparer les providers sur **le même code**.
+
+# 7. Gérer les erreurs et les rate limits
+
+Les APIs peuvent échouer pour plusieurs raisons :
+- 🚦 **Rate limit** : trop de requêtes par minute
+- 🕐 **Timeout** : réponse trop longue
+- 🔌 **Erreur réseau** : connexion interrompue
+- 💸 **Quota dépassé** : plus de crédit
+
+## 🛡️ Pattern avec retry
+
+```{python}
+#| eval: false
+from openai import APIError, RateLimitError
+import time
+
+def ask_with_retry(question: str, max_retries: int = 3) -> str:
+    """Appel LLM avec retry exponentiel en cas d'erreur."""
+    for attempt in range(max_retries):
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": question}],
+                timeout=30,
+            )
+            return response.choices[0].message.content
+        except RateLimitError:
+            wait = 2 ** attempt  # 1s, 2s, 4s...
+            print(f"Rate limit atteint, attente {wait}s...")
+            time.sleep(wait)
+        except APIError as e:
+            print(f"Erreur API : {e}")
+            if attempt == max_retries - 1:
+                raise
+            time.sleep(2 ** attempt)
+    raise RuntimeError("Échec après plusieurs tentatives")
+```
+
+## 💰 Limites Groq (gratuit)
+
+Au moment de rédiger ce module :
+- **Llama 3.3 70B** : 30 requêtes/min, 14 400/jour
+- **Mixtral 8x7B** : 30 requêtes/min, 14 400/jour
+
+Largement suffisant pour l'apprentissage et les prototypes. Pour de la production, prévoir un upgrade.
+
+# 🏁 Exercice bilan — Analyseur d'avis clients
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu es data scientist chez **TechVolt** (startup de bornes de recharge — rappelle-toi du TP !).
+
+Le marketing veut **analyser automatiquement** les avis clients. Ta mission :
+
+1. Définir une classe Pydantic `AnalyseAvis` avec :
+   - `sentiment` : `Literal["positif", "neutre", "negatif"]`
+   - `theme` : `Literal["qualite", "installation", "app", "sav", "prix", "autre"]`
+   - `priorite_action` : `int` de 1 à 5 (1 = urgent, 5 = pas important)
+   - `resume_1_phrase` : `str` (résumé en une phrase)
+
+2. Créer une fonction `analyser_avis(avis: str) -> AnalyseAvis` qui :
+   - Utilise Groq avec `response_format={"type": "json_object"}`
+   - A un prompt bien construit (rôle, tâche, exemples, format)
+   - Parse et valide avec Pydantic
+
+3. Tester sur ces 5 avis :
+   ```python
+   avis = [
+       "Ma borne ne se connecte pas au wifi depuis 3 jours, c'est très gênant !",
+       "Installation parfaite, technicien professionnel, bravo !",
+       "L'app plante à chaque ouverture, support injoignable depuis 2 semaines.",
+       "Borne correcte pour le prix.",
+       "Qualité exceptionnelle, recharge ultra rapide. Je recommande !",
+   ]
+   ```
+
+4. Afficher un **tableau pandas** récap
+
+**Objectif pédagogique** : tu viens de construire un **outil que le marketing peut utiliser** pour trier automatiquement **des milliers d'avis**.
+:::
+
+```{python}
+#| eval: false
+# TODO: Exercice bilan
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class AnalyseAvis(BaseModel):
+    sentiment: Literal["positif", "neutre", "negatif"]
+    theme: Literal["qualite", "installation", "app", "sav", "prix", "autre"]
+    priorite_action: int = Field(ge=1, le=5)
+    resume_1_phrase: str
+
+def analyser_avis(avis: str) -> AnalyseAvis:
+    schema = AnalyseAvis.model_json_schema()
+    prompt = f"""Tu es un analyste d'avis clients pour TechVolt (bornes de recharge électrique).
+
+MISSION : analyser l'avis client et extraire les informations structurées.
+
+RÈGLES :
+- sentiment : "positif", "neutre" ou "negatif" (pas d'accent sur negatif)
+- theme : catégorie principale : qualite, installation, app, sav, prix ou autre
+- priorite_action : urgence de traitement (1 = très urgent à 5 = pas important)
+  * 1 : panne critique, client très mécontent
+  * 2 : problème significatif
+  * 3 : problème modéré
+  * 4 : suggestion ou remarque mineure
+  * 5 : pas d'action nécessaire (avis positif)
+- resume_1_phrase : résumé très court de l'avis
+
+EXEMPLE :
+Avis : "Ma borne ne charge plus, ça fait 5 jours que j'attends le SAV !"
+{{"sentiment": "negatif", "theme": "sav", "priorite_action": 1,
+"resume_1_phrase": "Client en attente de SAV depuis 5 jours, borne non fonctionnelle"}}
+
+SCHÉMA ATTENDU :
+{json.dumps(schema, indent=2)}
+
+Avis à analyser : "{avis}"
+
+Réponds UNIQUEMENT en JSON valide, sans texte autour."""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        temperature=0,
+    )
+    data = json.loads(response.choices[0].message.content)
+    return AnalyseAvis(**data)
+
+# Tester
+avis_liste = [
+    "Ma borne ne se connecte pas au wifi depuis 3 jours, c'est très gênant !",
+    "Installation parfaite, technicien professionnel, bravo !",
+    "L'app plante à chaque ouverture, support injoignable depuis 2 semaines.",
+    "Borne correcte pour le prix.",
+    "Qualité exceptionnelle, recharge ultra rapide. Je recommande !",
+]
+
+results = []
+for a in avis_liste:
+    analyse = analyser_avis(a)
+    results.append({**analyse.model_dump(), "avis_original": a[:60]})
+
+df = pd.DataFrame(results)
+print(df)
+```
+
+**Résultat attendu** :
+
+```
+   sentiment      theme  priorite_action                          resume_1_phrase                                       avis_original
+0    negatif        app                2  Client signale un problème de connexion wifi            Ma borne ne se connecte pas au wifi depuis 3 j...
+1    positif  installation               5  Client très satisfait de l'installation          Installation parfaite, technicien professionn...
+2    negatif        sav                1  App non fonctionnelle et SAV injoignable         L'app plante à chaque ouverture, support injo...
+3      neutre       prix                4  Avis neutre sur le rapport qualité-prix          Borne correcte pour le prix.
+4    positif    qualite                5  Client enchanté par la qualité et la vitesse    Qualité exceptionnelle, recharge ultra rapide...
+```
+
+**Leçon** : en **~60 lignes de code**, tu viens de créer un outil qui **analyserait automatiquement des milliers d'avis** et aiderait le marketing à **prioriser**.
+
+Dans une vraie production, tu :
+1. Brancherais ça sur un pipeline (Airflow, Dagster)
+2. Alerterais l'équipe en cas de priorité=1
+3. Sauvegarderais dans une base pour analyses temporelles
+4. Utiliserais les résultats pour le dashboard
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Clé API** | Toujours dans `.env`, jamais dans le code |
+| **`chat.completions.create`** | L'appel standard |
+| **`messages`** | Liste de `{role, content}` avec `system`, `user`, `assistant` |
+| **`temperature`** | Créativité (0 à 2) |
+| **`max_tokens`** | Longueur max de la réponse |
+| **Streaming** | `stream=True` pour voir la réponse en direct |
+| **JSON mode** | `response_format={"type": "json_object"}` |
+| **Pydantic** | Schémas stricts pour sortie structurée |
+| **Multi-provider** | Change juste `base_url` et `model` |
+| **Retry** | Gère les `RateLimitError` avec backoff exponentiel |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Jamais de clé API dans le code** → `.env` + `.gitignore`
+2. **Toujours un system prompt** explicite (rôle, format, contraintes)
+3. **Few-shot > instructions** quand tu peux
+4. **Pydantic pour la production** (robustesse des sorties)
+5. **temperature=0** pour les tâches déterministes (classif, extraction)
+
+## 🚨 Les pièges à éviter
+
+1. **Oublier `.env` dans `.gitignore`** → clé volée en quelques minutes
+2. **Demander du JSON sans `response_format`** → parsing qui casse
+3. **Mettre `max_tokens` trop bas** → réponse coupée en plein milieu
+4. **Changer de provider sans tester** → les prompts qui marchent sur un LLM peuvent rater sur un autre
+5. **Ignorer les rate limits** → 429 en production
+
+## 🚀 La suite
+
+Tu sais maintenant **appeler un LLM** proprement. Mais un LLM seul **ne connaît pas tes données**. Il connaît Wikipedia mais pas la doc interne de TechVolt.
+
+Dans la [**Notion 7.4 — RAG**](notion_7_4_rag.qmd), on va brancher le LLM sur **tes propres documents** :
+- **Chunking** : découper tes docs en morceaux
+- **Indexation** avec ChromaDB
+- **Retrieval** : retrouver les passages pertinents
+- **Génération** : demander au LLM de répondre en s'appuyant sur ces passages
+- **Évaluation** : mesurer la qualité d'un RAG
+
+C'est **LA technique** qui permet de construire un chatbot sur **n'importe quelle doc**.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Construis un **mini-chatbot conversationnel** qui garde la **mémoire** de la conversation :
+
+```python
+historique = [
+    {"role": "system", "content": "Tu es un assistant helpful."}
+]
+
+while True:
+    user_msg = input("Toi : ")
+    if user_msg.lower() in ["exit", "quit"]:
+        break
+    historique.append({"role": "user", "content": user_msg})
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=historique,
+    )
+    reply = response.choices[0].message.content
+    historique.append({"role": "assistant", "content": reply})
+    print(f"Bot : {reply}\n")
+```
+
+**Piège** : après 20 échanges, tu vas dépasser le context window → apprendre à **tronquer** l'historique (ne garder que les N derniers messages) ou à **résumer** les anciens messages. C'est une compétence clé !
+:::

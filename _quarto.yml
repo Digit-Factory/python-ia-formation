@@ -71,8 +71,8 @@ book:
         - modules/module_07/index.qmd
         - modules/module_07/notion_7_1_embeddings.qmd
         - modules/module_07/notion_7_2_transformer.qmd
-        # - modules/module_07/notion_7_3_api_llm.qmd
-        # - modules/module_07/notion_7_4_rag.qmd
+        - modules/module_07/notion_7_3_api_llm.qmd
+        - modules/module_07/notion_7_4_rag.qmd
         # - modules/module_07/notion_7_5_agents.qmd
         # - modules/module_07/notion_7_6_finetuning.qmd
         # - modules/module_07/tp_sommatif.qmd

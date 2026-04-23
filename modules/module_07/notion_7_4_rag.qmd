@@ -1,0 +1,1137 @@
+---
+title: "Notion 7.4 — RAG : brancher un LLM sur tes documents"
+subtitle: "Retrieval-Augmented Generation, la technique star de 2026"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_07/notion_7_4_rag_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_07/notion_7_4_rag_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_07_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 4 à 5 heures  
+**Prérequis** : Notions 7.1 (embeddings), 7.3 (API LLM)  
+**Objectif** : construire un système RAG complet pour interroger une base documentaire
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **pourquoi et quand** utiliser le RAG
+- Implémenter un **RAG from scratch** en NumPy (pour comprendre)
+- Utiliser **ChromaDB** comme vector store en production
+- Maîtriser les **stratégies de chunking**
+- Écrire un **prompt RAG** qui réduit les hallucinations
+- **Évaluer** la qualité d'un RAG (faithfulness, answer relevance)
+- Identifier les **pièges classiques** et comment les résoudre
+
+## 🎯 Pourquoi le RAG ?
+
+Un LLM a **2 gros problèmes** :
+
+1. **Il ne connaît pas tes données privées** — Il n'a **jamais vu** la doc technique de TechVolt, les emails de ton entreprise, ou tes articles de blog.
+2. **Il hallucine** — Quand on lui demande un fait qu'il ignore, il **invente** avec aplomb.
+
+**Le RAG (Retrieval-Augmented Generation) résout les deux** :
+- **Retrieval** : on **cherche** les passages pertinents dans TA base
+- **Augmented Generation** : on **injecte** ces passages dans le prompt
+- **Résultat** : le LLM répond en s'appuyant sur **tes données**
+
+C'est **LA technique** la plus utilisée en entreprise en 2026. 80% des projets "chatbot interne" sont du RAG.
+
+## 🎨 Le pattern en une image
+
+```
+  ┌─────────────┐
+  │ Ta doc (PDF, │
+  │ wiki, code) │
+  └──────┬──────┘
+         │ 1. Chunking
+         ▼
+  ┌─────────────┐
+  │   Morceaux  │
+  │ (passages)  │
+  └──────┬──────┘
+         │ 2. Embeddings
+         ▼
+  ┌─────────────┐
+  │ Vector store│  ← ChromaDB, Qdrant, FAISS...
+  │  (indexé)   │
+  └──────┬──────┘
+         │
+  ┌──────┴──────────────────────────┐
+  │                                  │
+  ▼ 4. Question utilisateur          │
+  ┌─────────────┐                    │
+  │  Question   │                    │
+  └──────┬──────┘                    │
+         │                            │
+         ▼ 5. Embedding de la question│
+  ┌─────────────┐    6. Top-k        │
+  │ Vecteur Q   │──────────────────► │
+  └─────────────┘    recherche       │
+                                     │
+                     ┌────────────────┘
+                     ▼
+                 ┌───────────────┐
+                 │ K passages    │
+                 │ pertinents    │
+                 └───────┬───────┘
+                         │ 7. Injection dans le prompt
+                         ▼
+                 ┌───────────────┐
+                 │     LLM       │──► Réponse ancrée
+                 └───────────────┘    sur tes docs
+```
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import os
+import json
+import numpy as np
+import pandas as pd
+
+np.random.seed(42)
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairies nécessaires
+
+```bash
+pip install sentence-transformers chromadb openai python-dotenv
+```
+:::
+
+# 1. RAG from scratch — comprendre les entrailles
+
+Avant d'utiliser ChromaDB, **on construit tout à la main** avec NumPy. Pour **vraiment comprendre** ce qui se passe.
+
+## 📚 Notre mini-corpus
+
+On va simuler la base de connaissance de **TechVolt** (startup bornes de recharge) :
+
+```{python}
+# Base de connaissance TechVolt (simulée)
+corpus = [
+    {
+        "id": "doc_001",
+        "titre": "Installation borne résidentielle",
+        "contenu": "Pour installer une borne résidentielle TechVolt, prévoyez une prise 32A dédiée. L'installation doit être faite par un électricien certifié IRVE. Le temps d'installation moyen est de 2 à 4 heures.",
+    },
+    {
+        "id": "doc_002",
+        "titre": "Puissance de charge",
+        "contenu": "Les bornes TechVolt délivrent 7.4 kW en monophasé et 22 kW en triphasé. Pour une Tesla Model 3 (batterie 60 kWh), la charge complète prend environ 8h en monophasé et 3h en triphasé.",
+    },
+    {
+        "id": "doc_003",
+        "titre": "Garantie et SAV",
+        "contenu": "La garantie constructeur TechVolt couvre 3 ans pièces et main-d'œuvre. En cas de panne, contactez le SAV au 01 23 45 67 89 ou via l'app. Délai d'intervention moyen : 48h en région parisienne.",
+    },
+    {
+        "id": "doc_004",
+        "titre": "Connectivité wifi",
+        "contenu": "Pour connecter votre borne au wifi, ouvrez l'app TechVolt, allez dans Paramètres > Réseau. Le wifi doit être en 2.4 GHz (pas 5 GHz). Si la borne ne trouve pas le réseau, redémarrez-la en maintenant 10s le bouton arrière.",
+    },
+    {
+        "id": "doc_005",
+        "titre": "Codes d'erreur fréquents",
+        "contenu": "E01 : Surchauffe. Laissez refroidir 30 min. E02 : Défaut de terre. Contactez votre électricien. E03 : Problème wifi. Voir fiche connectivité. E04 : Court-circuit détecté. NE PAS UTILISER, contactez le SAV immédiatement.",
+    },
+    {
+        "id": "doc_006",
+        "titre": "Modes de charge",
+        "contenu": "La borne propose 3 modes : ÉCO (7 kW max, adapté aux heures creuses), NORMAL (16 kW, défaut), RAPIDE (22 kW, triphasé requis). Le mode se change dans l'app ou via les flèches sur la borne.",
+    },
+    {
+        "id": "doc_007",
+        "titre": "Compatibilité véhicules",
+        "contenu": "Toutes les bornes TechVolt sont compatibles avec les véhicules équipés du standard Type 2 (tous les véhicules européens depuis 2017). Pour les véhicules plus anciens, un adaptateur est fourni en option (réf. ADP-T1).",
+    },
+    {
+        "id": "doc_008",
+        "titre": "Facturation et abonnement",
+        "contenu": "L'abonnement TechVolt Smart est à 9.90€/mois. Il inclut le monitoring à distance, les mises à jour automatiques, et le support prioritaire. Sans abonnement, la borne fonctionne mais sans connectivité cloud.",
+    },
+    {
+        "id": "doc_009",
+        "titre": "Sécurité électrique",
+        "contenu": "La borne TechVolt intègre un différentiel 30mA de type A+DC. Elle est conforme aux normes NF C 15-100 et IEC 61851. En cas de fuite de courant, la borne coupe automatiquement l'alimentation en moins de 30ms.",
+    },
+    {
+        "id": "doc_010",
+        "titre": "Mises à jour firmware",
+        "contenu": "Les mises à jour sont automatiques pour les clients avec abonnement Smart. Elles s'installent la nuit (3h-5h) quand la borne n'est pas utilisée. Sans abonnement, vous pouvez télécharger les MAJ manuellement depuis notre site.",
+    },
+]
+
+print(f"Corpus : {len(corpus)} documents")
+```
+
+## 🧬 Étape 1 : générer les embeddings
+
+```{python}
+#| eval: false
+from sentence_transformers import SentenceTransformer
+
+# Modèle multilingue (bon en français)
+modele_emb = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+
+# Encoder chaque document
+textes = [doc["contenu"] for doc in corpus]
+embeddings = modele_emb.encode(textes)
+
+print(f"Embeddings : {embeddings.shape}")  # (10, 768)
+```
+
+```{python}
+#| echo: false
+# Pour la démo sans téléchargement, on simule
+np.random.seed(42)
+embeddings = np.random.randn(10, 768)
+# Normaliser artificiellement pour avoir des similarités cohérentes
+for i, doc in enumerate(corpus):
+    # On ajoute un biais thématique simulé
+    if "installation" in doc["contenu"].lower() or "install" in doc["contenu"].lower():
+        embeddings[i, :20] += 2
+    if "wifi" in doc["contenu"].lower() or "connect" in doc["contenu"].lower():
+        embeddings[i, 20:40] += 2
+    if "garantie" in doc["contenu"].lower() or "sav" in doc["contenu"].lower():
+        embeddings[i, 40:60] += 2
+
+print(f"Embeddings : {embeddings.shape}")
+```
+
+## 🔎 Étape 2 : fonction de recherche
+
+```{python}
+def cosine_similarity_batch(vec, matrix):
+    """Cosine similarity entre 1 vecteur et N vecteurs."""
+    vec_norm = vec / np.linalg.norm(vec)
+    matrix_norm = matrix / np.linalg.norm(matrix, axis=1, keepdims=True)
+    return matrix_norm @ vec_norm
+
+def rechercher_top_k(question_emb, doc_embeddings, corpus, k=3):
+    """Retourne les k documents les plus pertinents."""
+    similarities = cosine_similarity_batch(question_emb, doc_embeddings)
+    top_indices = np.argsort(-similarities)[:k]
+    return [
+        {"doc": corpus[i], "score": float(similarities[i])}
+        for i in top_indices
+    ]
+
+print("✅ Fonctions définies")
+```
+
+## 🧪 Étape 3 : tester la recherche
+
+```{python}
+#| eval: false
+# Question utilisateur
+question = "Comment installer ma borne TechVolt ?"
+question_emb = modele_emb.encode([question])[0]
+
+# Chercher
+resultats = rechercher_top_k(question_emb, embeddings, corpus, k=3)
+
+print(f"Question : {question}\n")
+print("Top 3 passages pertinents :")
+for i, res in enumerate(resultats, 1):
+    print(f"\n[{i}] Score {res['score']:.3f} | {res['doc']['titre']}")
+    print(f"    {res['doc']['contenu'][:120]}...")
+```
+
+**Sortie typique** :
+```
+Top 3 passages pertinents :
+
+[1] Score 0.712 | Installation borne résidentielle
+    Pour installer une borne résidentielle TechVolt, prévoyez une prise 32A dédiée...
+
+[2] Score 0.512 | Puissance de charge
+    Les bornes TechVolt délivrent 7.4 kW en monophasé et 22 kW en triphasé...
+
+[3] Score 0.421 | Garantie et SAV
+    La garantie constructeur TechVolt couvre 3 ans pièces et main-d'œuvre...
+```
+
+Le premier document est **très pertinent** (score 0.71). Les suivants le sont **moins**.
+
+## 🤖 Étape 4 : construire le prompt RAG
+
+```{python}
+def construire_prompt_rag(question, passages):
+    """Construit un prompt RAG avec les passages retrouvés."""
+    contexte = "\n\n".join([
+        f"[Source {i+1}] Titre : {p['doc']['titre']}\n{p['doc']['contenu']}"
+        for i, p in enumerate(passages)
+    ])
+    
+    prompt = f"""Tu es l'assistant support de TechVolt (bornes de recharge).
+
+Tu dois répondre à la question de l'utilisateur **UNIQUEMENT** à partir des sources fournies.
+
+RÈGLES :
+- Base ta réponse STRICTEMENT sur les sources ci-dessous
+- Si les sources ne permettent pas de répondre, dis : "Je ne dispose pas de cette information"
+- Cite la source utilisée (ex : "Source 1")
+- Sois concis et précis
+
+SOURCES :
+{contexte}
+
+QUESTION : {question}
+
+RÉPONSE :"""
+    return prompt
+
+# Exemple
+question_test = "Comment installer ma borne ?"
+passages_test = [{"doc": corpus[0], "score": 0.71}]
+prompt = construire_prompt_rag(question_test, passages_test)
+print(prompt)
+```
+
+## 💬 Étape 5 : appeler le LLM
+
+```{python}
+#| eval: false
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
+
+def rag_simple(question, corpus, embeddings, k=3):
+    """Pipeline RAG complet."""
+    # 1. Embedder la question
+    question_emb = modele_emb.encode([question])[0]
+    
+    # 2. Récupérer les top-k passages
+    passages = rechercher_top_k(question_emb, embeddings, corpus, k=k)
+    
+    # 3. Construire le prompt
+    prompt = construire_prompt_rag(question, passages)
+    
+    # 4. Appeler le LLM
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    
+    return {
+        "reponse": response.choices[0].message.content,
+        "passages": passages,
+    }
+
+# Test
+result = rag_simple("Comment installer ma borne TechVolt ?", corpus, embeddings)
+print("🤖 Réponse :\n", result["reponse"])
+print("\n📚 Sources utilisées :")
+for i, p in enumerate(result["passages"], 1):
+    print(f"  [{i}] {p['doc']['titre']} (score {p['score']:.2f})")
+```
+
+**Sortie typique** :
+```
+🤖 Réponse :
+Pour installer votre borne TechVolt, vous devez :
+- Prévoir une prise 32A dédiée
+- Faire appel à un électricien certifié IRVE
+- Compter 2 à 4 heures d'installation
+
+(Source 1 : Installation borne résidentielle)
+
+📚 Sources utilisées :
+  [1] Installation borne résidentielle (score 0.71)
+  [2] Puissance de charge (score 0.51)
+  [3] Garantie et SAV (score 0.42)
+```
+
+**🎉 Tu viens de construire un RAG complet en 50 lignes de Python !**
+
+## ✏️ Exercice 1 — Tester le RAG sur plusieurs questions
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pose les **5 questions suivantes** à ton RAG :
+
+```python
+questions = [
+    "Que faire si ma borne affiche le code E04 ?",
+    "Combien coûte l'abonnement mensuel ?",
+    "Ma borne ne se connecte pas au wifi, que faire ?",
+    "Est-ce que c'est compatible avec une Zoé de 2015 ?",
+    "Quelle est la couleur du ciel ?",  # ← hors sujet
+]
+```
+
+Pour chaque question :
+1. Affiche les **3 passages retrouvés** avec leurs scores
+2. Affiche la **réponse du LLM**
+3. Observe : la question hors sujet est-elle bien gérée ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+questions = [
+    "Que faire si ma borne affiche le code E04 ?",
+    "Combien coûte l'abonnement mensuel ?",
+    "Ma borne ne se connecte pas au wifi, que faire ?",
+    "Est-ce que c'est compatible avec une Zoé de 2015 ?",
+    "Quelle est la couleur du ciel ?",
+]
+
+for q in questions:
+    print(f"\n{'='*70}\n❓ {q}\n{'='*70}")
+    result = rag_simple(q, corpus, embeddings, k=3)
+    print(f"\n📚 Sources :")
+    for i, p in enumerate(result["passages"], 1):
+        print(f"  [{i}] {p['doc']['titre']} (score {p['score']:.2f})")
+    print(f"\n🤖 Réponse :\n{result['reponse']}")
+```
+
+**Observations attendues** :
+- Questions spécifiques → réponses précises avec bonne source
+- Question hors sujet → le LLM dit "Je ne dispose pas de cette information" grâce au système prompt
+- Sur "Zoé de 2015", le système reconnaît la compatibilité Type 2 via doc_007
+
+**Sans le RAG**, le LLM aurait soit :
+- **Halluciné** un numéro de téléphone pour le SAV
+- **Inventé** un tarif d'abonnement
+- **Confondu** les codes d'erreur
+:::
+
+# 2. ChromaDB : vector store en production
+
+À la main c'est bien pour comprendre, mais en production tu veux :
+- **Persistance** (ne pas re-embedder à chaque démarrage)
+- **Scalabilité** (millions de documents)
+- **Filtres** (metadata, dates...)
+- **Gestion facile** (ajout, suppression, update)
+
+**ChromaDB** fait tout ça, en open source, en local.
+
+## 🏗️ Initialiser une collection
+
+```{python}
+#| eval: false
+import chromadb
+
+# Client persistent (sauvegarde sur disque)
+client_chroma = chromadb.PersistentClient(path="./chroma_techvolt")
+
+# Créer (ou récupérer) une collection
+collection = client_chroma.get_or_create_collection(
+    name="techvolt_docs",
+    metadata={"description": "Documentation technique TechVolt"}
+)
+
+print(f"Collection : {collection.name}")
+print(f"Documents existants : {collection.count()}")
+```
+
+## 📥 Ajouter des documents
+
+```{python}
+#| eval: false
+# ChromaDB embed automatiquement si on fournit les textes
+# (il utilise un modèle par défaut — ici on fournit nos propres embeddings)
+
+collection.add(
+    ids=[doc["id"] for doc in corpus],
+    documents=[doc["contenu"] for doc in corpus],
+    embeddings=embeddings.tolist(),  # nos embeddings précalculés
+    metadatas=[{"titre": doc["titre"]} for doc in corpus],
+)
+
+print(f"Documents après ajout : {collection.count()}")
+```
+
+## 🔍 Rechercher
+
+```{python}
+#| eval: false
+# Encoder la question
+question = "Comment installer ma borne ?"
+question_emb = modele_emb.encode([question])[0].tolist()
+
+# Query
+results = collection.query(
+    query_embeddings=[question_emb],
+    n_results=3,
+)
+
+print("Top 3 résultats ChromaDB :")
+for i in range(len(results["ids"][0])):
+    print(f"\n[{i+1}] ID: {results['ids'][0][i]}")
+    print(f"    Titre : {results['metadatas'][0][i]['titre']}")
+    print(f"    Distance : {results['distances'][0][i]:.3f}")
+    print(f"    Contenu : {results['documents'][0][i][:100]}...")
+```
+
+::: {.callout-important}
+## ⚠️ Distance vs similarité
+ChromaDB retourne la **distance** (plus c'est petit, plus c'est proche), pas la **similarité** (plus c'est grand, plus c'est proche).
+
+Par défaut, c'est la **distance L2** (Euclidienne). Pour la cosine similarity, précise `metadata={"hnsw:space": "cosine"}` à la création.
+:::
+
+## 🎛️ Filtres par metadata
+
+```{python}
+#| eval: false
+# On peut filtrer par metadata
+results = collection.query(
+    query_embeddings=[question_emb],
+    n_results=3,
+    where={"titre": "Installation borne résidentielle"},  # filtre exact
+)
+
+# Ou avec des opérateurs
+results = collection.query(
+    query_embeddings=[question_emb],
+    n_results=3,
+    where={"$and": [
+        {"categorie": {"$eq": "technique"}},
+        {"version": {"$gte": 2}},
+    ]}
+)
+```
+
+**En pratique** : super utile pour filtrer par **date de publication**, **département**, **langue**, etc.
+
+## 🔄 Mettre à jour un document
+
+```{python}
+#| eval: false
+# Modifier un document existant (même ID)
+collection.update(
+    ids=["doc_001"],
+    documents=["Nouveau contenu mis à jour..."],
+    embeddings=[nouveau_embedding.tolist()],
+)
+
+# Ou supprimer
+collection.delete(ids=["doc_001"])
+```
+
+# 3. Chunking : la clé de la qualité
+
+**Problème** : en vrai projet, tes documents sont **longs** (manuels de 300 pages, articles...). Il faut les découper en **chunks** (morceaux).
+
+## 🎯 Pourquoi chunker ?
+
+1. **Contexte limité** : les LLM ont un context window. On ne peut pas tout y coller.
+2. **Précision** : un chunk trop gros dilue le signal (trop d'infos non pertinentes)
+3. **Embeddings** : les modèles d'embedding ont une limite (souvent 512 tokens)
+
+## ✂️ Stratégies de chunking
+
+### Stratégie 1 : Taille fixe
+
+Découper tous les N caractères (ou tokens). Simple mais brutal.
+
+```{python}
+def chunk_taille_fixe(texte, taille=500, overlap=50):
+    """Découpe un texte en chunks de taille fixe avec overlap."""
+    chunks = []
+    start = 0
+    while start < len(texte):
+        end = start + taille
+        chunks.append(texte[start:end])
+        start += taille - overlap
+    return chunks
+
+# Exemple
+long_texte = (
+    "Pour installer votre borne, commencez par vérifier le disjoncteur. "
+    "Il doit être de 32A minimum. Ensuite, positionnez la borne à 1m du sol. "
+    "Connectez les fils selon le schéma. L'installation doit être faite par "
+    "un électricien certifié IRVE. Le test de mise en service vérifie la terre, "
+    "l'isolement, et la communication wifi. Si un test échoue, consultez "
+    "la documentation technique chapitre 5."
+) * 3
+
+chunks = chunk_taille_fixe(long_texte, taille=200, overlap=30)
+print(f"Nombre de chunks : {len(chunks)}")
+for i, c in enumerate(chunks[:3]):
+    print(f"\n--- Chunk {i+1} ({len(c)} car.) ---")
+    print(c)
+```
+
+**Problème** : peut couper en **plein milieu** d'une phrase.
+
+### Stratégie 2 : Par séparateur
+
+Découper par paragraphe (`\n\n`), phrase, ou autre délimiteur naturel.
+
+```{python}
+def chunk_par_paragraphe(texte, taille_max=500):
+    """Regroupe les paragraphes tant qu'on reste sous taille_max."""
+    paragraphes = texte.split("\n\n")
+    chunks = []
+    current = ""
+    for p in paragraphes:
+        if len(current) + len(p) < taille_max:
+            current += "\n\n" + p if current else p
+        else:
+            if current:
+                chunks.append(current)
+            current = p
+    if current:
+        chunks.append(current)
+    return chunks
+
+# Exemple
+doc = """Section 1 : Installation
+
+Pour installer votre borne, commencez par vérifier le disjoncteur.
+
+Section 2 : Configuration
+
+Ouvrez l'app TechVolt et suivez les étapes.
+
+Section 3 : Tests
+
+Effectuez le test de mise en service."""
+
+chunks = chunk_par_paragraphe(doc, taille_max=100)
+for i, c in enumerate(chunks):
+    print(f"\n--- Chunk {i+1} ---")
+    print(c)
+```
+
+**Avantage** : respecte la **structure** du document.
+
+### Stratégie 3 : Récursive (recommandée)
+
+Essaie plusieurs séparateurs en cascade : `\n\n` → `\n` → `. ` → ` `. C'est ce que fait LangChain avec `RecursiveCharacterTextSplitter`.
+
+```{python}
+def chunk_recursif(texte, taille_max=500, separateurs=["\n\n", "\n", ". ", " "]):
+    """Chunking récursif : essaie les séparateurs dans l'ordre."""
+    if len(texte) <= taille_max:
+        return [texte]
+    
+    # Essayer chaque séparateur
+    for sep in separateurs:
+        if sep in texte:
+            parts = texte.split(sep)
+            # Recombiner en chunks de taille_max
+            chunks = []
+            current = ""
+            for part in parts:
+                candidate = current + sep + part if current else part
+                if len(candidate) <= taille_max:
+                    current = candidate
+                else:
+                    if current:
+                        chunks.append(current)
+                    # Si le part seul dépasse, on le re-chunk récursivement
+                    if len(part) > taille_max:
+                        chunks.extend(chunk_recursif(part, taille_max, separateurs[1:]))
+                        current = ""
+                    else:
+                        current = part
+            if current:
+                chunks.append(current)
+            return chunks
+    
+    # Fallback : découpage brutal
+    return [texte[i:i+taille_max] for i in range(0, len(texte), taille_max)]
+
+chunks = chunk_recursif(long_texte, taille_max=200)
+print(f"Nombre de chunks : {len(chunks)}")
+for i, c in enumerate(chunks[:3]):
+    print(f"\n--- Chunk {i+1} ({len(c)} car.) ---")
+    print(c[:100] + ("..." if len(c) > 100 else ""))
+```
+
+### Stratégie 4 : Par structure (pour Markdown/HTML)
+
+Découper par **titres** (H1, H2, H3). Idéal pour une doc technique structurée.
+
+## 📐 Taille optimale
+
+**Règle empirique** :
+
+| Taille | Usage |
+|---|---|
+| 100-300 tokens | Questions précises, réponses courtes |
+| 300-800 tokens | **Défaut équilibré** ✅ |
+| 800-2000 tokens | Documents techniques denses, longs passages |
+| 2000+ tokens | Rare, souvent trop bruité |
+
+**Overlap** : 10-20% de la taille (pour ne pas perdre d'info à la jonction).
+
+## ✏️ Exercice 2 — Chunking en pratique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu as un document long (le corpus fictif ci-dessous, concaténé). Compare **3 stratégies de chunking** avec les mêmes paramètres (taille_max=300) :
+
+1. Taille fixe
+2. Par paragraphe
+3. Récursive
+
+Pour chaque méthode :
+- Combien de chunks obtient-on ?
+- Quelle est la taille **moyenne** et **max** des chunks ?
+- Affiche le premier chunk (regarde s'il est "propre")
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Construire un texte long avec structure
+textes = [doc["contenu"] for doc in corpus]
+doc_long = "\n\n".join(textes)
+print(f"Taille totale : {len(doc_long)} caractères")
+
+# Comparer
+for nom, fn in [
+    ("Taille fixe", lambda t: chunk_taille_fixe(t, 300, 30)),
+    ("Par paragraphe", lambda t: chunk_par_paragraphe(t, 300)),
+    ("Récursif", lambda t: chunk_recursif(t, 300)),
+]:
+    chunks = fn(doc_long)
+    tailles = [len(c) for c in chunks]
+    print(f"\n{nom} :")
+    print(f"  Nb chunks : {len(chunks)}")
+    print(f"  Taille moy : {np.mean(tailles):.0f} car.")
+    print(f"  Taille max : {max(tailles)} car.")
+    print(f"  Premier chunk ({len(chunks[0])} car.) : {chunks[0][:80]}...")
+```
+
+**Observations typiques** :
+- **Taille fixe** : tous les chunks ~300 car., mais le premier peut couper au milieu d'une phrase
+- **Par paragraphe** : certains chunks courts (quand un paragraphe est petit), respecte la structure
+- **Récursif** : bon compromis, chunks de taille variable mais toujours sur des coupures "naturelles"
+
+**En pratique**, **récursif** est le défaut recommandé. LangChain le propose via `RecursiveCharacterTextSplitter`.
+:::
+
+# 4. Le bon prompt RAG
+
+La qualité du RAG dépend **autant** du prompt que du retrieval. Un bon prompt RAG doit :
+
+1. **Instruire le LLM** à s'appuyer **uniquement** sur les sources
+2. Dire **quoi faire** quand l'info n'est pas dans les sources
+3. **Forcer les citations** pour la traçabilité
+4. Éviter le **sur-résumé** (ne pas supprimer les nuances)
+
+## ✅ Un template de prompt RAG efficace
+
+```{python}
+PROMPT_RAG_TEMPLATE = """Tu es un assistant expert qui répond à partir d'une base documentaire.
+
+RÈGLES STRICTES :
+1. Utilise UNIQUEMENT les informations des sources ci-dessous
+2. Si la réponse n'est pas dans les sources, dis exactement : "Je ne trouve pas cette information dans ma documentation."
+3. Cite TOUJOURS la source entre crochets après chaque information, ex : [Source 2]
+4. N'invente aucune information qui n'est pas dans les sources
+5. Sois concis et précis, pas de blabla
+
+SOURCES :
+{sources}
+
+QUESTION : {question}
+
+RÉPONSE (en français, avec citations [Source N]) :"""
+
+# Exemple d'utilisation
+sources_formatees = "\n\n".join([
+    f"[Source {i+1}] {p['doc']['titre']}\n{p['doc']['contenu']}"
+    for i, p in enumerate([{"doc": corpus[0]}, {"doc": corpus[1]}])
+])
+
+prompt = PROMPT_RAG_TEMPLATE.format(
+    sources=sources_formatees,
+    question="Comment installer ma borne ?"
+)
+print(prompt[:500] + "...")
+```
+
+## 🚨 Anti-patterns à éviter
+
+❌ **"Réponds à la question en utilisant ces infos"** — trop vague, le LLM va puiser dans ses connaissances
+
+❌ **"Voici les sources : {texte libre}"** — sans numérotation, pas de traçabilité
+
+❌ **"Résume les sources"** — le LLM peut résumer **à côté** de la question
+
+✅ **"Base ta réponse uniquement sur les sources ci-dessous"** + citations obligatoires = qualité.
+
+# 5. Évaluer un RAG
+
+Comment savoir si ton RAG est **bon** ? Il y a 3 dimensions à mesurer :
+
+| Métrique | Mesure | Objectif |
+|---|---|---|
+| **Retrieval relevance** | Les passages retrouvés sont-ils pertinents ? | Qualité du retrieval |
+| **Answer relevance** | La réponse répond-elle à la question ? | Qualité du LLM |
+| **Faithfulness** | La réponse est-elle **fidèle** aux sources ? | Absence d'hallucination |
+
+## 🧪 Évaluation simple : LLM as judge
+
+L'idée : utiliser **un LLM** pour noter les réponses d'un autre LLM.
+
+```{python}
+#| eval: false
+PROMPT_EVAL_FAITHFULNESS = """Tu évalues si une réponse est FIDÈLE aux sources fournies.
+
+SOURCES :
+{sources}
+
+QUESTION : {question}
+RÉPONSE À ÉVALUER : {reponse}
+
+Note la fidélité de 1 à 5 :
+- 5 : Tous les faits de la réponse sont dans les sources
+- 4 : La plupart des faits sont corrects, 1 ou 2 détails mineurs flous
+- 3 : Une partie est soutenue par les sources, une autre est inventée
+- 2 : La majorité est inventée
+- 1 : Totalement hallucinée
+
+Réponds UNIQUEMENT en JSON : {{"note": 1-5, "justification": "..."}}"""
+
+def eval_faithfulness(question, reponse, sources_texte):
+    prompt = PROMPT_EVAL_FAITHFULNESS.format(
+        sources=sources_texte,
+        question=question,
+        reponse=reponse
+    )
+    result = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        temperature=0,
+    )
+    return json.loads(result.choices[0].message.content)
+```
+
+**Pattern en production** : générer **100 questions de test**, lancer le RAG, faire évaluer automatiquement, suivre les régressions dans le temps.
+
+## 📊 Outils d'évaluation dédiés
+
+En production, on utilise des frameworks spécialisés :
+- **Ragas** : métriques RAG standardisées (faithfulness, answer_relevancy, context_precision)
+- **DeepEval** : tests unitaires pour LLM
+- **TruLens** : observabilité des apps LLM
+
+# 6. Les 7 pièges classiques du RAG
+
+## 🕳️ Piège 1 : Chunking trop grand ou trop petit
+
+**Symptôme** : réponses hors sujet ou fragmentaires.  
+**Solution** : 500-800 tokens en défaut, adapter selon tes docs.
+
+## 🕳️ Piège 2 : K trop petit
+
+**Symptôme** : le LLM manque d'info pour répondre.  
+**Solution** : k=5 en défaut, tester k=10 si les réponses sont incomplètes.
+
+## 🕳️ Piège 3 : Mauvais modèle d'embedding
+
+**Symptôme** : le retrieval rate des questions pourtant évidentes.  
+**Solution** : modèle **multilingue** si tu travailles en français, tester plusieurs modèles.
+
+## 🕳️ Piège 4 : Pas de filtre par metadata
+
+**Symptôme** : le RAG ramène des docs obsolètes ou hors sujet.  
+**Solution** : ajouter `date`, `langue`, `catégorie` dans les metadatas et filtrer.
+
+## 🕳️ Piège 5 : Mauvais prompt
+
+**Symptôme** : le LLM hallucine même avec les bonnes sources.  
+**Solution** : instructions STRICTES (uniquement sources, citations, "je ne sais pas").
+
+## 🕳️ Piège 6 : Pas d'évaluation systématique
+
+**Symptôme** : tu ne sais pas si ton RAG s'améliore ou régresse.  
+**Solution** : un **dataset de test** (100 questions avec réponses attendues) + métriques suivies dans le temps.
+
+## 🕳️ Piège 7 : Oublier le re-ranking
+
+**Symptôme** : top-3 inclut des docs faiblement pertinents.  
+**Solution** : ajouter un **cross-encoder** (ex: `cross-encoder/ms-marco-MiniLM-L-6-v2`) qui re-score les top-20 → top-3.
+
+```{python}
+#| eval: false
+# Exemple de re-ranking
+from sentence_transformers import CrossEncoder
+
+reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+def rag_avec_rerank(question, k_retrieval=20, k_final=3):
+    # 1. Retrieval large (top-20)
+    q_emb = modele_emb.encode([question])[0]
+    top_20 = rechercher_top_k(q_emb, embeddings, corpus, k=k_retrieval)
+    
+    # 2. Re-ranking : scorer chaque paire (question, passage)
+    pairs = [[question, p["doc"]["contenu"]] for p in top_20]
+    scores = reranker.predict(pairs)
+    
+    # 3. Garder les k_final meilleurs
+    reranked = sorted(
+        zip(top_20, scores),
+        key=lambda x: -x[1]
+    )[:k_final]
+    
+    return [p for p, _ in reranked]
+```
+
+**Gain typique** : +5 à +15% de précision sur les bonnes questions. Mais **ralentit** (le cross-encoder est plus coûteux).
+
+# 🏁 Exercice bilan — RAG complet sur une FAQ TechVolt
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis un **RAG complet** sur le corpus TechVolt avec ChromaDB cette fois :
+
+1. **Prépare les données** :
+   - Ajoute **3 documents supplémentaires** sur des sujets qui te semblent importants (horaires SAV, politique de remboursement, comparaison avec concurrents...)
+   - Ajoute pour chacun une **metadata** `categorie` : `technique`, `commercial`, ou `support`
+   
+2. **Indexe dans ChromaDB** :
+   - Persistence sur disque (path `./chroma_techvolt`)
+   - Collection `techvolt_v2`
+   - Metric `cosine`
+
+3. **Fonction RAG** `ask_techvolt(question, categorie_filtre=None)` :
+   - Si `categorie_filtre` est donné, filtre les résultats
+   - Retourne réponse + sources citées
+   
+4. **Teste sur 5 questions** mélangeant domaines et questions hors sujet
+
+5. **Évalue la faithfulness** de chaque réponse avec LLM-as-judge (note sur 5)
+
+6. **Bonus** : compare les résultats avec et sans filtre `categorie`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+# 1. Corpus étendu
+corpus_v2 = corpus.copy()
+corpus_v2.extend([
+    {
+        "id": "doc_011",
+        "titre": "Horaires SAV",
+        "contenu": "Le SAV TechVolt est joignable du lundi au vendredi de 8h à 19h, samedi de 9h à 17h. Fermé dimanche et jours fériés. En urgence (code E04, fumée...) une hotline 24/7 est disponible au 0800 000 000 (gratuit).",
+        "categorie": "support",
+    },
+    {
+        "id": "doc_012",
+        "titre": "Politique de remboursement",
+        "contenu": "Satisfaction ou remboursement : vous disposez de 30 jours après livraison pour nous retourner la borne. Le produit doit être en parfait état, dans son emballage d'origine. Remboursement sous 14 jours après réception.",
+        "categorie": "commercial",
+    },
+    {
+        "id": "doc_013",
+        "titre": "Comparaison concurrents",
+        "contenu": "TechVolt vs Wallbox : puissance identique, mais TechVolt inclut 3 ans de garantie (vs 2 chez Wallbox). TechVolt vs EVBox : app plus moderne, installation 30% plus rapide selon nos tests internes.",
+        "categorie": "commercial",
+    },
+])
+
+# Ajouter catégories aux docs existants
+categories_defaut = {
+    "doc_001": "technique", "doc_002": "technique", "doc_003": "support",
+    "doc_004": "technique", "doc_005": "support", "doc_006": "technique",
+    "doc_007": "technique", "doc_008": "commercial", "doc_009": "technique",
+    "doc_010": "technique",
+}
+for doc in corpus_v2:
+    if "categorie" not in doc:
+        doc["categorie"] = categories_defaut.get(doc["id"], "technique")
+
+# 2. Indexer
+import chromadb
+client_chroma = chromadb.PersistentClient(path="./chroma_techvolt")
+
+# Supprimer si existe pour recréer proprement
+try:
+    client_chroma.delete_collection("techvolt_v2")
+except Exception:
+    pass
+
+collection = client_chroma.create_collection(
+    name="techvolt_v2",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# Encoder et ajouter
+textes_v2 = [doc["contenu"] for doc in corpus_v2]
+embeddings_v2 = modele_emb.encode(textes_v2)
+
+collection.add(
+    ids=[doc["id"] for doc in corpus_v2],
+    documents=textes_v2,
+    embeddings=embeddings_v2.tolist(),
+    metadatas=[{"titre": doc["titre"], "categorie": doc["categorie"]} for doc in corpus_v2],
+)
+print(f"Indexé : {collection.count()} docs")
+
+# 3. Fonction RAG
+def ask_techvolt(question, categorie_filtre=None, k=3):
+    q_emb = modele_emb.encode([question])[0].tolist()
+    query_args = {"query_embeddings": [q_emb], "n_results": k}
+    if categorie_filtre:
+        query_args["where"] = {"categorie": categorie_filtre}
+    
+    results = collection.query(**query_args)
+    
+    # Construire le prompt
+    sources = "\n\n".join([
+        f"[Source {i+1}] {results['metadatas'][0][i]['titre']}\n{results['documents'][0][i]}"
+        for i in range(len(results["ids"][0]))
+    ])
+    
+    prompt = PROMPT_RAG_TEMPLATE.format(sources=sources, question=question)
+    
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+    
+    return {
+        "reponse": response.choices[0].message.content,
+        "sources": [(results["metadatas"][0][i]["titre"], results["distances"][0][i])
+                    for i in range(len(results["ids"][0]))],
+        "sources_texte": sources,
+    }
+
+# 4. Tester
+questions = [
+    "Quels sont les horaires du SAV ?",
+    "Je peux retourner ma borne si elle me plaît pas ?",
+    "Pourquoi choisir TechVolt plutôt que Wallbox ?",
+    "C'est quoi le code E04 ?",
+    "Comment faire des pâtes carbonara ?",  # hors sujet
+]
+
+for q in questions:
+    print(f"\n{'='*70}\n❓ {q}\n{'='*70}")
+    result = ask_techvolt(q)
+    print(f"\n📚 Sources :")
+    for titre, dist in result["sources"]:
+        print(f"  • {titre} (distance {dist:.3f})")
+    print(f"\n🤖 {result['reponse']}")
+    
+    # 5. Évaluer
+    eval_result = eval_faithfulness(q, result["reponse"], result["sources_texte"])
+    print(f"\n⭐ Faithfulness : {eval_result['note']}/5")
+    print(f"   {eval_result['justification']}")
+
+# 6. Bonus : avec et sans filtre
+print("\n\n=== COMPARAISON AVEC/SANS FILTRE ===")
+q_test = "Combien de temps pour être remboursé ?"
+for filtre in [None, "commercial", "technique"]:
+    res = ask_techvolt(q_test, categorie_filtre=filtre)
+    print(f"\n[filtre={filtre}]")
+    for titre, _ in res["sources"]:
+        print(f"  • {titre}")
+```
+
+**Leçons attendues** :
+- Les questions **dans le domaine** reçoivent des réponses **précises avec bonnes sources**
+- La question hors sujet est gérée (le LLM dit "je ne trouve pas")
+- **Faithfulness** typiquement 4-5/5 sur les réponses pertinentes
+- Le filtre par catégorie **focalise** la recherche : pour "remboursement" avec filtre `commercial`, on ne voit plus de doc technique dans les sources
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **RAG** | Retrieval + injection dans le prompt + Generation |
+| **Chunking** | Découper les docs en morceaux de 500-800 tokens |
+| **Embedding + vector store** | Indexer pour retrouver par sens |
+| **Top-k** | Nombre de passages récupérés (défaut k=3-5) |
+| **Prompt RAG** | Instructions strictes : sources obligatoires, citations |
+| **Metadata + filtres** | Affiner la recherche (date, catégorie...) |
+| **Re-ranking** | Cross-encoder sur top-20 pour affiner en top-3 |
+| **Faithfulness** | Métrique de fidélité aux sources |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours** un prompt RAG strict (citations, "je ne sais pas")
+2. **Métadonnées** dans le vector store dès le début
+3. **Évaluer** sur un dataset fixe, pas au feeling
+4. **Tester k** (3, 5, 10) → souvent k=5 gagne
+5. **Chunking récursif** en défaut, adapter si besoin
+
+## 🚨 Les pièges à éviter
+
+1. **Chunks trop gros** → dilution du signal
+2. **Pas de filtre metadata** → retrieval imprécis
+3. **Prompt flou** → hallucinations même avec RAG
+4. **Pas d'évaluation** → tu vas dans le mur en prod
+5. **Oublier le re-ranking** pour les cas difficiles
+
+## 🚀 La suite
+
+Ton RAG peut maintenant répondre à partir de tes docs. Mais il **ne peut pas agir** (envoyer un email, interroger une API, faire un calcul...).
+
+Dans la [**Notion 7.5 — Agents et tool-use**](notion_7_5_agents.qmd), on apprend au LLM à **utiliser des outils** :
+- **Function calling** : appeler des fonctions Python depuis un LLM
+- **Tool-use** : donner au LLM une **calculatrice**, un **moteur de recherche**...
+- **Agents** : LLM qui **raisonne** et **enchaîne** plusieurs outils
+- **ReAct** : le pattern de raisonnement des agents modernes
+
+C'est **l'étape ultime** : un LLM qui **agit** dans le monde réel.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+**Construis un RAG sur TES propres documents** :
+
+1. Prends 5-10 documents que tu connais bien (articles de blog, cours, notes personnelles...)
+2. Chunke, indexe dans ChromaDB
+3. Pose 10 questions dont tu connais les réponses
+4. Vérifie **manuellement** les réponses
+
+C'est le test ultime : si ton RAG donne de bonnes réponses sur tes données, tu maîtrises la technique.
+:::
