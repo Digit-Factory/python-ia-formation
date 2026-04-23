@@ -1,0 +1,1491 @@
+---
+title: "TP sommatif Module 7 — Chatbot RAG + Agent pour TechVolt"
+subtitle: "Le projet vitrine qui combine tout le module"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_07/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_07/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_07_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 10 à 12 heures  
+**Prérequis** : toutes les notions du Module 7 (7.1 à 7.6, **sauf 7.6 optionnel**)  
+**Objectif** : construire un chatbot professionnel combinant RAG, agent, outils métier et logs
+:::
+
+::: {.callout-tip}
+## 💼 À la fin, tu auras un vrai projet à montrer
+Ce TP produit un **chatbot fonctionnel** que tu peux :
+- Montrer à un recruteur
+- Adapter à ton propre domaine (ta boîte, ton blog, un wiki...)
+- Mettre sur ton GitHub
+- Décrire dans ton CV comme projet "IA générative / RAG / Agents"
+:::
+
+# 🎯 Contexte
+
+Tu es data scientist freelance. **TechVolt**, la startup de bornes de recharge électrique dont tu as entendu parler pendant tout ce module, te contacte :
+
+> *« Notre équipe support est débordée. Les techniciens sur le terrain posent toujours les mêmes questions : codes d'erreur, horaires SAV, prix des abonnements, procédures d'installation... On voudrait un chatbot qui connaît TOUTE notre doc et peut même **agir** (créer un ticket, prendre un RDV). Budget : 0€ (startup !). Livrable : un prototype fonctionnel en 2 semaines. Go ? »*
+
+## 🎁 Les objectifs business
+
+1. **Répondre** automatiquement aux questions sur la doc (RAG)
+2. **Diagnostiquer** les codes d'erreur
+3. **Créer des tickets** pour les cas non résolus
+4. **Prendre des RDV** d'installation
+5. **Tout gratuit** (Groq + ChromaDB + sentence-transformers)
+6. **Logs** pour que l'équipe suive ce qui se passe
+7. **Évaluer** la qualité des réponses (bonus)
+
+## 📦 Ce qu'on te fournit
+
+Un dossier `ressources_tp/` avec :
+- **`knowledge_base.json`** : 26 documents TechVolt (installation, erreurs, SAV, commercial, sécurité)
+- **`test_questions.json`** : 10 questions de test pour l'évaluation
+
+## 🗺️ Plan du TP
+
+Le TP se structure en **7 parties** :
+
+1. **Setup et exploration des données**
+2. **Préparer le RAG** (embeddings + ChromaDB)
+3. **Prompt RAG et première conversation**
+4. **Outils métier** (diagnostic, tickets, RDV)
+5. **L'agent complet** (RAG + outils)
+6. **Conversation multi-tours** avec mémoire
+7. **Bonus** : évaluation automatique avec LLM-as-judge
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import os
+import json
+import time
+import logging
+import numpy as np
+import pandas as pd
+from pathlib import Path
+from datetime import date, datetime
+from typing import Literal
+from dataclasses import dataclass
+
+# Logging propre
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    datefmt="%H:%M:%S"
+)
+logger = logging.getLogger("techvolt")
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairies nécessaires + clé API
+
+```bash
+pip install sentence-transformers chromadb openai pydantic python-dotenv
+```
+
+**N'oublie pas ta clé Groq** dans `.env` :
+```
+GROQ_API_KEY=gsk_ta_cle_ici
+```
+:::
+
+```{python}
+#| echo: false
+# Chemin vers les ressources
+DATA_DIR = Path("ressources_tp")
+```
+
+```{python}
+#| eval: false
+DATA_DIR = Path("ressources_tp")
+```
+
+---
+
+# Partie 1 — Setup et exploration
+
+## ✏️ Étape 1.1 — Charger le corpus
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Charge le fichier JSON `ressources_tp/knowledge_base.json`
+2. Affiche le **nombre total** de documents
+3. Affiche la **répartition par catégorie** (valeur `categorie`)
+4. Affiche le **premier document** de chaque catégorie pour avoir une idée du contenu
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 1.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Charger le corpus
+with open(DATA_DIR / "knowledge_base.json", "r", encoding="utf-8") as f:
+    corpus = json.load(f)
+
+print(f"Nombre total de documents : {len(corpus)}")
+
+# Répartition par catégorie
+from collections import Counter
+categories = Counter(doc["categorie"] for doc in corpus)
+print(f"\nRépartition :")
+for cat, n in sorted(categories.items()):
+    print(f"  {cat:15s} : {n} docs")
+
+# Premier document de chaque catégorie
+print(f"\n--- Aperçu par catégorie ---")
+vues = set()
+for doc in corpus:
+    if doc["categorie"] not in vues:
+        vues.add(doc["categorie"])
+        print(f"\n[{doc['categorie'].upper()}] {doc['titre']}")
+        print(f"  {doc['contenu'][:150]}...")
+```
+
+**Observations** :
+- **26 documents** au total
+- **6 catégories** : installation, erreur, app, sav, commercial, securite
+- Chaque document fait ~400-500 caractères (taille idéale, pas besoin de chunking intensif)
+:::
+
+## ✏️ Étape 1.2 — Statistiques sur le corpus
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Calcule et affiche :
+1. **Longueur moyenne** des documents (en caractères et en mots)
+2. **Document le plus long** et **le plus court** (titre + longueur)
+3. Un **barplot** de la répartition par catégorie
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set_theme(style="whitegrid")
+
+# Stats
+longueurs_chars = [len(doc["contenu"]) for doc in corpus]
+longueurs_mots = [len(doc["contenu"].split()) for doc in corpus]
+
+print(f"Longueur moyenne : {np.mean(longueurs_chars):.0f} car. / {np.mean(longueurs_mots):.0f} mots")
+print(f"Médiane           : {int(np.median(longueurs_chars))} car.")
+
+# Min et max
+idx_min = np.argmin(longueurs_chars)
+idx_max = np.argmax(longueurs_chars)
+print(f"\nPlus court : {corpus[idx_min]['titre']} ({longueurs_chars[idx_min]} car.)")
+print(f"Plus long  : {corpus[idx_max]['titre']} ({longueurs_chars[idx_max]} car.)")
+
+# Barplot catégories
+fig, ax = plt.subplots(figsize=(9, 5))
+cats_df = pd.Series(categories).sort_values()
+cats_df.plot(kind="barh", ax=ax, color="steelblue", edgecolor="black")
+ax.set_xlabel("Nombre de documents")
+ax.set_title("Répartition du corpus TechVolt par catégorie")
+plt.tight_layout()
+plt.show()
+```
+
+**Leçon** : vérifier la **distribution** de ton corpus avant d'attaquer. Si une catégorie a **1 seul document**, le RAG sera pauvre sur ce sujet. Si elle en a **20**, tu as une redondance qui peut bruiter.
+:::
+
+---
+
+# Partie 2 — Préparer le RAG
+
+## ✏️ Étape 2.1 — Générer les embeddings
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Charge le modèle `paraphrase-multilingual-mpnet-base-v2` (modèle multilingue, bon en français)
+2. Encode **tous les contenus** du corpus en **batch** (une seule fois, plus rapide que en boucle)
+3. Affiche la **shape** des embeddings (devrait être `(26, 768)`)
+4. **Bonus** : mesure le temps d'encoding (pour savoir combien ça coûte)
+:::
+
+```{python}
+#| eval: false
+# TODO: Étape 2.1
+```
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from sentence_transformers import SentenceTransformer
+
+# Charger le modèle (1 fois, ~400 MB au 1er téléchargement)
+logger.info("Chargement du modèle d'embeddings...")
+modele_emb = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+
+# Encoder en batch
+t0 = time.time()
+textes = [doc["contenu"] for doc in corpus]
+embeddings = modele_emb.encode(textes, show_progress_bar=True)
+duree = time.time() - t0
+
+logger.info(f"Embeddings : {embeddings.shape} en {duree:.1f}s")
+```
+
+**Observations** :
+- Shape `(26, 768)` : 26 docs × 768 dimensions
+- Temps typique : 3-10s sur CPU, <1s sur GPU
+- Les embeddings sont **déterministes** : encoder 2 fois donne le même résultat
+:::
+
+## ✏️ Étape 2.2 — Indexer dans ChromaDB
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Crée un client **persistant** ChromaDB (path `./chroma_techvolt`)
+2. Crée une collection `techvolt_kb` avec **métrique cosine** (`hnsw:space: cosine`)
+3. Si la collection existe déjà, **supprime-la** avant pour repartir propre
+4. Ajoute tous les documents avec :
+   - `ids` : les ID du corpus (INST-001, ERR-E01...)
+   - `documents` : les contenus
+   - `embeddings` : les embeddings précalculés
+   - `metadatas` : un dict avec `titre` et `categorie`
+5. Vérifie le `collection.count()`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+import chromadb
+
+# Client persistent
+client_chroma = chromadb.PersistentClient(path="./chroma_techvolt")
+
+# Supprimer si existe
+try:
+    client_chroma.delete_collection("techvolt_kb")
+    logger.info("Ancienne collection supprimée")
+except Exception:
+    pass
+
+# Créer avec métrique cosine
+collection = client_chroma.create_collection(
+    name="techvolt_kb",
+    metadata={"hnsw:space": "cosine"}
+)
+
+# Ajouter tous les docs
+collection.add(
+    ids=[doc["id"] for doc in corpus],
+    documents=[doc["contenu"] for doc in corpus],
+    embeddings=embeddings.tolist(),
+    metadatas=[
+        {"titre": doc["titre"], "categorie": doc["categorie"]}
+        for doc in corpus
+    ],
+)
+
+logger.info(f"Indexé : {collection.count()} documents dans ChromaDB")
+```
+:::
+
+## ✏️ Étape 2.3 — Tester la recherche
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une fonction `rechercher(question: str, k: int = 3, filtre_categorie: str = None) -> list` qui :
+1. Encode la question
+2. Query ChromaDB avec `n_results=k`
+3. Si `filtre_categorie` est fourni, filtre via `where={"categorie": ...}`
+4. Retourne une liste de dicts `{id, titre, contenu, categorie, distance}`
+
+Teste-la sur 3 questions :
+- "Comment installer ma borne ?"
+- "C'est quoi le code E04 ?"
+- "Combien coûte l'abonnement ?" (avec filtre `commercial`)
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+def rechercher(question: str, k: int = 3, filtre_categorie: str = None) -> list:
+    """Recherche sémantique dans ChromaDB."""
+    q_emb = modele_emb.encode([question])[0].tolist()
+    
+    query_args = {"query_embeddings": [q_emb], "n_results": k}
+    if filtre_categorie:
+        query_args["where"] = {"categorie": filtre_categorie}
+    
+    results = collection.query(**query_args)
+    
+    # Formatter joliment
+    passages = []
+    for i in range(len(results["ids"][0])):
+        passages.append({
+            "id": results["ids"][0][i],
+            "titre": results["metadatas"][0][i]["titre"],
+            "contenu": results["documents"][0][i],
+            "categorie": results["metadatas"][0][i]["categorie"],
+            "distance": results["distances"][0][i],
+        })
+    return passages
+
+# Tests
+questions_test = [
+    ("Comment installer ma borne ?", None),
+    ("C'est quoi le code E04 ?", None),
+    ("Combien coûte l'abonnement ?", "commercial"),
+]
+
+for q, filtre in questions_test:
+    print(f"\n❓ {q}" + (f" [filtre={filtre}]" if filtre else ""))
+    passages = rechercher(q, k=3, filtre_categorie=filtre)
+    for i, p in enumerate(passages, 1):
+        print(f"  [{i}] {p['titre']} (dist {p['distance']:.2f}, cat={p['categorie']})")
+```
+
+**Observations typiques** :
+- "Comment installer" → docs INST-001 à INST-005 (distance 0.3-0.6)
+- "E04" → ERR-E04 en top 1 (distance très basse)
+- "Abonnement" avec filtre commercial → uniquement des docs `commercial`
+
+**Remarque** : plus la distance est **petite**, plus c'est pertinent (attention au piège ! Cf Notion 7.4).
+:::
+
+---
+
+# Partie 3 — Le prompt RAG et la première conversation
+
+## ✏️ Étape 3.1 — Template de prompt RAG strict
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris la constante `PROMPT_RAG` (template Python avec `{sources}` et `{question}`) qui :
+1. Positionne le LLM comme **assistant support TechVolt**
+2. Impose des **règles strictes** : sources uniquement, citations [Source N], "je ne sais pas"
+3. Fournit les sources formatées
+4. Prévoit un ton **professionnel mais accessible**
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+PROMPT_RAG = """Tu es l'assistant support de TechVolt (startup de bornes de recharge électrique).
+
+RÈGLES STRICTES à respecter :
+1. Utilise UNIQUEMENT les informations des sources ci-dessous pour répondre.
+2. Si la réponse n'est pas dans les sources, dis exactement : "Je ne trouve pas cette information dans ma documentation. Je vous conseille de contacter le SAV."
+3. Cite TOUJOURS la source utilisée entre crochets, ex : [Source 2]
+4. N'invente JAMAIS d'informations (numéros de téléphone, prix, délais...)
+5. Sois professionnel, clair et concis (réponse en 2-4 phrases idéalement)
+6. Pour les erreurs CRITIQUES (E04, fumée, odeur), commence par "⚠️ URGENT :" et insiste sur la sécurité
+
+SOURCES :
+{sources}
+
+QUESTION DU CLIENT : {question}
+
+RÉPONSE :"""
+
+print(PROMPT_RAG[:500] + "...")
+```
+:::
+
+## ✏️ Étape 3.2 — Fonction rag_repondre
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une fonction `rag_repondre(question: str, k: int = 3) -> dict` qui :
+1. Utilise `rechercher()` pour obtenir les k passages pertinents
+2. Formate les sources proprement pour le prompt
+3. Appelle le LLM Groq (Llama 3.3 70B) avec `temperature=0`
+4. Retourne `{"reponse": ..., "passages": [...], "prompt_utilise": ...}`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+from openai import OpenAI
+from dotenv import load_dotenv
+
+load_dotenv()
+
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
+
+MODELE = "llama-3.3-70b-versatile"
+
+def rag_repondre(question: str, k: int = 3) -> dict:
+    """Pipeline RAG : retrieval + prompt + génération."""
+    logger.info(f"Question reçue : {question[:60]}...")
+    
+    # 1. Retrieval
+    passages = rechercher(question, k=k)
+    
+    # 2. Formatter les sources
+    sources_formatees = "\n\n".join([
+        f"[Source {i+1}] {p['titre']} (catégorie: {p['categorie']})\n{p['contenu']}"
+        for i, p in enumerate(passages)
+    ])
+    
+    # 3. Prompt
+    prompt = PROMPT_RAG.format(sources=sources_formatees, question=question)
+    
+    # 4. Appel LLM
+    t0 = time.time()
+    response = client.chat.completions.create(
+        model=MODELE,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+        max_tokens=500,
+    )
+    duree = time.time() - t0
+    
+    reponse = response.choices[0].message.content
+    logger.info(f"Réponse générée en {duree:.1f}s, {response.usage.completion_tokens} tokens")
+    
+    return {
+        "reponse": reponse,
+        "passages": passages,
+        "prompt_utilise": prompt,
+        "tokens_in": response.usage.prompt_tokens,
+        "tokens_out": response.usage.completion_tokens,
+    }
+
+# Test
+result = rag_repondre("Que faire si ma borne affiche E04 ?")
+print(f"\n🤖 Réponse :\n{result['reponse']}")
+print(f"\n📚 Sources utilisées :")
+for p in result["passages"]:
+    print(f"  - {p['titre']}")
+```
+:::
+
+## ✏️ Étape 3.3 — Tester sur 5 questions variées
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Teste ton RAG sur ces 5 questions, en affichant pour chaque question :
+- La réponse du LLM
+- Les sources utilisées
+
+```python
+questions = [
+    "C'est quoi le code E04 ?",
+    "Combien coûte la borne Pro ?",
+    "Est-ce que mon installation est éligible aux aides ?",
+    "Ma borne ne capte plus le wifi depuis ce matin",
+    "Quelle est la meilleure pizza italienne ?",  # hors sujet !
+]
+```
+
+La question hors sujet doit déclencher le "Je ne trouve pas cette information..." du prompt.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+questions = [
+    "C'est quoi le code E04 ?",
+    "Combien coûte la borne Pro ?",
+    "Est-ce que mon installation est éligible aux aides ?",
+    "Ma borne ne capte plus le wifi depuis ce matin",
+    "Quelle est la meilleure pizza italienne ?",
+]
+
+for q in questions:
+    print(f"\n{'='*75}\n❓ {q}\n{'='*75}")
+    result = rag_repondre(q)
+    print(f"\n📚 Sources :")
+    for p in result["passages"]:
+        print(f"  - [{p['id']}] {p['titre']} (dist {p['distance']:.2f})")
+    print(f"\n🤖 Réponse :\n{result['reponse']}")
+```
+
+**Observations attendues** :
+- **E04** → "⚠️ URGENT : ..." au début (prompt strict respecté)
+- **Prix borne Pro** → 1599€ TTC, bonne citation de Source
+- **Aides** → mention crédit d'impôt, prime ADVENIR, TVA réduite
+- **Wifi** → diagnostic E03 + procédure de reconnexion
+- **Pizza** → "Je ne trouve pas cette information dans ma documentation..."
+
+Si ces résultats sont obtenus, ton **RAG de base est solide**.
+:::
+
+---
+
+# Partie 4 — Outils métier
+
+Le RAG c'est bien, mais il ne peut pas **agir**. Ajoutons des outils métier.
+
+## ✏️ Étape 4.1 — Définir 4 fonctions outils
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris **4 fonctions Python** :
+
+1. **`diagnostic_erreur(code: str) -> dict`** — retourne un dict avec `code`, `niveau_urgence`, `description`, `action`. Utilise les documents ERR-E01 à ERR-E05 pour extraire les infos.
+
+2. **`creer_ticket_support(probleme: str, urgence: str) -> str`** — crée un ticket simulé. Retourne une chaîne genre `"Ticket TVT-12345 créé (urgence: URGENTE). Un technicien vous contactera sous 24h."`
+
+3. **`prendre_rdv_installation(date_iso: str, creneau: str) -> str`** — prend un RDV. Valide la date (pas dans le passé) et le créneau (matin/après-midi). Retourne une confirmation avec référence.
+
+4. **`get_horaires_sav(jour: str) -> str`** — retourne les horaires du SAV pour un jour. Gère les jours fériés et dimanche (fermé).
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# --- Outil 1 : diagnostic erreur ---
+DB_ERREURS = {
+    "E01": {
+        "niveau": "NORMALE",
+        "description": "Surchauffe (température > 65°C)",
+        "action": "Laisser refroidir 30 min, redémarrer via l'app. Vérifier la ventilation.",
+    },
+    "E02": {
+        "niveau": "HAUTE",
+        "description": "Défaut de terre détecté",
+        "action": "NE PAS UTILISER. Contacter un électricien certifié IRVE ou le SAV sous 48h.",
+    },
+    "E03": {
+        "niveau": "NORMALE",
+        "description": "Problème wifi",
+        "action": "Vérifier la box, redémarrer la borne (10s bouton arrière), reconfigurer dans l'app.",
+    },
+    "E04": {
+        "niveau": "URGENTE",
+        "description": "COURT-CIRCUIT détecté",
+        "action": "DEBRANCHER véhicule, COUPER le disjoncteur, appeler 0800 000 000 (24/7).",
+    },
+    "E05": {
+        "niveau": "NORMALE",
+        "description": "Problème de communication véhicule",
+        "action": "Vérifier câble et connecteur, essayer un autre véhicule.",
+    },
+}
+
+def diagnostic_erreur(code: str) -> dict:
+    """Diagnostic d'un code d'erreur TechVolt."""
+    code_norm = code.strip().upper().replace(" ", "")
+    if code_norm in DB_ERREURS:
+        return {"code": code_norm, **DB_ERREURS[code_norm]}
+    return {"code": code, "niveau": "INCONNU", "description": "Code non répertorié", "action": "Contacter le SAV"}
+
+
+# --- Outil 2 : créer un ticket ---
+TICKETS_CREES = []  # "mémoire" pour le TP
+
+def creer_ticket_support(probleme: str, urgence: str = "NORMALE") -> str:
+    """Crée un ticket de support (simulé)."""
+    urgence_valid = urgence.upper() if urgence.upper() in ("NORMALE", "HAUTE", "URGENTE") else "NORMALE"
+    num = f"TVT-{abs(hash(probleme)) % 100000:05d}"
+    TICKETS_CREES.append({"num": num, "probleme": probleme, "urgence": urgence_valid, "date": datetime.now().isoformat()})
+    logger.info(f"Ticket {num} créé (urgence {urgence_valid})")
+    
+    delai = {"URGENTE": "24h", "HAUTE": "48h", "NORMALE": "5 jours"}[urgence_valid]
+    return f"Ticket {num} créé (urgence: {urgence_valid}). Délai de traitement : {delai}."
+
+
+# --- Outil 3 : prendre RDV ---
+RDV_CREES = []
+
+def prendre_rdv_installation(date_iso: str, creneau: str) -> str:
+    """Prend un RDV d'installation (simulé)."""
+    # Valider date
+    try:
+        d = date.fromisoformat(date_iso)
+    except ValueError:
+        return f"Erreur : date invalide ({date_iso}). Format attendu : YYYY-MM-DD."
+    
+    if d < date.today():
+        return f"Erreur : la date {date_iso} est dans le passé."
+    
+    if creneau not in ("matin", "après-midi"):
+        return f"Erreur : créneau invalide ({creneau}). Valeurs possibles : 'matin' ou 'après-midi'."
+    
+    ref = f"INST-{abs(hash(date_iso + creneau)) % 10000:04d}"
+    RDV_CREES.append({"ref": ref, "date": date_iso, "creneau": creneau})
+    logger.info(f"RDV installation {ref} réservé ({date_iso} {creneau})")
+    return f"RDV confirmé le {date_iso} {creneau} (référence : {ref}). Un technicien IRVE vous contactera la veille."
+
+
+# --- Outil 4 : horaires SAV ---
+HORAIRES_SAV = {
+    "lundi": "8h-19h", "mardi": "8h-19h", "mercredi": "8h-19h",
+    "jeudi": "8h-19h", "vendredi": "8h-19h",
+    "samedi": "9h-17h", "dimanche": "FERMÉ",
+}
+
+def get_horaires_sav(jour: str) -> str:
+    """Horaires du SAV pour un jour donné."""
+    j = jour.strip().lower()
+    horaire = HORAIRES_SAV.get(j)
+    if not horaire:
+        return f"Jour non reconnu : {jour}. Jours valides : lundi, mardi, ..., dimanche."
+    if horaire == "FERMÉ":
+        return f"Le SAV est FERMÉ le {j}. En urgence (E02/E04) : 0800 000 000 (24/7)."
+    return f"Horaires du SAV le {j} : {horaire}. Téléphone : 01 23 45 67 89."
+
+
+# Test rapide des 4 outils
+print(diagnostic_erreur("E04"))
+print()
+print(creer_ticket_support("Borne bruyante depuis ce matin", "HAUTE"))
+print()
+print(prendre_rdv_installation("2026-06-15", "matin"))
+print()
+print(get_horaires_sav("samedi"))
+```
+:::
+
+## ✏️ Étape 4.2 — Schémas JSON pour le LLM
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris la liste `OUTILS_SCHEMAS` (liste de dicts au format function calling OpenAI) qui décrit **précisément** chaque outil au LLM. N'oublie pas :
+- `description` qui dit clairement **quand** utiliser l'outil
+- `parameters` avec types, descriptions et `required`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+OUTILS_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "diagnostic_erreur",
+            "description": "Diagnostique un code d'erreur TechVolt (E01 à E05 ou autres). "
+                           "Retourne le niveau d'urgence et l'action à effectuer. "
+                           "À utiliser DÈS qu'un client mentionne un code d'erreur.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Code d'erreur (ex: 'E04')"}
+                },
+                "required": ["code"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "creer_ticket_support",
+            "description": "Crée un ticket de support client avec un niveau d'urgence. "
+                           "À utiliser quand un client signale un problème complexe, une panne, "
+                           "ou quand une erreur CRITIQUE est détectée (E04, fumée, odeur suspecte). "
+                           "Niveau URGENTE recommandé pour les problèmes de sécurité.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "probleme": {
+                        "type": "string",
+                        "description": "Description claire du problème (1-2 phrases)"
+                    },
+                    "urgence": {
+                        "type": "string",
+                        "enum": ["NORMALE", "HAUTE", "URGENTE"],
+                        "description": "Niveau d'urgence : URGENTE pour sécurité (E04), HAUTE pour panne, NORMALE sinon"
+                    },
+                },
+                "required": ["probleme", "urgence"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "prendre_rdv_installation",
+            "description": "Réserve un créneau pour l'installation d'une borne. "
+                           "À utiliser quand un client demande explicitement un RDV d'installation "
+                           "et fournit une date et un créneau.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date_iso": {
+                        "type": "string",
+                        "description": "Date au format YYYY-MM-DD (ex: '2026-06-15')"
+                    },
+                    "creneau": {
+                        "type": "string",
+                        "enum": ["matin", "après-midi"],
+                        "description": "Créneau de la journée"
+                    },
+                },
+                "required": ["date_iso", "creneau"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_horaires_sav",
+            "description": "Retourne les horaires du SAV TechVolt pour un jour de la semaine donné. "
+                           "À utiliser quand un client demande 'c'est ouvert quand', 'samedi ouvert ?', etc.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "jour": {
+                        "type": "string",
+                        "description": "Jour de la semaine en français (lundi, mardi, mercredi, jeudi, vendredi, samedi, dimanche)"
+                    },
+                },
+                "required": ["jour"]
+            }
+        }
+    },
+]
+
+# Table de routage
+OUTILS_FONCTIONS = {
+    "diagnostic_erreur": diagnostic_erreur,
+    "creer_ticket_support": creer_ticket_support,
+    "prendre_rdv_installation": prendre_rdv_installation,
+    "get_horaires_sav": get_horaires_sav,
+}
+
+print(f"✅ {len(OUTILS_SCHEMAS)} outils prêts pour le LLM")
+```
+:::
+
+---
+
+# Partie 5 — L'agent complet (RAG + outils)
+
+Maintenant on combine tout : l'agent a accès à **la doc (via RAG)** ET aux **outils métier**.
+
+## 🎯 Architecture de l'agent
+
+L'agent a **2 capacités** :
+1. **Chercher dans la doc** via un outil `rechercher_doc` (wrapper autour du RAG)
+2. **Utiliser les outils métier** (diagnostic, ticket, RDV, horaires)
+
+Il décide lui-même quand utiliser quoi.
+
+## ✏️ Étape 5.1 — Wrapper RAG comme outil
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Écris une fonction `rechercher_doc(question: str) -> str` qui :
+   - Utilise la fonction `rechercher()` avec k=3
+   - Retourne les 3 passages concaténés avec leurs titres
+2. Ajoute le schéma à `OUTILS_SCHEMAS`
+3. Ajoute la fonction à `OUTILS_FONCTIONS`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+def rechercher_doc(question: str) -> str:
+    """Recherche dans la doc TechVolt et retourne les 3 passages les plus pertinents."""
+    passages = rechercher(question, k=3)
+    return "\n\n".join([
+        f"[{p['titre']}]\n{p['contenu']}"
+        for p in passages
+    ])
+
+# Ajouter au schéma
+OUTILS_SCHEMAS.append({
+    "type": "function",
+    "function": {
+        "name": "rechercher_doc",
+        "description": "Recherche une information dans la documentation TechVolt "
+                       "(installation, codes d'erreur, app, SAV, commercial, sécurité). "
+                       "À utiliser pour toute question factuelle sur les produits ou services.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "question": {
+                    "type": "string",
+                    "description": "Question ou sujet à rechercher"
+                }
+            },
+            "required": ["question"]
+        }
+    }
+})
+
+OUTILS_FONCTIONS["rechercher_doc"] = rechercher_doc
+
+print(f"✅ {len(OUTILS_SCHEMAS)} outils disponibles pour l'agent")
+```
+:::
+
+## ✏️ Étape 5.2 — System prompt de l'agent
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une constante `SYSTEM_AGENT` qui fait de ton LLM un **agent support TechVolt** :
+- Persona claire
+- Liste des outils à utiliser
+- Cas d'urgence (E04 → ticket URGENT **obligatoire**)
+- Ton pro mais accessible
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+SYSTEM_AGENT = """Tu es l'assistant support senior de TechVolt (bornes de recharge électrique).
+
+TU AS ACCÈS À CES OUTILS :
+- rechercher_doc : pour toute question sur la doc (installation, app, garantie...)
+- diagnostic_erreur : pour diagnostiquer un code E01-E05
+- get_horaires_sav : pour les horaires du SAV
+- creer_ticket_support : pour escalader un problème
+- prendre_rdv_installation : pour réserver un créneau installation
+
+RÈGLES OBLIGATOIRES :
+1. Utilise TOUJOURS les outils avant de répondre. Ne t'appuie JAMAIS sur tes connaissances générales.
+2. Pour toute question factuelle (prix, horaires, procédures...), utilise rechercher_doc EN PREMIER.
+3. Pour un code d'erreur, utilise TOUJOURS diagnostic_erreur.
+4. SI code d'erreur E04 OU mention de fumée/odeur/court-circuit : crée IMMÉDIATEMENT un ticket URGENT.
+5. Si le client demande un RDV, collecte date (format YYYY-MM-DD) et créneau (matin/après-midi) avant d'appeler prendre_rdv_installation.
+6. Sois professionnel, rassurant, et toujours en français.
+7. À la fin de ta réponse, fais un bref RÉCAPITULATIF des actions effectuées.
+
+Si une question sort de ton domaine (météo, cuisine...), réponds poliment que tu ne peux aider que sur les sujets TechVolt."""
+```
+:::
+
+## ✏️ Étape 5.3 — Boucle de l'agent
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une fonction `agent_techvolt(question: str, max_iter: int = 6) -> dict` qui :
+1. Initialise les messages avec le system prompt + la question utilisateur
+2. Boucle jusqu'à `max_iter` :
+   - Appelle le LLM avec les outils disponibles
+   - Si pas de tool call → retourne la réponse finale
+   - Sinon : exécute les outils, ajoute les résultats, continue
+3. Détecte les boucles (3 fois le même appel → stop)
+4. Retourne un dict avec `reponse`, `appels_outils`, `nb_iterations`, `duree`
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+def agent_techvolt(question: str, max_iter: int = 6, verbose: bool = True) -> dict:
+    """Agent TechVolt complet avec RAG + outils."""
+    messages = [
+        {"role": "system", "content": SYSTEM_AGENT},
+        {"role": "user", "content": question}
+    ]
+    
+    appels_outils = []
+    t0 = time.time()
+    
+    for iteration in range(1, max_iter + 1):
+        # Appel LLM avec outils
+        response = client.chat.completions.create(
+            model=MODELE,
+            messages=messages,
+            tools=OUTILS_SCHEMAS,
+            tool_choice="auto",
+            temperature=0,
+        )
+        message = response.choices[0].message
+        
+        # Pas de tool call → réponse finale
+        if not message.tool_calls:
+            duree = time.time() - t0
+            if verbose:
+                logger.info(f"Agent terminé en {iteration} itérations, {len(appels_outils)} outils, {duree:.1f}s")
+            return {
+                "reponse": message.content,
+                "appels_outils": appels_outils,
+                "nb_iterations": iteration,
+                "duree": duree,
+            }
+        
+        # Ajouter le message du LLM à l'historique
+        messages.append(message)
+        
+        # Exécuter chaque tool call
+        for tc in message.tool_calls:
+            nom = tc.function.name
+            args_str = tc.function.arguments
+            
+            # Détection de boucle : 3 fois le même appel → stop
+            signature = (nom, args_str)
+            if appels_outils.count(signature) >= 2:
+                logger.warning(f"Boucle détectée sur {nom}. Arrêt.")
+                return {
+                    "reponse": "⚠️ Boucle détectée. Problème avec ta requête.",
+                    "appels_outils": appels_outils,
+                    "nb_iterations": iteration,
+                    "duree": time.time() - t0,
+                }
+            
+            appels_outils.append(signature)
+            
+            # Exécuter
+            try:
+                args = json.loads(args_str)
+                if nom in OUTILS_FONCTIONS:
+                    resultat = OUTILS_FONCTIONS[nom](**args)
+                else:
+                    resultat = f"Erreur : outil inconnu '{nom}'"
+                
+                # Convertir en string si dict
+                resultat_str = json.dumps(resultat, ensure_ascii=False) if isinstance(resultat, dict) else str(resultat)
+            except Exception as e:
+                resultat_str = f"Erreur d'exécution : {e}"
+            
+            if verbose:
+                logger.info(f"  🔧 [{iteration}] {nom}({args_str[:60]}...) → {resultat_str[:80]}")
+            
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tc.id,
+                "content": resultat_str,
+            })
+    
+    # Max itérations
+    return {
+        "reponse": "⚠️ L'agent a atteint le maximum d'itérations sans finir.",
+        "appels_outils": appels_outils,
+        "nb_iterations": max_iter,
+        "duree": time.time() - t0,
+    }
+
+
+# Test
+print("=== Test 1 : question simple ===")
+r = agent_techvolt("Quels sont les horaires du SAV samedi ?")
+print(f"\n🤖 {r['reponse']}")
+print(f"\n(outils : {len(r['appels_outils'])}, durée {r['duree']:.1f}s)")
+```
+:::
+
+## ✏️ Étape 5.4 — Scénarios de test (démo scripted)
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Teste ton agent sur **5 scénarios clients** variés et réalistes :
+
+```python
+scenarios = [
+    # Simple : RAG seul
+    "Est-ce que je peux recharger ma Tesla Model 3 avec une borne TechVolt ?",
+    # Outil simple
+    "Le SAV est ouvert dimanche ?",
+    # RAG + diagnostic
+    "Ma borne affiche E03, que faire ?",
+    # Multi-outils (cas critique !)
+    "Ma borne fait des bruits bizarres et affiche E04, c'est grave ? "
+    "Ouvrez-moi un ticket urgent et dites-moi si le SAV est joignable maintenant.",
+    # Question composée
+    "Je veux installer une borne Pro à mon domicile. "
+    "Combien ça coûte, y a-t-il des aides, et vous pouvez réserver "
+    "un créneau d'installation pour le 20 juillet 2026 matin ?",
+]
+```
+
+Pour chaque scénario :
+- Affiche la question et la réponse
+- Affiche la **liste des outils appelés**
+- Vérifie les **résultats attendus** (ticket urgent sur E04, RDV pris, etc.)
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+scenarios = [
+    "Est-ce que je peux recharger ma Tesla Model 3 avec une borne TechVolt ?",
+    "Le SAV est ouvert dimanche ?",
+    "Ma borne affiche E03, que faire ?",
+    "Ma borne fait des bruits bizarres et affiche E04, c'est grave ? "
+    "Ouvrez-moi un ticket urgent et dites-moi si le SAV est joignable maintenant.",
+    "Je veux installer une borne Pro à mon domicile. "
+    "Combien ça coûte, y a-t-il des aides, et vous pouvez réserver "
+    "un créneau d'installation pour le 20 juillet 2026 matin ?",
+]
+
+for i, q in enumerate(scenarios, 1):
+    print(f"\n{'='*75}\n🎬 SCÉNARIO {i}\n{'='*75}")
+    print(f"❓ Client : {q}\n")
+    r = agent_techvolt(q, verbose=False)
+    
+    print(f"🔧 Outils appelés ({len(r['appels_outils'])}) :")
+    for nom, args in r["appels_outils"]:
+        print(f"  • {nom}({args[:70]}...)")
+    
+    print(f"\n🤖 Assistant :\n{r['reponse']}")
+    print(f"\n⏱️  {r['nb_iterations']} itérations, {r['duree']:.1f}s")
+```
+
+**Observations attendues** :
+- Scénario 1 (Tesla) : un seul appel `rechercher_doc`, réponse qui cite la compatibilité Type 2
+- Scénario 2 (dimanche) : un appel `get_horaires_sav` → "FERMÉ + numéro urgence"
+- Scénario 3 (E03) : `diagnostic_erreur` puis peut-être `rechercher_doc` pour détails
+- Scénario 4 (E04) : **diagnostic_erreur + creer_ticket_support URGENT + get_horaires_sav** dans l'ordre
+- Scénario 5 (installation complexe) : `rechercher_doc` (prix), `rechercher_doc` (aides), `prendre_rdv_installation`
+
+**🎯 Si tous ces scénarios passent bien, ton agent est PRÊT POUR LA DÉMO !**
+:::
+
+---
+
+# Partie 6 — Conversation multi-tours avec mémoire
+
+Jusqu'ici, chaque question est traitée **indépendamment**. Un vrai chatbot **se souvient** de l'échange.
+
+## ✏️ Étape 6.1 — Classe Chatbot avec historique
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une classe `ChatbotTechVolt` avec :
+- Attribut `historique` : liste des messages échangés
+- Méthode `poser_question(question: str) -> str` : appelle l'agent avec **l'historique complet**
+- Méthode `reset()` : vide l'historique
+- Méthode `resumer_conversation() -> dict` : retourne stats (nb messages, outils totaux...)
+
+**Astuce** : pour garder l'agent capable de nouveaux tool calls à chaque tour, passe l'historique dans `messages` **avant** le message user.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+class ChatbotTechVolt:
+    """Chatbot conversationnel avec mémoire et agent."""
+    
+    def __init__(self, max_iter_par_tour: int = 6, max_historique: int = 20):
+        self.historique = []  # messages sans le system
+        self.max_iter = max_iter_par_tour
+        self.max_historique = max_historique
+        self.tool_calls_total = []
+    
+    def poser_question(self, question: str) -> str:
+        """Pose une question en gardant l'historique."""
+        # Messages : system + historique + nouvelle question
+        messages = [{"role": "system", "content": SYSTEM_AGENT}] + self.historique.copy()
+        messages.append({"role": "user", "content": question})
+        
+        # Boucle agent
+        t0 = time.time()
+        for iteration in range(1, self.max_iter + 1):
+            response = client.chat.completions.create(
+                model=MODELE,
+                messages=messages,
+                tools=OUTILS_SCHEMAS,
+                tool_choice="auto",
+                temperature=0,
+            )
+            message = response.choices[0].message
+            
+            if not message.tool_calls:
+                # Réponse finale
+                reponse_finale = message.content
+                # Mettre à jour l'historique
+                self.historique.append({"role": "user", "content": question})
+                self.historique.append({"role": "assistant", "content": reponse_finale})
+                # Tronquer si trop long
+                if len(self.historique) > self.max_historique * 2:
+                    self.historique = self.historique[-self.max_historique * 2:]
+                logger.info(f"Tour complet en {iteration} itérations, {time.time() - t0:.1f}s")
+                return reponse_finale
+            
+            # Exécuter les outils
+            messages.append(message)
+            for tc in message.tool_calls:
+                self.tool_calls_total.append(tc.function.name)
+                try:
+                    args = json.loads(tc.function.arguments)
+                    resultat = OUTILS_FONCTIONS[tc.function.name](**args)
+                    res_str = json.dumps(resultat, ensure_ascii=False) if isinstance(resultat, dict) else str(resultat)
+                except Exception as e:
+                    res_str = f"Erreur : {e}"
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": res_str,
+                })
+        
+        return "⚠️ Max itérations atteint"
+    
+    def reset(self):
+        """Vide l'historique."""
+        self.historique = []
+        self.tool_calls_total = []
+        logger.info("Historique réinitialisé")
+    
+    def resumer_conversation(self) -> dict:
+        """Stats de la conversation."""
+        return {
+            "nb_messages": len(self.historique),
+            "nb_tours": len(self.historique) // 2,
+            "outils_utilises": dict(Counter(self.tool_calls_total)),
+        }
+
+
+# Test multi-tours
+bot = ChatbotTechVolt()
+
+tours = [
+    "Bonjour, j'ai commandé une borne TechVolt Pro la semaine dernière",
+    "Très bien. Je voudrais savoir si je suis éligible à des aides financières",
+    "OK, et pour l'installation vous pourriez venir le 22 juillet 2026 en après-midi ?",
+    "Parfait ! Une dernière chose : c'est quoi le code E03 au fait ?",
+]
+
+for q in tours:
+    print(f"\n👤 Client : {q}")
+    reponse = bot.poser_question(q)
+    print(f"🤖 Bot : {reponse}\n")
+
+print(f"\n📊 Résumé : {bot.resumer_conversation()}")
+```
+
+**Observations attendues** :
+- Le bot garde le contexte : à la fin il sait qu'on parle d'une Pro commandée récemment
+- Il peut prendre le RDV en cours de conversation
+- L'historique s'enrichit à chaque tour
+
+**C'est un VRAI chatbot multi-tours, prêt à être déployé !** 🎉
+:::
+
+---
+
+# Partie 7 — BONUS : évaluation automatique
+
+Cette partie est **facultative mais très formatrice**. Elle te donne une **compétence pro** très recherchée.
+
+## 🎯 Objectif
+
+Évaluer automatiquement la qualité du RAG en utilisant un LLM comme juge (LLM-as-judge).
+
+## ✏️ Étape 7.1 (bonus) — Dataset d'évaluation
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un dataset de **10 questions de test** avec pour chaque question :
+- La question
+- La **réponse attendue** (résumé court)
+- Les **ID des sources** qu'on devrait trouver
+- Une **catégorie** : factuel, procédural, hors-sujet
+
+Sauvegarde dans `ressources_tp/test_questions.json`.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+questions_eval = [
+    {
+        "question": "Quel est le prix de la borne Pro ?",
+        "reponse_attendue": "1599€ TTC hors installation",
+        "sources_attendues": ["COM-001"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "Comment faire si ma borne affiche E04 ?",
+        "reponse_attendue": "Débrancher, couper disjoncteur, appeler 0800 000 000",
+        "sources_attendues": ["ERR-E04"],
+        "categorie": "procedural",
+    },
+    {
+        "question": "Le SAV est ouvert quand le dimanche ?",
+        "reponse_attendue": "Fermé le dimanche, urgence 0800 000 000",
+        "sources_attendues": ["SAV-001"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "C'est compatible avec une voiture électrique de 2016 ?",
+        "reponse_attendue": "Si Type 2 : oui. Sinon adaptateur Type 1.",
+        "sources_attendues": ["ERR-E05"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "Quelles aides pour l'installation ?",
+        "reponse_attendue": "Crédit d'impôt 75%, ADVENIR jusqu'à 960€, TVA 5.5%",
+        "sources_attendues": ["INST-005"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "Combien de temps dure une installation ?",
+        "reponse_attendue": "2-4h, jusqu'à 6h si complexe",
+        "sources_attendues": ["INST-003"],
+        "categorie": "procedural",
+    },
+    {
+        "question": "Je suis en copropriété, j'ai le droit ?",
+        "reponse_attendue": "Oui, loi droit à la prise 2014, lettre recommandée au syndic",
+        "sources_attendues": ["INST-004"],
+        "categorie": "procedural",
+    },
+    {
+        "question": "C'est quoi l'abonnement Smart ?",
+        "reponse_attendue": "9.90€/mois : monitoring, MAJ auto, support prioritaire",
+        "sources_attendues": ["COM-002"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "Mes données sont protégées ?",
+        "reponse_attendue": "Oui RGPD, hébergement France, chiffrement TLS",
+        "sources_attendues": ["SEC-003"],
+        "categorie": "factuel",
+    },
+    {
+        "question": "Quel est le meilleur restaurant à Paris ?",
+        "reponse_attendue": "[Je ne trouve pas cette information...]",
+        "sources_attendues": [],
+        "categorie": "hors-sujet",
+    },
+]
+
+# Sauvegarder
+with open(DATA_DIR / "test_questions.json", "w", encoding="utf-8") as f:
+    json.dump(questions_eval, f, ensure_ascii=False, indent=2)
+
+print(f"✅ {len(questions_eval)} questions de test sauvegardées")
+```
+:::
+
+## ✏️ Étape 7.2 (bonus) — Juge LLM
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris une fonction `evaluer_reponse(question: str, reponse_obtenue: str, reponse_attendue: str) -> dict` qui :
+1. Envoie au LLM un prompt demandant de **noter** la réponse obtenue de 1 à 5
+2. Critères : pertinence, exactitude, fidélité aux sources
+3. Retourne `{"note": int, "justification": str}`
+
+Puis applique cette évaluation sur les 10 questions et calcule la **note moyenne**.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+#| eval: false
+PROMPT_JUGE = """Tu es un évaluateur strict de réponses à des questions client.
+
+QUESTION : {question}
+
+RÉPONSE ATTENDUE (référence) : {reponse_attendue}
+
+RÉPONSE OBTENUE (à évaluer) : {reponse_obtenue}
+
+Note la qualité de la réponse obtenue de 1 à 5 :
+- 5 : Parfaite, contient tous les éléments clés de la réponse attendue
+- 4 : Très bonne, tous les éléments importants sont là, style correct
+- 3 : Correcte, l'essentiel y est mais il manque des détails
+- 2 : Médiocre, beaucoup d'éléments manquants ou imprécis
+- 1 : Mauvaise, hors sujet ou erronée
+
+Réponds UNIQUEMENT en JSON valide :
+{{"note": <int>, "justification": "<str>"}}"""
+
+
+def evaluer_reponse(question: str, reponse_obtenue: str, reponse_attendue: str) -> dict:
+    """LLM juge la qualité d'une réponse."""
+    prompt = PROMPT_JUGE.format(
+        question=question,
+        reponse_obtenue=reponse_obtenue,
+        reponse_attendue=reponse_attendue,
+    )
+    
+    response = client.chat.completions.create(
+        model=MODELE,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        temperature=0,
+    )
+    
+    return json.loads(response.choices[0].message.content)
+
+
+# Évaluer sur le dataset
+logger.info("Démarrage de l'évaluation...")
+notes = []
+details = []
+
+for q_data in questions_eval:
+    # 1. Obtenir la réponse de notre RAG
+    r = rag_repondre(q_data["question"])
+    reponse_obtenue = r["reponse"]
+    
+    # 2. Évaluer
+    eval_result = evaluer_reponse(
+        q_data["question"],
+        reponse_obtenue,
+        q_data["reponse_attendue"]
+    )
+    
+    notes.append(eval_result["note"])
+    details.append({
+        "question": q_data["question"][:50],
+        "categorie": q_data["categorie"],
+        "note": eval_result["note"],
+        "justification": eval_result["justification"][:80],
+    })
+
+# Résumé
+df_eval = pd.DataFrame(details)
+print(f"\n📊 Résultats :")
+print(df_eval.to_string(index=False))
+print(f"\n🎯 Note moyenne : {np.mean(notes):.2f}/5")
+print(f"Par catégorie :")
+print(df_eval.groupby("categorie")["note"].mean().round(2))
+```
+
+**Résultats attendus** :
+- Note moyenne **> 4/5** signale un RAG de bonne qualité
+- Les questions **factuelles** ont souvent les meilleures notes
+- Les questions **procédurales** demandent plus de détails (risque -1 point)
+- La question **hors-sujet** doit obtenir 5/5 si ton prompt refuse correctement
+
+**C'est exactement ce qu'on fait en production** pour suivre la qualité d'un chatbot dans le temps.
+:::
+
+---
+
+# 🏁 Bilan et pour aller plus loin
+
+## 🏆 Ce que tu as accompli
+
+Tu viens de construire un **chatbot professionnel complet** :
+
+- ✅ **Corpus réaliste** (26 docs TechVolt structurés)
+- ✅ **RAG avec ChromaDB persistant** et filtres catégorie
+- ✅ **Prompt RAG strict** anti-hallucinations
+- ✅ **5 outils métier** (diagnostic, ticket, RDV, horaires, recherche)
+- ✅ **Agent multi-tours** qui enchaîne outils intelligemment
+- ✅ **Détection de boucles** pour la sécurité
+- ✅ **Conversation avec mémoire**
+- ✅ **Évaluation automatique** par LLM-as-judge (bonus)
+- ✅ **Logs structurés** pour monitoring
+
+**Tu combines toutes les briques** que tu as apprises dans le Module 7. 🎉
+
+## 💼 Pour aller plus loin (projet perso)
+
+Voici des pistes pour **transformer ce TP** en projet portefeuille CV :
+
+1. **Adapter à TES données** — ta doc de boulot, ton blog, un wiki...
+2. **Passer en architecture fichiers** — séparer `src/agent.py`, `src/tools.py`, `chatbot.py`...
+3. **Interface web** avec Gradio ou Streamlit (50 lignes)
+4. **Déploiement** — Hugging Face Spaces (gratuit), Railway, ou VPS
+5. **Guardrails** — filtrer les questions hors-sujet avant l'agent
+6. **Cache** — mémoriser les réponses fréquentes
+7. **Monitoring** — logs structurés vers Sentry ou Datadog
+8. **CI/CD** — tests sur le dataset d'éval à chaque push
+
+## 📊 Métriques business attendues
+
+Pour un vrai chatbot support :
+- **Taux de résolution autonome** (sans humain) : viser > 60%
+- **Temps de réponse** : < 5s (ton RAG est à ~2-3s)
+- **Coût par requête** : ~0€ avec Groq (free tier) 🎉
+- **Faithfulness** (LLM-as-judge) : viser > 4/5
+
+## 🎓 Module 7 : tu as terminé !
+
+Tu maîtrises maintenant la **boîte à outils complète de l'IA générative** :
+
+- ✅ Embeddings (7.1)
+- ✅ Transformer (7.2)
+- ✅ API LLM (7.3)
+- ✅ RAG (7.4)
+- ✅ Agents (7.5)
+- ✅ Fine-tuning (7.6)
+- ✅ **Projet complet** (ce TP)
+
+Tu es à **niveau junior confirmé / intermédiaire** en IA générative. Suffisant pour décrocher un poste d'IA Engineer en 2026.
+
+## 🚀 La suite : le Module 8 — MLOps
+
+Il te reste **un dernier module** pour parfaire ton arsenal : le **MLOps** (déploiement, monitoring, CI/CD pour les modèles ML).
+
+C'est la **discipline** qui fait la différence entre :
+- Un script qui marche sur ta machine
+- Un **système** qui tourne en production, se met à jour, se surveille, et résiste aux pannes
+
+Ton profil sera alors **complet**. 🎯
+
+::: {.callout-tip}
+## 💡 Défi final pour ce module
+
+**Déploie ton chatbot sur Hugging Face Spaces** (gratuit) pour qu'il soit accessible par URL :
+
+1. Crée un compte sur [huggingface.co](https://huggingface.co)
+2. New Space → Gradio → Free GPU
+3. Uploade tes fichiers + un `app.py` avec une interface Gradio minimale
+4. Ajoute ta clé API dans les secrets du Space
+5. Ton chatbot est **en ligne** 🎉
+
+Tu peux partager l'URL à des amis, des recruteurs, et le mettre dans ta présentation.
+:::

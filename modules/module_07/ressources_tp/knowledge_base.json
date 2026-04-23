@@ -1,0 +1,158 @@
+[
+  {
+    "id": "INST-001",
+    "titre": "Prérequis électriques pour l'installation",
+    "categorie": "installation",
+    "contenu": "Pour installer une borne TechVolt résidentielle, votre installation électrique doit répondre à ces prérequis : compteur Linky ou équivalent, puissance souscrite minimale de 9 kVA (12 kVA recommandé pour la charge rapide), disjoncteur différentiel 30mA de type A ou A+DC, et un câble d'alimentation dédié 3G6mm² pour le monophasé ou 5G6mm² pour le triphasé. Le tableau électrique doit avoir au moins une place libre pour le disjoncteur dédié."
+  },
+  {
+    "id": "INST-002",
+    "titre": "Certification IRVE et installateurs agréés",
+    "categorie": "installation",
+    "contenu": "L'installation d'une borne TechVolt doit obligatoirement être réalisée par un électricien certifié IRVE (Infrastructure de Recharge pour Véhicule Électrique). Cette certification est requise par la loi depuis 2017 et conditionne l'accès aux aides publiques. Pour trouver un installateur agréé près de chez vous, consultez notre annuaire sur techvolt.fr/installateurs ou appelez le 01 23 45 67 89. Le prix moyen d'installation est de 800€ à 1500€ selon la complexité, avant aides."
+  },
+  {
+    "id": "INST-003",
+    "titre": "Durée et étapes de l'installation",
+    "categorie": "installation",
+    "contenu": "Une installation standard TechVolt prend entre 2 et 4 heures. Les étapes sont : 1) Vérification du tableau électrique et pose du disjoncteur dédié (30 min), 2) Passage du câble jusqu'à l'emplacement de la borne (30-90 min selon la distance), 3) Fixation murale ou sur pied (20 min), 4) Raccordement électrique et mise à la terre (30 min), 5) Configuration et tests de mise en service (30 min). Pour une installation complexe (> 15m de câble, perçage mur porteur), prévoir jusqu'à 6h."
+  },
+  {
+    "id": "INST-004",
+    "titre": "Installation en copropriété",
+    "categorie": "installation",
+    "contenu": "En copropriété, le 'droit à la prise' (loi 2014) oblige le syndic à étudier votre demande d'installation. Vous devez adresser une lettre recommandée au syndic, qui dispose de 3 mois pour refuser (motif légitime requis). Sans réponse sous 3 mois, le droit est acquis. TechVolt propose un accompagnement administratif gratuit pour les copropriétaires : envoyez un mail à copro@techvolt.fr avec votre adresse et les plans du parking."
+  },
+  {
+    "id": "INST-005",
+    "titre": "Aides et subventions disponibles",
+    "categorie": "installation",
+    "contenu": "Les aides pour l'installation d'une borne TechVolt en 2026 : Crédit d'impôt de 75% du prix d'installation, plafonné à 500€ par borne. Prime ADVENIR jusqu'à 960€ pour les entreprises et copropriétés. TVA réduite à 5.5% pour les logements de plus de 2 ans. Certaines régions (Île-de-France, Grand Est, AURA) proposent des aides supplémentaires. TechVolt fournit gratuitement les documents administratifs nécessaires."
+  },
+  {
+    "id": "ERR-E01",
+    "titre": "Code erreur E01 - Surchauffe",
+    "categorie": "erreur",
+    "contenu": "Le code E01 signale une surchauffe de la borne (température interne > 65°C). Causes fréquentes : exposition prolongée au soleil, ventilation insuffisante, ou charge à pleine puissance par forte chaleur. Action : attendez 30 minutes que la borne refroidisse, puis redémarrez-la via l'app. En prévention : vérifiez que les aérations arrière ne sont pas obstruées et que la borne n'est pas en plein soleil. Si le problème persiste après 3 refroidissements, contactez le SAV."
+  },
+  {
+    "id": "ERR-E02",
+    "titre": "Code erreur E02 - Défaut de terre",
+    "categorie": "erreur",
+    "contenu": "Le code E02 indique un défaut de mise à la terre détecté. C'est un problème de SÉCURITÉ à traiter rapidement. Causes : câble de terre débranché, prise de terre défectueuse, ou humidité dans le boîtier. Action : N'UTILISEZ PAS la borne. Contactez un électricien certifié IRVE (ou le SAV TechVolt) dans les 48h. La borne refuse automatiquement de charger tant que le défaut n'est pas corrigé, pour votre sécurité."
+  },
+  {
+    "id": "ERR-E03",
+    "titre": "Code erreur E03 - Problème wifi",
+    "categorie": "erreur",
+    "contenu": "Le code E03 signale une perte de connexion wifi. La borne continue de charger en mode dégradé (pas de monitoring à distance, pas de MAJ automatiques). Action : vérifiez que votre box wifi fonctionne et que la borne est dans une zone de bonne réception. Redémarrage : maintenez 10 secondes le bouton arrière. Si persistant, reconfigurer le wifi via l'app (Paramètres > Réseau > Reconnecter). Voir aussi la fiche APP-003 sur la configuration wifi."
+  },
+  {
+    "id": "ERR-E04",
+    "titre": "Code erreur E04 - Court-circuit (CRITIQUE)",
+    "categorie": "erreur",
+    "contenu": "Le code E04 indique un COURT-CIRCUIT DÉTECTÉ. C'est une erreur CRITIQUE nécessitant une intervention immédiate. ACTION OBLIGATOIRE : 1) Débranchez immédiatement votre véhicule. 2) Coupez le disjoncteur dédié à la borne. 3) N'essayez PAS de redémarrer la borne. 4) Contactez IMMÉDIATEMENT le SAV urgence au 0800 000 000 (gratuit 24/7). Ne tentez AUCUNE réparation vous-même. Les causes possibles sont variées et potentiellement dangereuses (infiltration d'eau, composant défaillant, câble endommagé). La garantie couvre 100% de l'intervention."
+  },
+  {
+    "id": "ERR-E05",
+    "titre": "Code erreur E05 - Communication véhicule",
+    "categorie": "erreur",
+    "contenu": "Le code E05 indique un problème de communication entre la borne et le véhicule. Causes fréquentes : câble de charge endommagé, connecteur sale ou humide, protocole véhicule incompatible. Action : vérifiez visuellement le câble et le connecteur. Nettoyez avec un chiffon sec. Essayez un autre véhicule si possible pour isoler le problème. Sur les véhicules anciens (avant 2017), vérifiez que vous utilisez le bon adaptateur (Type 1 si applicable)."
+  },
+  {
+    "id": "ERR-AUTRE",
+    "titre": "Autres codes d'erreur",
+    "categorie": "erreur",
+    "contenu": "Autres codes d'erreur rares mais possibles : E06 - Tension réseau hors plage (nominale 220-240V). Appelez votre fournisseur d'électricité. E07 - Défaut firmware. Voir APP-004 pour la mise à jour manuelle. E08 - Mémoire saturée. Redémarrez la borne via l'app. E09 - Capteur température défaillant. Contactez le SAV (intervention sous garantie). Pour tout code non listé ici, consultez l'app TechVolt ou contactez le SAV."
+  },
+  {
+    "id": "APP-001",
+    "titre": "Téléchargement et premiers pas avec l'app",
+    "categorie": "app",
+    "contenu": "L'app TechVolt est disponible gratuitement sur l'App Store (iOS 14+) et Google Play (Android 8+). Premier lancement : créez un compte avec votre email, validez-le via le lien reçu, puis scannez le QR code situé sur la face arrière de votre borne pour l'appairer. L'appairage nécessite que borne et téléphone soient sur le même réseau wifi lors de la première connexion. Durée totale du setup : 5 à 10 minutes."
+  },
+  {
+    "id": "APP-002",
+    "titre": "Fonctionnalités de l'app",
+    "categorie": "app",
+    "contenu": "L'app TechVolt permet : démarrer/arrêter une charge à distance, planifier des charges (ex: heures creuses), consulter l'historique de consommation (kWh, coût, impact CO2), changer les modes de charge (ECO/NORMAL/RAPIDE), configurer le wifi et recevoir des notifications d'alertes. Les utilisateurs avec abonnement Smart accèdent en plus aux mises à jour firmware automatiques, au support prioritaire et aux statistiques avancées (prédiction, comparatifs, export)."
+  },
+  {
+    "id": "APP-003",
+    "titre": "Configuration wifi de la borne",
+    "categorie": "app",
+    "contenu": "Pour connecter votre borne au wifi : ouvrez l'app TechVolt, allez dans Paramètres > Réseau > Configurer wifi. IMPORTANT : le wifi doit être en 2.4 GHz (pas 5 GHz). La plupart des box modernes ont les deux, vérifiez la configuration. Nom du réseau (SSID) : évitez les caractères spéciaux (é, è, à, #). Mot de passe : 8 caractères minimum. Si la borne ne trouve pas votre réseau, redémarrez-la (10s sur le bouton arrière) puis rapprochez votre téléphone. Portée recommandée : moins de 15m entre box et borne."
+  },
+  {
+    "id": "APP-004",
+    "titre": "Mises à jour firmware",
+    "categorie": "app",
+    "contenu": "Les mises à jour firmware sont automatiques pour les clients avec abonnement Smart. Elles s'installent la nuit (3h-5h) quand la borne n'est pas utilisée, et prennent environ 15 minutes. Sans abonnement, vous pouvez installer manuellement : ouvrez l'app, Paramètres > À propos > Vérifier les mises à jour. Téléchargement via wifi de la borne (jamais via votre 4G). En cas d'échec de MAJ (code E07), vous pouvez télécharger le firmware depuis techvolt.fr/support et l'installer via USB."
+  },
+  {
+    "id": "SAV-001",
+    "titre": "Coordonnées et horaires du SAV",
+    "categorie": "sav",
+    "contenu": "SAV TechVolt - coordonnées : Standard : 01 23 45 67 89 (du lundi au vendredi 8h-19h, samedi 9h-17h, fermé dimanche/jours fériés). Urgences 24/7 (codes E02/E04, fumée, odeur) : 0800 000 000 (gratuit). Email : support@techvolt.fr (réponse sous 24h). Via l'app : Menu > Contacter le SAV (réponse prioritaire pour clients Smart sous 4h)."
+  },
+  {
+    "id": "SAV-002",
+    "titre": "Garantie constructeur",
+    "categorie": "sav",
+    "contenu": "La garantie constructeur TechVolt couvre 3 ans pièces et main-d'œuvre à compter de la date de mise en service. Sont couverts : tous les composants électroniques et mécaniques de la borne, la connectique, l'app et le firmware. Ne sont PAS couverts : dommages causés par surtension électrique externe (relève du fournisseur), vandalisme, utilisation non-conforme (hors Type 2 standard), modifications non-autorisées. Extension possible à 5 ans (+99€) ou 10 ans (+299€) à la commande."
+  },
+  {
+    "id": "SAV-003",
+    "titre": "Délais d'intervention SAV",
+    "categorie": "sav",
+    "contenu": "Délais d'intervention TechVolt : Urgence critique (E04, fumée) : intervention sous 24h, 7j/7. Panne standard (borne non fonctionnelle) : intervention sous 48h en région parisienne, 72h ailleurs en France métropolitaine. Problème mineur : intervention sous 5 jours ouvrés. Diagnostic à distance via l'app en priorité (résout 60% des cas). Les clients Smart bénéficient d'une priorité : délais divisés par 2."
+  },
+  {
+    "id": "SAV-004",
+    "titre": "Politique de remboursement",
+    "categorie": "sav",
+    "contenu": "Satisfaction ou remboursement : vous disposez de 30 jours après livraison pour retourner votre borne. Conditions : produit en parfait état, emballage d'origine complet (vis, notice, câble). Si installation déjà réalisée : frais de démontage (150€) déduits du remboursement. Remboursement effectué sous 14 jours après réception du retour. Pour toute demande : formulaire sur techvolt.fr/retour ou mail à retour@techvolt.fr."
+  },
+  {
+    "id": "COM-001",
+    "titre": "Gamme et prix des bornes",
+    "categorie": "commercial",
+    "contenu": "Gamme TechVolt 2026 : TechVolt Basic (7.4 kW monophasé) : 799€ TTC hors installation. Idéal location/petit budget. TechVolt Smart (7.4 kW monophasé + connectivité) : 1199€ TTC hors installation. Notre best-seller. TechVolt Pro (22 kW triphasé + connectivité) : 1599€ TTC hors installation. Charge rapide pour gros rouleurs. TechVolt Fleet (22 kW + gestion multi-utilisateurs) : 1999€ TTC hors installation. Pour entreprises."
+  },
+  {
+    "id": "COM-002",
+    "titre": "Abonnement Smart",
+    "categorie": "commercial",
+    "contenu": "L'abonnement TechVolt Smart est à 9.90€/mois (ou 99€/an, soit 2 mois gratuits). Inclus : monitoring à distance via app, mises à jour firmware automatiques, support prioritaire 24/7, statistiques avancées (prédiction consommation, optimisation heures creuses), export CSV, garantie perte de connectivité (compensation si panne > 72h). Résiliable à tout moment sans frais. 30 jours offerts à l'achat d'une borne Smart ou Pro."
+  },
+  {
+    "id": "COM-003",
+    "titre": "Comparaison avec la concurrence",
+    "categorie": "commercial",
+    "contenu": "Positionnement TechVolt vs concurrents : vs Wallbox : puissance identique, mais TechVolt inclut 3 ans de garantie (vs 2) et app plus moderne. vs EVBox : installation 30% plus rapide selon nos tests internes, meilleur support français. vs Legrand Green'Up : design plus discret, mais Legrand est plus robuste en extérieur. vs Schneider : TechVolt est 20% moins cher à performance équivalente, mais marque moins reconnue."
+  },
+  {
+    "id": "COM-004",
+    "titre": "Modes de paiement et financement",
+    "categorie": "commercial",
+    "contenu": "Modes de paiement acceptés : carte bancaire (Visa, Mastercard, AMEX), virement bancaire, PayPal. Paiement en 3x ou 4x sans frais via Alma (dès 300€ d'achat). Financement longue durée jusqu'à 24 mois avec Oney (TAEG fixe). Pour les entreprises : devis, paiement à 30 jours sur demande, leasing via notre partenaire BNP Parib.TVA récupérable pour les professionnels avec facture détaillée."
+  },
+  {
+    "id": "SEC-001",
+    "titre": "Normes et conformité",
+    "categorie": "securite",
+    "contenu": "Les bornes TechVolt sont conformes aux normes : NF C 15-100 (installations électriques basse tension en France), IEC 61851 (système de charge conductive pour véhicules électriques), IEC 62196 (connecteur Type 2), EN 61000 (compatibilité électromagnétique). Certifications : CE, NF, TÜV. Degré de protection IP54 (extérieur sous abri OK, éviter exposition directe à la pluie battante prolongée)."
+  },
+  {
+    "id": "SEC-002",
+    "titre": "Dispositifs de sécurité intégrés",
+    "categorie": "securite",
+    "contenu": "Sécurités intégrées dans chaque borne TechVolt : Différentiel 30mA de type A+DC (détecte fuites de courant continu et alternatif). Protection contre les surtensions (SPD type 2). Coupure automatique en moins de 30 ms en cas d'anomalie. Verrouillage mécanique du connecteur pendant la charge (impossible à débrancher sous tension). Surveillance température interne en continu. Journal d'événements accessible via l'app pour diagnostic."
+  },
+  {
+    "id": "SEC-003",
+    "titre": "Protection des données personnelles",
+    "categorie": "securite",
+    "contenu": "TechVolt respecte le RGPD. Les données collectées sont : identité du compte (email, nom), données de charge (kWh, durée, coût), données techniques de la borne (anomalies, firmware). Les données sont hébergées en France (OVH Roubaix), chiffrées en transit (TLS 1.3) et au repos. Vous pouvez exporter vos données à tout moment (Paramètres > Vie privée > Exporter), ou demander leur suppression (mail à rgpd@techvolt.fr, traitement sous 30 jours). Nos CGU détaillées : techvolt.fr/cgu."
+  }
+]

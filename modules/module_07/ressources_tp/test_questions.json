@@ -1,0 +1,80 @@
+[
+  {
+    "question": "Quel est le prix de la borne Pro ?",
+    "reponse_attendue": "1599€ TTC hors installation",
+    "sources_attendues": [
+      "COM-001"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "Comment faire si ma borne affiche E04 ?",
+    "reponse_attendue": "Débrancher, couper disjoncteur, appeler 0800 000 000",
+    "sources_attendues": [
+      "ERR-E04"
+    ],
+    "categorie": "procedural"
+  },
+  {
+    "question": "Le SAV est ouvert quand le dimanche ?",
+    "reponse_attendue": "Fermé le dimanche, urgence 0800 000 000",
+    "sources_attendues": [
+      "SAV-001"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "C'est compatible avec une voiture électrique de 2016 ?",
+    "reponse_attendue": "Si Type 2 : oui. Sinon adaptateur Type 1.",
+    "sources_attendues": [
+      "ERR-E05"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "Quelles aides pour l'installation ?",
+    "reponse_attendue": "Crédit d'impôt 75%, ADVENIR jusqu'à 960€, TVA 5.5%",
+    "sources_attendues": [
+      "INST-005"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "Combien de temps dure une installation ?",
+    "reponse_attendue": "2-4h, jusqu'à 6h si complexe",
+    "sources_attendues": [
+      "INST-003"
+    ],
+    "categorie": "procedural"
+  },
+  {
+    "question": "Je suis en copropriété, j'ai le droit ?",
+    "reponse_attendue": "Oui, loi droit à la prise 2014, lettre recommandée au syndic",
+    "sources_attendues": [
+      "INST-004"
+    ],
+    "categorie": "procedural"
+  },
+  {
+    "question": "C'est quoi l'abonnement Smart ?",
+    "reponse_attendue": "9.90€/mois : monitoring, MAJ auto, support prioritaire",
+    "sources_attendues": [
+      "COM-002"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "Mes données sont protégées ?",
+    "reponse_attendue": "Oui RGPD, hébergement France, chiffrement TLS",
+    "sources_attendues": [
+      "SEC-003"
+    ],
+    "categorie": "factuel"
+  },
+  {
+    "question": "Quel est le meilleur restaurant à Paris ?",
+    "reponse_attendue": "[Je ne trouve pas cette information...]",
+    "sources_attendues": [],
+    "categorie": "hors-sujet"
+  }
+]

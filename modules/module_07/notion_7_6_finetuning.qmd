@@ -64,6 +64,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import json
+import tempfile
+from pathlib import Path
+
+# Dossier temporaire portable (Windows / macOS / Linux / Colab)
+TMP = Path(tempfile.gettempdir())
 
 sns.set_theme(style="whitegrid")
 plt.rcParams['figure.figsize'] = (10, 5)
@@ -354,12 +359,13 @@ dataset_techvolt = [
 ]
 
 # Sauvegarde en JSONL
-with open("/tmp/dataset_techvolt.jsonl", "w") as f:
+chemin_dataset = TMP / "dataset_techvolt.jsonl"
+with open(chemin_dataset, "w", encoding="utf-8") as f:
     for ex in dataset_techvolt:
         f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
 # Relire pour vérifier
-with open("/tmp/dataset_techvolt.jsonl") as f:
+with open(chemin_dataset, encoding="utf-8") as f:
     for ligne in f:
         ex = json.loads(ligne)
         print(f"Instruction : {ex['instruction'][:60]}")
@@ -400,7 +406,7 @@ print(f"Val   : {len(val)} exemples")
 from datasets import Dataset
 
 # Charger depuis JSONL
-ds = Dataset.from_json("/tmp/dataset_techvolt.jsonl")
+ds = Dataset.from_json(str(TMP / "dataset_techvolt.jsonl"))
 
 # Split
 ds = ds.train_test_split(test_size=0.2, seed=42)
@@ -460,7 +466,7 @@ avis_dataset = [
 ]
 
 # Sauvegarde
-with open("/tmp/avis_techvolt.jsonl", "w") as f:
+with open(TMP / "avis_techvolt.jsonl", "w", encoding="utf-8") as f:
     for ex in avis_dataset:
         f.write(json.dumps(ex, ensure_ascii=False) + "\n")
 
@@ -519,7 +525,7 @@ def format_prompt(example):
         "text": f"### Instruction:\n{example['instruction']}\n\n### Réponse:\n{example['reponse']}"
     }
 
-ds = Dataset.from_json("/tmp/dataset_techvolt.jsonl")
+ds = Dataset.from_json(str(TMP / "dataset_techvolt.jsonl"))
 ds = ds.map(format_prompt)
 
 # 3. Tokeniser

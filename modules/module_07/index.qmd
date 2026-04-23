@@ -34,7 +34,7 @@ Ce module te fait passer de "utilisateur" de ChatGPT à **ingénieur·e IA gén�
 | **7.4** | [RAG : brancher un LLM sur tes docs](notion_7_4_rag.qmd) | 4-5 h |
 | **7.5** | [Agents et tool-use](notion_7_5_agents.qmd) | 3-4 h |
 | **7.6** | [Fine-tuning & LoRA](notion_7_6_finetuning.qmd) | 3 h |
-| **🎓 TP** | Chatbot RAG pour TechVolt _(à venir)_ | 10-12 h |
+| **🎓 TP** | [Chatbot RAG + Agent TechVolt](tp_sommatif.qmd) | 10-12 h |
 
 ## 📦 Récupère tes ressources pratiques
 

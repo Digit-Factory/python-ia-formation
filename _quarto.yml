@@ -75,7 +75,7 @@ book:
         - modules/module_07/notion_7_4_rag.qmd
         - modules/module_07/notion_7_5_agents.qmd
         - modules/module_07/notion_7_6_finetuning.qmd
-        # - modules/module_07/tp_sommatif.qmd
+        - modules/module_07/tp_sommatif.qmd
   # Bas de page
   page-footer:
     left: "© 2026 — Loïc PILET"
