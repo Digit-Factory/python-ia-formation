@@ -22,12 +22,12 @@ book:
         - modules/module_01/tp_sommatif.qmd
     - part: "Axe 1 — Fondations (suite)"
       chapters:
-      - modules/module_02/index.qmd
-      - modules/module_02/notion_2_1_numpy_avance.qmd
-      - modules/module_02/notion_2_2_pandas.qmd
-      - modules/module_02/notion_2_3_matplotlib.qmd
-      - modules/module_02/tp_sommatif.qmd
-    - part: "Axe 1 — Fondations (suite et fin)"
+        - modules/module_02/index.qmd
+        - modules/module_02/notion_2_1_numpy_avance.qmd
+        - modules/module_02/notion_2_2_pandas.qmd
+        - modules/module_02/notion_2_3_matplotlib.qmd
+        - modules/module_02/tp_sommatif.qmd
+    - part: "Axe 1 — Fondations (suite)"
       chapters:
         - modules/module_02/index.qmd
         - modules/module_03/index.qmd
@@ -76,6 +76,16 @@ book:
         - modules/module_07/notion_7_5_agents.qmd
         - modules/module_07/notion_7_6_finetuning.qmd
         - modules/module_07/tp_sommatif.qmd
+    - part: "Axe 3 — Industrialisation (suite)"
+      chapters:
+        - modules/module_08/index.qmd
+        - modules/module_08/notion_8_1_intro_mlops.qmd
+        - modules/module_08/notion_8_2_fastapi.qmd
+        # - modules/module_08/notion_8_3_docker.qmd
+        # - modules/module_08/notion_8_4_mlflow.qmd
+        # - modules/module_08/notion_8_5_monitoring.qmd
+        # - modules/module_08/notion_8_6_cicd.qmd
+        # - modules/module_08/tp_sommatif.qmd
   # Bas de page
   page-footer:
     left: "© 2026 — Loïc PILET"

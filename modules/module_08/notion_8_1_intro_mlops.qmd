@@ -1,0 +1,616 @@
+---
+title: "Notion 8.1 — Introduction au MLOps"
+subtitle: "La discipline qui transforme un prototype en produit"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_1_intro_mlops_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_1_intro_mlops_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 2 à 3 heures  
+**Prérequis** : avoir un projet ML réalisé (TP des modules précédents)  
+**Objectif** : comprendre ce qu'est le MLOps, son lifecycle, et les différents profils métier
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Définir le **MLOps** avec tes mots
+- Comprendre le **cycle de vie** d'un projet ML en production
+- Identifier les **différents profils** dans une équipe IA
+- Distinguer **DevOps** et **MLOps**
+- Connaître les **outils principaux** du paysage MLOps
+- Évaluer la **maturité MLOps** d'une équipe (les 3 niveaux)
+
+## 🎯 Pourquoi cette notion ?
+
+Avant de plonger dans les outils (FastAPI, Docker, MLflow...), il faut **comprendre le pourquoi**. Sans ça, tu vas empiler des outils sans savoir **quel problème ils résolvent**.
+
+Cette notion pose le cadre. Elle est **courte mais importante** : elle te donne le vocabulaire et les concepts que tu réutiliseras dans toutes les autres notions.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+
+print("✅ Environnement prêt (pas de lib spéciale pour cette notion)")
+```
+
+# 1. Le problème : le fossé entre "ça marche chez moi" et "ça tourne en prod"
+
+## 🤕 L'histoire classique
+
+Tu es data scientist chez une e-commerce. Tu passes **3 mois** à construire un modèle de recommandation qui cartonne :
+
+- ✅ **Accuracy** : 92% sur le test set
+- ✅ Beau notebook Jupyter, joliment commenté
+- ✅ Figures matplotlib impeccables
+
+Tu présentes fièrement ton travail. Ton manager adore. Puis arrive **LA question** :
+
+> *« Super, comment on met ça en production ? »*
+
+Et là, c'est le drame. Tu réalises :
+- Ton modèle est un fichier `model.pkl` sur ta machine
+- Il dépend de 47 packages Python dont tu ne connais plus les versions
+- Il met **3 secondes** à prédire en local, mais il faudrait **<100ms** en prod
+- Tu dois le ré-entraîner chaque semaine avec les nouvelles données, comment ?
+- Comment savoir s'il **continue** à bien performer quand déployé ?
+- Comment faire si tes collègues veulent tester une autre version ?
+
+**Ces questions**, c'est le MLOps.
+
+## 📊 Le chiffre qui fait mal
+
+::: {.callout-important}
+**87% des projets ML ne passent jamais en production** (source : VentureBeat 2019, toujours vrai en 2026 selon Gartner).
+
+**La raison principale** ? Pas la qualité du modèle. C'est **le manque de MLOps** : déploiement difficile, pas de monitoring, dépendances impossibles à reproduire...
+:::
+
+# 2. Définition du MLOps
+
+## 📖 Une définition courte
+
+> Le **MLOps** est la pratique qui combine **Machine Learning**, **DevOps** et **Data Engineering** pour **déployer** et **maintenir** des systèmes ML en production de façon **fiable** et **efficace**.
+
+## 🧬 L'équation
+
+```
+MLOps = DevOps (culture, automatisation, CI/CD)
+      + ML specifics (data, modèles, expériences, drift)
+      + Data engineering (pipelines, qualité, versioning)
+```
+
+## 🔑 Les 4 piliers
+
+```{python}
+#| label: fig-piliers-mlops
+#| fig-cap: "Les 4 piliers du MLOps"
+
+fig, ax = plt.subplots(figsize=(12, 7))
+ax.set_xlim(0, 10); ax.set_ylim(0, 10); ax.axis("off")
+
+# Centre
+ax.add_patch(plt.Circle((5, 5), 1.2, facecolor="#2563eb", edgecolor="black", linewidth=2))
+ax.text(5, 5, "MLOps", ha="center", va="center", fontsize=18, fontweight="bold", color="white")
+
+# 4 piliers
+piliers = [
+    ("Reproductibilité", (2, 8), "#10b981", "Mêmes résultats à chaque run\n• Versioning (code, data, modèles)\n• Environnements (Docker)\n• Seeds fixes"),
+    ("Automatisation", (8, 8), "#f59e0b", "Le moins d'humain possible\n• CI/CD\n• Re-entraînement automatique\n• Tests auto"),
+    ("Observabilité", (2, 2), "#ef4444", "Voir ce qui se passe\n• Logs structurés\n• Métriques (latence, accuracy)\n• Alertes"),
+    ("Scalabilité", (8, 2), "#8b5cf6", "Tenir la charge\n• Horizontal scaling\n• Caching\n• Async"),
+]
+
+for nom, (x, y), couleur, desc in piliers:
+    # Cercle
+    ax.add_patch(plt.Circle((x, y), 1.0, facecolor=couleur, edgecolor="black", linewidth=1.5, alpha=0.9))
+    ax.text(x, y, nom, ha="center", va="center", fontsize=10, fontweight="bold", color="white")
+    # Ligne vers centre
+    ax.plot([x, 5], [y, 5], color="gray", linewidth=1.5, linestyle="--", alpha=0.5, zorder=0)
+    # Description
+    dx = -3.5 if x < 5 else 1.1
+    dy = 0.3 if y > 5 else -0.7
+    ax.text(x + dx, y + dy, desc, fontsize=9, va="top", family="monospace",
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white", edgecolor=couleur, linewidth=1))
+
+ax.set_title("Les 4 piliers du MLOps", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 💡 MLOps vs DevOps : les différences clés
+
+Le DevOps existe depuis 2008. Le MLOps est **son petit frère** avec des spécificités :
+
+| Dimension | DevOps | MLOps |
+|---|---|---|
+| **Artefact** | Code | Code + **Données** + **Modèles** |
+| **Tests** | Fonctions, API | + **Data drift, model drift** |
+| **Versioning** | Git pour le code | Git + **DVC pour data/modèles** |
+| **Déploiement** | Build → Deploy | + Phase d'**entraînement** |
+| **Monitoring** | Erreurs, latence | + **Qualité des prédictions** |
+| **Re-build** | Déclenché par `git push` | + **Déclenché par nouvelles données** |
+
+**Le MLOps = DevOps + gestion des données et des modèles qui évoluent.**
+
+# 3. Le cycle de vie ML en production
+
+## 🔄 Les 6 étapes
+
+```{python}
+#| label: fig-lifecycle
+#| fig-cap: "Le cycle de vie MLOps"
+
+fig, ax = plt.subplots(figsize=(14, 7))
+ax.set_xlim(0, 14); ax.set_ylim(0, 8); ax.axis("off")
+
+etapes = [
+    (1.5, 4, "1. Data\ncollection", "#3b82f6", "Extraction, validation,\nversioning"),
+    (4, 5.5, "2. Feature\nengineering", "#8b5cf6", "Transformations,\nFeature store"),
+    (6.5, 4, "3. Training\n& tracking", "#ec4899", "MLflow, W&B,\nhyperparam search"),
+    (9, 5.5, "4. Validation", "#f59e0b", "Tests perf, fairness,\nrobustesse"),
+    (11.5, 4, "5. Deployment", "#10b981", "API, batch,\nstreaming"),
+    (9, 2.5, "6. Monitoring", "#ef4444", "Logs, métriques,\ndrift, alertes"),
+]
+
+# Dessiner les étapes
+for x, y, label, couleur, desc in etapes:
+    ax.add_patch(plt.Circle((x, y), 0.6, facecolor=couleur, edgecolor="black", linewidth=2))
+    ax.text(x, y, label, ha="center", va="center", fontsize=9, fontweight="bold", color="white")
+    ax.text(x, y - 1.3, desc, ha="center", va="top", fontsize=8, style="italic", color="#374151")
+
+# Flèches entre étapes
+from matplotlib.patches import FancyArrowPatch
+pairs = [
+    ((1.5, 4), (4, 5.5)),
+    ((4, 5.5), (6.5, 4)),
+    ((6.5, 4), (9, 5.5)),
+    ((9, 5.5), (11.5, 4)),
+    ((11.5, 4), (9, 2.5)),
+]
+for (x1, y1), (x2, y2) in pairs:
+    arrow = FancyArrowPatch((x1, y1), (x2, y2), arrowstyle="->", 
+                             mutation_scale=20, color="#374151", linewidth=1.5,
+                             connectionstyle="arc3,rad=0.1")
+    ax.add_patch(arrow)
+
+# Flèche de retour (monitoring → data)
+arrow_retour = FancyArrowPatch((9, 2.5), (1.5, 4), arrowstyle="->", 
+                                mutation_scale=20, color="#ef4444", linewidth=2,
+                                connectionstyle="arc3,rad=-0.3",
+                                linestyle="--")
+ax.add_patch(arrow_retour)
+ax.text(5, 1.2, "⟲ Boucle de feedback (nouvelles données, drift détecté, amélioration)",
+         ha="center", fontsize=10, color="#ef4444", style="italic")
+
+ax.set_title("Les 6 étapes du cycle MLOps", fontsize=14, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 🔎 Détail de chaque étape
+
+### 1️⃣ Data collection
+
+- **Sources** : bases de données, APIs, logs, fichiers...
+- **Validation** : schéma, qualité, complétude
+- **Versioning** : quelle version du dataset pour quelle expérience ? (outils : **DVC**, **LakeFS**)
+
+### 2️⃣ Feature engineering
+
+- Transformations (encoding, normalisation, features composites)
+- **Feature store** : partager les features entre équipes et entre train/prod (outils : **Feast**, **Tecton**)
+- **Critique** : le fameux `train/serve skew` où les features en prod diffèrent de l'entraînement
+
+### 3️⃣ Training & tracking
+
+- Entraînement du modèle
+- **Tracking d'expériences** : quels hyperparamètres ont donné quels résultats ? (Notion 8.4)
+- **Model registry** : où stocker les modèles entraînés ? (MLflow, Neptune)
+
+### 4️⃣ Validation
+
+- Tests de performance (accuracy, latence)
+- Tests de **fairness** (biais sur certains groupes)
+- Tests de **robustesse** (inputs adversariaux, cas limites)
+- **Validation humaine** : certaines décisions critiques
+
+### 5️⃣ Deployment
+
+- **API temps réel** (FastAPI — Notion 8.2)
+- **Batch** (traitement en masse la nuit)
+- **Edge** (modèle dans une app mobile, IoT)
+- **Streaming** (Kafka)
+
+### 6️⃣ Monitoring
+
+- **Système** : latence, erreurs, CPU, mémoire
+- **Modèle** : distribution des prédictions, accuracy si feedback dispo
+- **Data drift** : les données d'entrée changent ? (Notion 8.5)
+- **Alertes** quand un seuil est franchi
+
+## 🔁 La boucle fermée
+
+Le point clé : **c'est une boucle**. Le monitoring remonte vers la data collection. Exemple :
+
+1. Ton modèle de recommandation est déployé (étape 5)
+2. En monitoring (6), tu détectes que l'accuracy chute
+3. Tu investigates → les préférences utilisateurs ont évolué
+4. Tu collectes les nouvelles données (1)
+5. Tu re-trains le modèle (3)
+6. Nouveau déploiement (5)
+7. Etc.
+
+**C'est un travail continu**, pas un projet one-shot.
+
+# 4. Les 3 niveaux de maturité MLOps
+
+Google a proposé une classification devenue standard :
+
+## 🥉 Niveau 0 : Manuel (la majorité des entreprises)
+
+- Tout est **manuel** : data scientist fait tout dans son notebook
+- Modèle déployé **une fois**, rarement mis à jour
+- **Pas de monitoring** en production
+- Silo entre data scientists et équipe ops
+
+**Signe caractéristique** : « On a mis un modèle en prod il y a 2 ans, je ne sais pas si ça marche encore. »
+
+## 🥈 Niveau 1 : Automatisation ML pipeline
+
+- **Pipeline d'entraînement** automatisé (airflow, kubeflow)
+- **Monitoring basique** en prod
+- Déploiement **reproductible** (Docker, CI/CD)
+- Mais **pas d'automatisation complète** du ré-entraînement
+
+**Signe caractéristique** : « Quand on a de nouvelles données, on relance le pipeline d'un clic. »
+
+## 🥇 Niveau 2 : MLOps complet (quelques entreprises matures)
+
+- **CI/CD complet** : code push → test → train → deploy automatique
+- **Monitoring avancé** : alertes sur drift
+- **Ré-entraînement automatique** quand drift détecté
+- **A/B testing** systématique pour les nouveaux modèles
+- **Feature store** centralisé
+
+**Signe caractéristique** : « Notre système se ré-entraîne tout seul quand la qualité baisse, et on teste chaque version en canary deployment. »
+
+## 📊 Où se situent les entreprises en 2026 ?
+
+```{python}
+#| label: fig-maturite
+#| fig-cap: "Distribution de la maturité MLOps"
+
+niveaux = ["Niveau 0\n(Manuel)", "Niveau 1\n(Pipeline auto)", "Niveau 2\n(MLOps complet)"]
+proportions = [55, 35, 10]
+colors = ["#ef4444", "#f59e0b", "#10b981"]
+
+fig, ax = plt.subplots(figsize=(10, 5))
+bars = ax.barh(niveaux, proportions, color=colors, edgecolor="black", height=0.6)
+ax.set_xlabel("% d'entreprises faisant du ML (estimation 2026)")
+ax.set_xlim(0, 70)
+ax.set_title("La majorité des entreprises sont encore au Niveau 0", fontsize=13, fontweight="bold")
+
+for bar, p in zip(bars, proportions):
+    ax.text(bar.get_width() + 1, bar.get_y() + bar.get_height() / 2,
+             f"{p}%", va="center", fontsize=11, fontweight="bold")
+
+plt.tight_layout()
+plt.show()
+```
+
+**Opportunité** : il y a **un énorme besoin** en gens qui savent faire passer une équipe du niveau 0 au niveau 1. **C'est là que tu te positionnes.**
+
+## ✏️ Exercice 1 — Diagnostic d'une équipe
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Imagine que tu arrives comme consultant dans cette équipe :
+
+> *« On a 3 data scientists. Ils bossent chacun sur leurs modèles en local. Quand un modèle est bon, ils envoient un pickle à l'équipe devs qui le met derrière une API Flask. On le monitore... enfin, on vérifie quand ça plante. On retrain tous les 6 mois, à la main. »*
+
+1. À quel **niveau de maturité** MLOps sont-ils ?
+2. Quels sont les **3 premiers problèmes** que tu veux résoudre ?
+3. Pour chaque problème, quel **outil/pratique** proposes-tu ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+**Niveau : 0 (Manuel)**. Plusieurs signaux : bosse en local, envoie manuel, monitoring ad-hoc, retrain manuel.
+
+**3 premiers problèmes** (dans cet ordre) :
+
+1. **Reproductibilité nulle** → personne ne sait ce qui tourne en prod
+   - **Outil** : Docker pour containeriser + Git pour le code + versioning des modèles (DVC ou MLflow Model Registry)
+   - **Gain immédiat** : on peut rollback un modèle défaillant en 30 secondes
+
+2. **Pas de monitoring structuré** → on ne sait pas si le modèle fonctionne
+   - **Outil** : logs structurés (loguru) + métriques Prometheus + un dashboard Grafana simple
+   - **Gain immédiat** : alerte quand la latence explose ou quand les prédictions deviennent bizarres
+
+3. **Retrain manuel tous les 6 mois** → pas de réactivité aux changements
+   - **Outil** : pipeline d'entraînement automatisé (Airflow ou GitHub Actions pour commencer simple)
+   - **Gain immédiat** : retrain en 1 commande, puis automatique sur nouveau dataset
+
+**Ne pas faire** : proposer Kubernetes, Kubeflow, Feature store, MLflow full stack dès le début. C'est **tuer l'équipe** avec trop d'outils. Progression par étapes.
+:::
+
+# 5. Les profils dans une équipe IA
+
+Tu vas sûrement travailler avec d'autres profils. Connais-les :
+
+## 👥 Les 5 profils clés
+
+| Profil | Responsabilité principale | Outils typiques |
+|---|---|---|
+| **Data Scientist** | Comprendre le business, modéliser | Jupyter, scikit-learn, pandas |
+| **ML Engineer** | Coder des pipelines de production | Python, FastAPI, SQL |
+| **MLOps / Platform Engineer** | Infra, déploiement, CI/CD | Docker, K8s, Terraform, Airflow |
+| **Data Engineer** | Ingestion, transformation, stockage des données | Spark, Airflow, dbt, Snowflake |
+| **Product / Chef de projet IA** | Définir le problème, prioriser, coordonner | Notion, Jira, roadmap |
+
+## 🔥 Le rôle hybride qui explose : **IA Engineer**
+
+Un profil émergé en 2023-2024, devenu **très recherché** en 2026 :
+
+- Maîtrise **les modèles** (ML classique + LLM)
+- Maîtrise **le code prod** (APIs, tests, Docker)
+- Maîtrise **le déploiement** (cloud, monitoring)
+- **Un peu** de data engineering
+
+**C'est exactement ce que tu deviens** en terminant ce parcours. 🎯
+
+## 💰 Salaires typiques en France (2026, Paris)
+
+**Attention** : fourchettes indicatives, varient énormément selon la taille de boîte et l'expérience.
+
+| Profil | Junior (0-2 ans) | Senior (5+ ans) |
+|---|:---:|:---:|
+| Data Scientist | 40-55 k€ | 65-90 k€ |
+| ML Engineer | 45-60 k€ | 70-100 k€ |
+| **IA Engineer** | **50-70 k€** | **80-130 k€** |
+| MLOps | 50-65 k€ | 75-110 k€ |
+
+Ajoute **+15-30%** en free-lance, **+20-40%** en FAANG/top startups.
+
+# 6. Le paysage des outils MLOps
+
+## 🗺️ Les grandes familles
+
+```{python}
+#| label: fig-paysage
+#| fig-cap: "Paysage simplifié des outils MLOps"
+
+fig, ax = plt.subplots(figsize=(14, 8))
+ax.set_xlim(0, 14); ax.set_ylim(0, 10); ax.axis("off")
+
+familles = [
+    (1, 8.5, "Expérimentation\n& tracking", "#ec4899", ["MLflow", "Weights & Biases", "Neptune", "Comet"]),
+    (5, 8.5, "Versioning\ndata/modèles", "#8b5cf6", ["DVC", "LakeFS", "Pachyderm", "Git LFS"]),
+    (9, 8.5, "Feature\nstores", "#3b82f6", ["Feast", "Tecton", "Hopsworks"]),
+    (13, 8.5, "Orchestration", "#10b981", ["Airflow", "Prefect", "Dagster", "Kubeflow"]),
+    (1, 4.5, "Serving\n(API, batch)", "#f59e0b", ["FastAPI", "BentoML", "TorchServe", "Triton"]),
+    (5, 4.5, "Conteneur /\norchestration", "#06b6d4", ["Docker", "Kubernetes", "Docker Compose"]),
+    (9, 4.5, "Monitoring", "#ef4444", ["Prometheus+Grafana", "Evidently", "Fiddler", "Datadog"]),
+    (13, 4.5, "CI/CD", "#84cc16", ["GitHub Actions", "GitLab CI", "Jenkins", "CircleCI"]),
+    (3, 0.5, "Plateformes\ntout-en-un", "#a855f7", ["SageMaker", "Vertex AI", "Azure ML", "Databricks"]),
+    (10, 0.5, "Cloud\ndéploiement", "#6366f1", ["HF Spaces", "Railway", "Modal", "Replicate"]),
+]
+
+for x, y, nom, couleur, outils in familles:
+    # Cadre
+    ax.add_patch(plt.Rectangle((x - 1.6, y - 1.5), 3.2, 2.5, 
+                                 facecolor=couleur, edgecolor="black", 
+                                 linewidth=1.5, alpha=0.25))
+    # Titre
+    ax.text(x, y + 0.6, nom, ha="center", va="center", fontsize=10, fontweight="bold")
+    # Outils
+    for i, outil in enumerate(outils):
+        ax.text(x, y - 0.1 - i * 0.25, f"• {outil}", ha="center", fontsize=8.5, color="#1f2937")
+
+ax.set_title("Paysage MLOps : quelques familles et outils populaires (2026)",
+              fontsize=13, fontweight="bold")
+plt.tight_layout()
+plt.show()
+```
+
+## 💡 Tu ne vas pas apprendre tout ça
+
+Le paysage est **énorme**. Impossible de tout maîtriser.
+
+**Ma recommandation** :
+- **Apprends les incontournables** : Docker, FastAPI, GitHub Actions, un tracker (MLflow), un cloud (HF Spaces)
+- **Connais par nom** les autres pour pouvoir **en parler** en entretien
+- **Approfondis** selon ton job
+
+C'est ce qu'on va faire dans ce module.
+
+## ✏️ Exercice 2 — Reconnaître les outils
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour chaque description, identifie l'outil (plusieurs réponses possibles) :
+
+1. *« Je veux tracker tous les runs d'entraînement de mon équipe avec les hyperparamètres et les métriques. »*
+2. *« J'ai construit un modèle scikit-learn et je veux l'exposer derrière une API REST. »*
+3. *« Je veux m'assurer que mon app ML tourne exactement pareil sur ma machine et sur le serveur prod. »*
+4. *« Je veux automatiser mes tests et le déploiement à chaque push sur GitHub. »*
+5. *« Je veux héberger mon chatbot quelque part en ligne, gratuitement, sans configurer de serveur. »*
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+1. **Tracking d'expériences** → **MLflow** (standard), Weights & Biases, Neptune
+2. **API REST** → **FastAPI** (standard Python moderne), Flask (plus ancien), BentoML (spécialisé ML)
+3. **Reproductibilité environnement** → **Docker** (+ Docker Compose pour multi-services)
+4. **CI/CD** → **GitHub Actions** (notre choix), GitLab CI, Jenkins
+5. **Déploiement gratuit simple** → **Hugging Face Spaces** (idéal pour démos ML), Railway, Modal
+
+On **va utiliser tous ces outils** dans ce module, sauf Flask (on passe direct à FastAPI).
+:::
+
+# 7. Les 12 facteurs adaptés au ML
+
+Les **"12 factor app"** est un manifeste DevOps classique. Voici son adaptation au ML.
+
+## 🏆 Les 12 principes (version ML)
+
+Je liste les 6 plus importants :
+
+### 1. Un seul codebase versionné
+
+Ton code **ET** ta config d'entraînement **ET** tes schémas de data sont dans Git. Pas de fichier magique sur une clé USB.
+
+### 2. Dépendances explicites
+
+**`requirements.txt`** avec **versions fixées** (`numpy==1.24.3`, pas `numpy>=1.24`). Ou mieux : **`uv` / `poetry` / `conda-lock`** pour un lock file reproductible.
+
+### 3. Config dans l'environnement
+
+**Jamais** de clés API dans le code. Toujours dans `.env` ou des secrets du cloud (Notion 7.3).
+
+### 4. Artefacts déployables indépendamment
+
+Ton **modèle**, ton **code d'inférence**, ta **data** doivent pouvoir être versionnés **indépendamment** mais **référencés entre eux**.
+
+### 5. Stateless et ports explicites
+
+Ton serveur d'inférence ne **stocke rien en mémoire** entre deux requêtes (sauf cache volontaire). Il écoute sur un port configuré.
+
+### 6. Logs comme streams
+
+Les logs sortent sur **stdout/stderr**, pas dans un fichier local. Un système externe (Grafana, Datadog) les collecte.
+
+### 7-12. Autres principes
+
+Build vs release vs run séparés, scalabilité horizontale, dev/prod paritaires, etc. On ne va pas tout couvrir.
+
+## 💡 Pourquoi c'est important ?
+
+Ces principes **garantissent** :
+- **Reproductibilité** (n'importe qui peut relancer)
+- **Scalabilité** (on peut ajouter 10 serveurs)
+- **Maintenabilité** (on peut déboguer à 3h du mat' sans paniquer)
+
+**Un projet qui respecte les 12 facteurs** = un projet qui passe **facilement** en production. C'est exactement ce qu'on vise.
+
+# 🏁 Exercice bilan — Auto-évaluation de ton projet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Prends ton **TP sommatif Module 7** (le chatbot TechVolt, ou tout autre projet ML que tu as fait).
+
+Évalue-le selon les critères suivants (score 0, 1 ou 2 par critère) :
+
+| Critère | 0 | 1 | 2 |
+|---|---|---|---|
+| **Code dans Git** | Non | Oui mais local | Oui + GitHub/GitLab |
+| **requirements.txt avec versions** | Aucun | Présent sans versions | Avec versions fixées |
+| **Secrets hors du code** | En dur dans le code | Dans variables | `.env` + `.gitignore` |
+| **Tests automatisés** | Aucun | Quelques tests manuels | `pytest` automatique |
+| **Logs structurés** | `print()` | `logging` basique | logs JSON structurés |
+| **Conteneurisé (Docker)** | Non | Dockerfile présent | Container qui marche |
+| **Documentation (README)** | Vide ou absent | Basique | Complet avec install/usage |
+| **CI/CD automatique** | Rien | Tests manuels | GitHub Actions qui teste |
+| **Déployé quelque part** | Non | Localhost | URL publique accessible |
+| **Monitoring** | Rien | Logs consultables | Métriques + alertes |
+
+**Total sur 20 :**
+- **0-5** : niveau **prototype**. Tu dois progresser ce module !
+- **6-12** : niveau **junior**. Bon début, ce module va t'amener à 15+.
+- **13-17** : niveau **intermédiaire**. Tu vas affûter tes pratiques.
+- **18-20** : niveau **senior**. Tu as peut-être dépassé ce module 🏆
+
+À la fin de ce module 8, tu devrais **minimum** être à **15/20**.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **MLOps** | DevOps + ML specifics + Data engineering |
+| **Les 4 piliers** | Reproductibilité, Automatisation, Observabilité, Scalabilité |
+| **Cycle de vie** | 6 étapes en boucle (Data → Features → Train → Valid → Deploy → Monitor) |
+| **3 niveaux de maturité** | Manuel (0) → Pipeline auto (1) → MLOps complet (2) |
+| **Profil IA Engineer** | Le rôle qui monte : ML + code prod + déploiement |
+| **12 facteurs (ML)** | Principes de conception pour du code qui scale |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Voir le ML comme un produit** (qui vit, évolue, nécessite maintenance)
+2. **Pas d'outil sans problème clair** — ne pas empiler pour faire joli
+3. **Progresser par paliers** (niveau 0 → 1 → 2, pas sauter les étapes)
+4. **Documenter et automatiser** plus que coder
+5. **Monitorer avant d'optimiser** — tu ne peux pas améliorer ce que tu ne mesures pas
+
+## 🚨 Les pièges à éviter
+
+1. **Sur-ingénierie** — mettre Kubernetes pour 10 utilisateurs/jour
+2. **Sous-ingénierie** — tout en manuel avec des pickles sur le disque
+3. **Vouloir tout outiller d'un coup** — apprendre un outil à la fois
+4. **Ignorer le monitoring** — "ça marche" ne veut rien dire sans métriques
+5. **Confondre dev et prod** — les stats ML en dev sont souvent optimistes
+
+## 🚀 La suite
+
+Tu as le cadre conceptuel. **Place à la pratique.**
+
+Dans la [**Notion 8.2 — Déployer un modèle avec FastAPI**](notion_8_2_fastapi.qmd), on construit notre **première API de prédiction**.
+
+Au programme :
+- **FastAPI** : pourquoi c'est le standard Python moderne
+- **Exposer un modèle** ML derrière un endpoint `/predict`
+- **Validation** des inputs avec Pydantic (qu'on connaît déjà !)
+- **Documentation automatique** Swagger/OpenAPI
+- **Tests** avec `httpx`
+- **Performance** (async, batching)
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+**Trouve sur LinkedIn 5 offres d'emploi "MLOps Engineer" ou "ML Engineer"** en France :
+
+1. Note les **outils demandés**
+2. Note les **responsabilités**
+3. Compte combien d'outils tu connais déjà (depuis ce parcours)
+
+**Surprise** : tu en connais **déjà 60-80%**. La fin de ce module te fera dépasser les 90%. 💪
+:::

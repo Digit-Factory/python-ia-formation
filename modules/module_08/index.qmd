@@ -1,0 +1,112 @@
+---
+title: "Module 8 — MLOps : industrialiser l'IA"
+subtitle: "De Jupyter au cloud : mettre tes modèles en production"
+---
+
+## 🎯 Pourquoi ce module ?
+
+Tu sais entraîner des modèles ML, construire des RAG, créer des agents. Mais **comment les mettre en production** ? Comment faire pour :
+
+- **Exposer ton modèle** derrière une API que les autres peuvent appeler ?
+- **Déployer** automatiquement quand tu pushes ton code ?
+- **Tracker** tes expériences (quel modèle avec quels hyperparamètres donne quel score) ?
+- **Monitorer** ce qui se passe en prod (latence, erreurs, drift...) ?
+- **Reproduire** ton environnement sur n'importe quelle machine ?
+
+C'est le **MLOps** (Machine Learning Operations) : la **discipline qui fait la différence** entre un projet ML qui reste dans un notebook et un **produit** qui tourne, évolue, et génère de la valeur.
+
+::: {.callout-important}
+## 💼 C'est la compétence qui fait la différence sur un CV
+En 2026, **tous les data scientists** savent entraîner des modèles. Mais **peu** savent les déployer proprement. C'est **ce qui fait exploser ton salaire** (+20-40% sur une offre "IA Engineer" vs "Data Scientist" pur).
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre le **cycle de vie MLOps** et ses 6 étapes
+- **Exposer un modèle** via une API FastAPI
+- **Containeriser** ton application avec Docker
+- **Tracker** tes expériences avec MLflow
+- **Monitorer** un système en production (logs, métriques)
+- Automatiser les **tests, build et déploiement** avec GitHub Actions
+- **Déployer** ton chatbot TechVolt en ligne (gratuitement)
+
+## 🧭 Plan du module
+
+| Notion | Thème | Durée |
+|:---:|---|:---:|
+| **8.1** | [Introduction au MLOps](notion_8_1_intro_mlops.qmd) | 2-3 h |
+| **8.2** | [Déployer un modèle avec FastAPI](notion_8_2_fastapi.qmd) | 3-4 h |
+| **8.3** | Conteneurisation avec Docker _(à venir)_ | 3 h |
+| **8.4** | Tracking d'expériences avec MLflow _(à venir)_ | 3-4 h |
+| **8.5** | Monitoring en production _(à venir)_ | 3 h |
+| **8.6** | CI/CD pour le ML _(à venir)_ | 3 h |
+| **🎓 TP** | Déployer le chatbot TechVolt en production _(à venir)_ | 10-12 h |
+
+## 📦 Récupère tes ressources pratiques
+
+::: {.grid}
+
+::: {.g-col-6}
+### 💾 Option 1 — Travail local
+
+<a href="../../ressources_eleves/module_08_ressources_eleve.zip" 
+   class="btn btn-primary" 
+   download>
+📥 Télécharger le pack Module 8 (ZIP)
+</a>
+:::
+
+::: {.g-col-6}
+### ☁️ Option 2 — Google Colab
+
+Chaque notion a son bouton **Ouvrir dans Colab**.
+
+⚠️ Certaines notions (Docker, déploiement) **nécessitent ton propre environnement** (pas Colab).
+:::
+
+:::
+
+## 🛠️ Outils qu'on va utiliser
+
+Tous **gratuits** et **open source** :
+
+- **FastAPI** : serveur web pour exposer les modèles
+- **Docker** : conteneurisation
+- **MLflow** : tracking d'expériences
+- **Prometheus + Grafana** : monitoring (ou alternatives plus simples)
+- **GitHub Actions** : CI/CD
+- **Hugging Face Spaces** ou **Railway** : déploiement cloud gratuit
+
+## ⚠️ Prérequis importants
+
+Ce module est plus **système** que les précédents. Tu as besoin :
+
+- **Un compte GitHub** (indispensable)
+- **Docker Desktop** installé (on verra comment)
+- **Un compte Hugging Face** (gratuit, pour le déploiement)
+- Un **terminal** où tu es à l'aise (Linux/Mac natifs, Windows avec WSL2 recommandé)
+
+::: {.callout-tip}
+## 💡 Pas de GPU requis
+Contrairement aux modules 6-7, tu n'as **pas besoin de GPU**. Tout tourne sur ton CPU ou un petit serveur cloud.
+:::
+
+## 💡 Approche pédagogique
+
+Le MLOps est un domaine **vaste et en évolution**. On va :
+
+1. **Comprendre les concepts** qui durent (lifecycle, 12 factors, observability)
+2. **Apprendre les outils standards** (FastAPI, Docker, MLflow)
+3. **Construire un projet réel** (le chatbot TechVolt en production)
+4. **Automatiser** avec CI/CD
+
+Tu pourras **transférer** tout ça à n'importe quel autre projet ML.
+
+::: {.callout-tip}
+## 🎯 Conseil important
+Ne cherche pas à **tout maîtriser** dans ce module. Le MLOps est un domaine où on **apprend en faisant**, pendant des années. L'objectif : comprendre **les briques**, savoir **les assembler**, et pouvoir **lire la doc** pour aller plus loin.
+:::
+
+---
+
+[**→ Commencer par la Notion 8.1 : Introduction au MLOps**](notion_8_1_intro_mlops.qmd)

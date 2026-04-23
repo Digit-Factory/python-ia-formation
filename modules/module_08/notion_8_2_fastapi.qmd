@@ -1,0 +1,1064 @@
+---
+title: "Notion 8.2 — Déployer un modèle avec FastAPI"
+subtitle: "Transformer ton modèle en API REST professionnelle"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_2_fastapi_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_2_fastapi_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Notion 7.3 (Pydantic), Modules 4-6 (modèles ML)  
+**Objectif** : construire une API REST qui expose un modèle ML, avec validation, tests et doc automatique
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre pourquoi **FastAPI** est le standard Python moderne
+- Créer un endpoint `/predict` qui expose un modèle sklearn
+- **Valider** les inputs avec Pydantic (types, contraintes)
+- Gérer les **erreurs** proprement (404, 422, 500)
+- Utiliser la **documentation automatique** Swagger/OpenAPI
+- **Tester** ton API avec `TestClient` et `pytest`
+- Optimiser la performance (async, batching)
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as un modèle sklearn ou PyTorch entraîné. Pour qu'**une app mobile**, **un site web** ou **un autre service** puisse l'utiliser, il faut l'exposer via une **API HTTP**.
+
+**FastAPI** est le framework Python moderne pour ça :
+- **Ultra rapide** (parmi les plus rapides en Python)
+- **Validation automatique** avec Pydantic (tu connais déjà !)
+- **Doc automatique** (Swagger sans effort)
+- **Async** natif
+- **Tests faciles**
+
+Toutes les startups IA modernes (Anthropic, Mistral, OpenAI côté interne) utilisent FastAPI ou un équivalent.
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairies nécessaires
+
+```bash
+pip install fastapi 'uvicorn[standard]' httpx scikit-learn joblib
+```
+
+- **fastapi** : le framework web
+- **uvicorn** : le serveur ASGI (celui qui fait tourner FastAPI)
+- **httpx** : client HTTP pour tester
+- **scikit-learn**, **joblib** : pour notre modèle d'exemple
+:::
+
+# 1. FastAPI vs Flask vs Django
+
+## 🤔 Le contexte
+
+Pendant longtemps, **Flask** était le choix par défaut pour exposer des modèles ML en Python. Simple, minimal, ça marchait.
+
+Puis en 2018 est arrivé **FastAPI**. Aujourd'hui (2026), **c'est le standard de facto** pour tout projet ML.
+
+## 📊 Pourquoi FastAPI a gagné
+
+| Critère | Flask | Django | **FastAPI** |
+|---|:---:|:---:|:---:|
+| **Performance** | Moyen | Moyen | 🚀 **Top** (quasi Node.js) |
+| **Validation inputs** | Manuelle | ORM couplé | ✅ **Auto (Pydantic)** |
+| **Doc automatique** | Non | Non | ✅ **Swagger natif** |
+| **Async natif** | Non (Flask 2 ajoute) | Partiel | ✅ **Oui** |
+| **Courbe apprentissage** | Facile | Complexe | ✅ **Facile** |
+| **Typing Python moderne** | Non | Non | ✅ **Full** |
+| **Éco-système ML** | Large | Moyen | ✅ **Excellent** |
+
+**Verdict** : pour un projet ML en 2026, **FastAPI est le bon choix** dans 95% des cas. Flask/Django pour les projets legacy ou très contraints.
+
+## 💡 FastAPI en une phrase
+
+> FastAPI = **Pydantic pour les I/O** + **Starlette pour l'async** + **OpenAPI pour la doc**.
+
+# 2. Ton premier endpoint (en 15 lignes)
+
+## 🚀 Hello FastAPI
+
+Voici le code minimal d'une API FastAPI :
+
+```{python}
+from fastapi import FastAPI
+
+# Créer l'app
+app = FastAPI(
+    title="Mon API ML",
+    description="Expose un modèle de prédiction",
+    version="0.1.0",
+)
+
+# Endpoint racine
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "API en ligne"}
+
+# Endpoint health
+@app.get("/health")
+def health():
+    return {"ready": True}
+
+print("✅ App FastAPI créée (2 endpoints)")
+```
+
+## ▶️ Lancer le serveur
+
+Pour **lancer** ton API en vrai (dehors du notebook), tu écris ce code dans `app.py` et tu fais :
+
+```bash
+uvicorn app:app --reload --host 0.0.0.0 --port 8000
+```
+
+- `app:app` = module `app.py`, variable `app`
+- `--reload` = recharge auto quand tu modifies le code (dev uniquement)
+- `--port 8000` = port d'écoute
+
+Tu peux tester dans un navigateur : `http://localhost:8000` → réponse JSON.
+
+## 🧪 Tester sans lancer de serveur : TestClient
+
+Dans un notebook (ou dans les tests), on utilise **`TestClient`** :
+
+```{python}
+from fastapi.testclient import TestClient
+
+client = TestClient(app)
+
+# Test GET /
+response = client.get("/")
+print(f"Status : {response.status_code}")
+print(f"Body   : {response.json()}")
+
+# Test GET /health
+response = client.get("/health")
+print(f"\nStatus : {response.status_code}")
+print(f"Body   : {response.json()}")
+```
+
+**Magnifique** : pas besoin de lancer un vrai serveur pour tester. On va utiliser `TestClient` toute la notion.
+
+# 3. Endpoint de prédiction avec Pydantic
+
+## 🎯 Le scénario
+
+On va déployer un modèle de **classification d'iris** (le classique scikit-learn) :
+- **Input** : 4 features (sepal length/width, petal length/width)
+- **Output** : l'espèce prédite (setosa, versicolor, virginica) + la probabilité
+
+## 🌸 Entraîner notre modèle
+
+```{python}
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+import joblib
+from pathlib import Path
+
+# Charger et split
+data = load_iris()
+X_train, X_test, y_train, y_test = train_test_split(
+    data.data, data.target, test_size=0.2, random_state=42, stratify=data.target
+)
+
+# Entraîner
+modele = RandomForestClassifier(n_estimators=100, random_state=42)
+modele.fit(X_train, y_train)
+
+# Évaluer
+print(f"Accuracy test : {modele.score(X_test, y_test):.3f}")
+
+# Sauvegarder
+Path("/tmp/models").mkdir(exist_ok=True)
+joblib.dump(modele, "/tmp/models/iris_model.joblib")
+joblib.dump(list(data.target_names), "/tmp/models/iris_labels.joblib")
+print("✅ Modèle sauvegardé")
+```
+
+## 📋 Schéma d'input avec Pydantic
+
+Le secret de FastAPI : **tu déclares des classes Pydantic** et il fait **toute la validation** :
+
+```{python}
+from pydantic import BaseModel, Field
+from typing import Literal
+
+class IrisFeatures(BaseModel):
+    """Features pour prédire une espèce d'iris."""
+    sepal_length: float = Field(..., gt=0, lt=20, description="Longueur du sépale (cm)")
+    sepal_width: float = Field(..., gt=0, lt=20, description="Largeur du sépale (cm)")
+    petal_length: float = Field(..., gt=0, lt=20, description="Longueur du pétale (cm)")
+    petal_width: float = Field(..., gt=0, lt=20, description="Largeur du pétale (cm)")
+
+class IrisPrediction(BaseModel):
+    """Résultat de prédiction."""
+    species: Literal["setosa", "versicolor", "virginica"]
+    confidence: float = Field(..., ge=0, le=1, description="Probabilité de la classe")
+    model_version: str
+
+# Test : valider une instance
+fleur = IrisFeatures(sepal_length=5.1, sepal_width=3.5, petal_length=1.4, petal_width=0.2)
+print(fleur.model_dump())
+```
+
+## 🤖 Endpoint /predict
+
+```{python}
+from fastapi import FastAPI, HTTPException
+import joblib
+import numpy as np
+
+# Nouvelle app
+app = FastAPI(title="Iris Classifier", version="1.0.0")
+
+# Charger le modèle au démarrage (une fois)
+modele_prod = joblib.load("/tmp/models/iris_model.joblib")
+labels_prod = joblib.load("/tmp/models/iris_labels.joblib")
+MODEL_VERSION = "rf-v1.0.0"
+
+@app.get("/")
+def root():
+    return {"service": "iris-classifier", "version": MODEL_VERSION}
+
+@app.post("/predict", response_model=IrisPrediction)
+def predict(features: IrisFeatures):
+    """Prédit l'espèce d'iris à partir de ses mesures."""
+    # 1. Convertir en array
+    X = np.array([[
+        features.sepal_length, features.sepal_width,
+        features.petal_length, features.petal_width,
+    ]])
+    
+    # 2. Prédire
+    pred_idx = int(modele_prod.predict(X)[0])
+    probas = modele_prod.predict_proba(X)[0]
+    
+    # 3. Retourner
+    return IrisPrediction(
+        species=labels_prod[pred_idx],
+        confidence=float(probas[pred_idx]),
+        model_version=MODEL_VERSION,
+    )
+
+print("✅ Endpoint /predict défini")
+```
+
+## 🧪 Tester l'endpoint
+
+```{python}
+client = TestClient(app)
+
+# Cas nominal
+response = client.post("/predict", json={
+    "sepal_length": 5.1,
+    "sepal_width": 3.5,
+    "petal_length": 1.4,
+    "petal_width": 0.2,
+})
+print(f"Status : {response.status_code}")
+print(f"Body   : {response.json()}")
+
+# Cas cible virginica
+response = client.post("/predict", json={
+    "sepal_length": 6.5,
+    "sepal_width": 3.0,
+    "petal_length": 5.5,
+    "petal_width": 2.0,
+})
+print(f"\nStatus : {response.status_code}")
+print(f"Body   : {response.json()}")
+```
+
+## 🛡️ Validation automatique
+
+Teste avec un **input invalide** :
+
+```{python}
+# Valeur négative (notre schéma exige gt=0)
+response = client.post("/predict", json={
+    "sepal_length": -1.0,  # ← invalide
+    "sepal_width": 3.5,
+    "petal_length": 1.4,
+    "petal_width": 0.2,
+})
+print(f"Status : {response.status_code}")  # 422 Unprocessable Entity
+print(f"Body   : {response.json()}")
+```
+
+**Magique** : FastAPI a **automatiquement** détecté le problème et renvoyé une **erreur 422** avec un message explicite — **sans une seule ligne de code de validation** de ta part.
+
+## 🎓 Ce que FastAPI vient de faire pour toi
+
+- ✅ Parsing JSON de la requête
+- ✅ Validation des types (float, pas string)
+- ✅ Validation des contraintes (`gt=0, lt=20`)
+- ✅ Génération du message d'erreur structuré
+- ✅ Sérialisation JSON de la réponse
+- ✅ Validation de la **réponse** (avec `response_model`)
+
+**En Flask**, tu écrirais ça à la main. Ici, **zéro effort**.
+
+## ✏️ Exercice 1 — Endpoint batch
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Ajoute un endpoint **`/predict-batch`** qui prend une **liste** d'iris à prédire :
+
+1. Crée un schéma `IrisBatch` avec un champ `items: list[IrisFeatures]` (limite à 100 items max)
+2. Crée un schéma `BatchPrediction` avec `predictions: list[IrisPrediction]` et un champ `count: int`
+3. Dans l'endpoint, **vectorise** les prédictions (un seul appel `model.predict_proba`)
+4. Teste avec 3 iris
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from typing import List
+from pydantic import Field as PydField
+
+class IrisBatch(BaseModel):
+    items: List[IrisFeatures] = PydField(..., max_length=100)
+
+class BatchPrediction(BaseModel):
+    predictions: List[IrisPrediction]
+    count: int
+
+@app.post("/predict-batch", response_model=BatchPrediction)
+def predict_batch(batch: IrisBatch):
+    """Prédit plusieurs iris en une requête (plus efficace)."""
+    # Construire matrice X (N, 4)
+    X = np.array([
+        [item.sepal_length, item.sepal_width, item.petal_length, item.petal_width]
+        for item in batch.items
+    ])
+    
+    # Prédire en batch
+    pred_idx = modele_prod.predict(X).astype(int)
+    probas = modele_prod.predict_proba(X)
+    
+    # Construire les prédictions
+    predictions = [
+        IrisPrediction(
+            species=labels_prod[int(idx)],
+            confidence=float(probas[i, idx]),
+            model_version=MODEL_VERSION,
+        )
+        for i, idx in enumerate(pred_idx)
+    ]
+    
+    return BatchPrediction(predictions=predictions, count=len(predictions))
+
+# Tester
+client = TestClient(app)
+response = client.post("/predict-batch", json={
+    "items": [
+        {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2},
+        {"sepal_length": 6.5, "sepal_width": 3.0, "petal_length": 5.5, "petal_width": 2.0},
+        {"sepal_length": 5.9, "sepal_width": 3.0, "petal_length": 4.2, "petal_width": 1.5},
+    ]
+})
+print(f"Status : {response.status_code}")
+import json as jsonlib
+print(jsonlib.dumps(response.json(), indent=2))
+```
+
+**Pourquoi batcher ?** : appeler 100 fois `predict_proba(une_ligne)` est **beaucoup plus lent** que `predict_proba(matrice_100_lignes)`. Le batching est **essentiel** en production pour la performance.
+:::
+
+# 4. Gestion des erreurs
+
+## 🚨 Les 5 codes HTTP à connaître
+
+| Code | Signification | Quand l'utiliser |
+|---|---|---|
+| **200** | OK | Succès standard |
+| **400** | Bad Request | Erreur client générique |
+| **404** | Not Found | Ressource inexistante |
+| **422** | Unprocessable Entity | Input invalide (auto par Pydantic) |
+| **500** | Internal Server Error | Erreur serveur (bug) |
+
+## 🎯 Lever une HTTPException
+
+```{python}
+from fastapi import HTTPException
+
+@app.get("/users/{user_id}")
+def get_user(user_id: int):
+    if user_id <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="user_id doit être positif"
+        )
+    
+    # Simule qu'on ne trouve pas l'utilisateur
+    if user_id > 1000:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Utilisateur {user_id} introuvable"
+        )
+    
+    return {"user_id": user_id, "name": f"User_{user_id}"}
+
+# Tests
+client = TestClient(app)
+print(client.get("/users/42").json())
+print(f"\nErreur 400 : {client.get('/users/0').json()}")
+print(f"\nErreur 404 : {client.get('/users/9999').json()}")
+```
+
+## 🛡️ Handler global d'erreurs
+
+Pour gérer les **erreurs imprévues** (bugs) proprement :
+
+```{python}
+from fastapi import Request
+from fastapi.responses import JSONResponse
+import logging
+
+logger = logging.getLogger("iris-api")
+
+@app.exception_handler(Exception)
+async def generic_exception_handler(request: Request, exc: Exception):
+    """Attrape tout ce qui n'est pas déjà catché."""
+    logger.error(f"Erreur non gérée sur {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "error": "Erreur interne du serveur",
+            "path": str(request.url.path),
+        }
+    )
+
+print("✅ Handler global d'erreurs enregistré")
+```
+
+**En production** : tu aurais un **Sentry** ou **Datadog** qui capture ces erreurs pour alerter.
+
+# 5. Documentation automatique (Swagger)
+
+C'est **le bonus** qui fait aimer FastAPI : ta doc est **générée automatiquement**.
+
+## 🎨 Swagger UI : gratuit
+
+Quand tu lances `uvicorn app:app`, tu accèdes à :
+- **`http://localhost:8000/docs`** → Swagger UI (joli)
+- **`http://localhost:8000/redoc`** → ReDoc (autre style)
+- **`http://localhost:8000/openapi.json`** → spec JSON brute
+
+Sans rien faire, tu as **une vraie doc interactive** où tu peux :
+- Voir tous les endpoints
+- Voir les schémas input/output
+- **Tester directement** dans le navigateur
+
+## 📝 Enrichir la doc
+
+Avec quelques infos dans ton code, tu peux la rendre **pro** :
+
+```{python}
+app_documented = FastAPI(
+    title="Iris Classifier API",
+    description="""
+## API de classification d'iris
+
+Cette API expose un modèle RandomForest pour classifier des iris selon
+les features botaniques standards du dataset Fisher.
+
+### Endpoints
+
+- `/predict` : prédiction unitaire
+- `/predict-batch` : prédiction en masse
+- `/health` : état du service
+    """,
+    version="1.0.0",
+    contact={
+        "name": "Équipe Data",
+        "email": "data@example.com",
+    },
+    license_info={
+        "name": "MIT",
+    },
+)
+
+@app_documented.post(
+    "/predict",
+    response_model=IrisPrediction,
+    tags=["predictions"],
+    summary="Prédit l'espèce d'un iris",
+    response_description="L'espèce prédite avec son niveau de confiance",
+)
+def predict_documented(features: IrisFeatures):
+    """
+    Prédit l'espèce d'un iris à partir de ses mesures botaniques.
+    
+    - **sepal_length** : longueur du sépale en cm
+    - **sepal_width** : largeur du sépale en cm
+    - **petal_length** : longueur du pétale en cm
+    - **petal_width** : largeur du pétale en cm
+    
+    Retourne l'espèce la plus probable parmi `setosa`, `versicolor`, `virginica`.
+    """
+    # ... (même code que précédemment)
+    return IrisPrediction(
+        species="setosa",
+        confidence=0.95,
+        model_version=MODEL_VERSION,
+    )
+
+print("✅ App avec doc enrichie")
+```
+
+**Les éléments ajoutés** apparaissent dans Swagger :
+- Description markdown
+- `tags` (regroupe les endpoints par thème)
+- `summary` / `response_description`
+- Docstring qui devient la description complète
+
+# 6. Tests avec pytest
+
+## 🧪 Pourquoi tester ?
+
+Un modèle ML en prod, c'est du **code critique**. Sans tests :
+- Tu modifies un détail → ton API se casse
+- Un hotfix un vendredi soir → catastrophe
+
+**FastAPI + pytest = tests ultra simples**.
+
+## 📝 Structure d'un fichier de tests
+
+Dans un fichier `test_api.py` (à côté de `app.py`) :
+
+```{python}
+#| eval: false
+# tests/test_api.py
+from fastapi.testclient import TestClient
+from app import app  # importer ton app
+
+client = TestClient(app)
+
+def test_root():
+    """Vérifie que l'endpoint racine répond."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "service" in response.json()
+
+def test_predict_setosa():
+    """Vérifie qu'un setosa typique est bien classé."""
+    response = client.post("/predict", json={
+        "sepal_length": 5.1, "sepal_width": 3.5,
+        "petal_length": 1.4, "petal_width": 0.2,
+    })
+    assert response.status_code == 200
+    data = response.json()
+    assert data["species"] == "setosa"
+    assert data["confidence"] > 0.8
+
+def test_predict_invalid_input():
+    """Vérifie que des inputs invalides sont rejetés."""
+    response = client.post("/predict", json={
+        "sepal_length": -1.0,  # négatif
+        "sepal_width": 3.5,
+        "petal_length": 1.4,
+        "petal_width": 0.2,
+    })
+    assert response.status_code == 422
+
+def test_predict_missing_field():
+    """Vérifie qu'un champ manquant est rejeté."""
+    response = client.post("/predict", json={
+        "sepal_length": 5.1,
+        "sepal_width": 3.5,
+        # petal_length et petal_width manquent
+    })
+    assert response.status_code == 422
+```
+
+## 🚀 Lancer les tests
+
+```bash
+pytest tests/ -v
+```
+
+**Sortie typique** :
+```
+tests/test_api.py::test_root PASSED                [ 25%]
+tests/test_api.py::test_predict_setosa PASSED      [ 50%]
+tests/test_api.py::test_predict_invalid_input PASSED [ 75%]
+tests/test_api.py::test_predict_missing_field PASSED [100%]
+
+========================= 4 passed in 0.12s =========================
+```
+
+## ✏️ Exercice 2 — Suite de tests complète
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris **5 tests supplémentaires** pour ton API :
+
+1. `test_predict_versicolor` : un iris versicolor typique est bien classé
+2. `test_predict_virginica` : un iris virginica typique est bien classé
+3. `test_predict_batch_ok` : `/predict-batch` avec 3 iris marche
+4. `test_predict_batch_trop_grand` : plus de 100 items → erreur 422
+5. `test_predict_confidence_valide` : la confidence est toujours entre 0 et 1
+
+Exécute-les avec `TestClient` directement dans le notebook.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# On réutilise le client défini plus haut sur app
+client = TestClient(app)
+
+# Test versicolor
+response = client.post("/predict", json={
+    "sepal_length": 5.9, "sepal_width": 3.0,
+    "petal_length": 4.2, "petal_width": 1.5,
+})
+assert response.status_code == 200
+assert response.json()["species"] == "versicolor"
+print("✅ test_predict_versicolor PASSED")
+
+# Test virginica
+response = client.post("/predict", json={
+    "sepal_length": 6.5, "sepal_width": 3.0,
+    "petal_length": 5.5, "petal_width": 2.0,
+})
+assert response.status_code == 200
+assert response.json()["species"] == "virginica"
+print("✅ test_predict_virginica PASSED")
+
+# Test batch ok
+response = client.post("/predict-batch", json={
+    "items": [
+        {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2},
+        {"sepal_length": 5.9, "sepal_width": 3.0, "petal_length": 4.2, "petal_width": 1.5},
+        {"sepal_length": 6.5, "sepal_width": 3.0, "petal_length": 5.5, "petal_width": 2.0},
+    ]
+})
+assert response.status_code == 200
+assert response.json()["count"] == 3
+print("✅ test_predict_batch_ok PASSED")
+
+# Test batch trop grand
+trop_grand = {"items": [
+    {"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}
+    for _ in range(150)
+]}
+response = client.post("/predict-batch", json=trop_grand)
+assert response.status_code == 422
+print("✅ test_predict_batch_trop_grand PASSED")
+
+# Test confidence valide
+for _ in range(5):
+    response = client.post("/predict", json={
+        "sepal_length": float(np.random.uniform(4, 8)),
+        "sepal_width": float(np.random.uniform(2, 5)),
+        "petal_length": float(np.random.uniform(1, 7)),
+        "petal_width": float(np.random.uniform(0.1, 2.5)),
+    })
+    confidence = response.json()["confidence"]
+    assert 0 <= confidence <= 1
+print("✅ test_predict_confidence_valide PASSED")
+
+print("\n🎉 Tous les tests passent !")
+```
+
+**Pattern production** : écrire les tests **en même temps** que le code. Un endpoint **sans tests** n'est **pas fini**.
+:::
+
+# 7. Performance : async et batching
+
+## ⚡ L'async en une minute
+
+Les endpoints sync (normaux) **bloquent** le serveur pendant les I/O (appel DB, API externe...).
+
+```python
+# Sync : bloquant
+@app.get("/slow")
+def slow():
+    import time
+    time.sleep(2)  # simule un appel lent
+    return {"result": "done"}
+```
+
+Si 100 clients appellent `/slow` en même temps, ça prend **200 secondes** (files d'attente).
+
+Avec **async**, le serveur peut **gérer plusieurs requêtes en parallèle** :
+
+```{python}
+import asyncio
+
+@app.get("/slow-async")
+async def slow_async():
+    await asyncio.sleep(2)  # async ! non-bloquant
+    return {"result": "done"}
+
+# Test
+import time
+client = TestClient(app)
+t0 = time.time()
+response = client.get("/slow-async")
+print(f"Temps : {time.time() - t0:.2f}s, status : {response.status_code}")
+```
+
+**Règle d'or** :
+- **I/O bound** (DB, HTTP, disk) → `async` avec `httpx.AsyncClient`, `asyncpg`, etc.
+- **CPU bound** (calcul, modèle ML) → `sync` (ou un thread pool)
+
+## 🧮 Les modèles ML sont souvent CPU-bound
+
+`model.predict()` est du calcul pur → **sync suffit**. L'async ne t'apporte rien ici.
+
+**Où async devient intéressant** :
+- Appels à un LLM externe (Notion 7.3 !)
+- Lecture de base de données
+- Appel à un vector store (ChromaDB en mode distant)
+
+## 📦 Batching : LA optimisation critique
+
+Si tu reçois **1000 requêtes/seconde**, chacune avec **1 prédiction**, c'est **très inefficace**.
+
+**Solution** : **batching** côté serveur. On accumule les requêtes pendant quelques ms, puis on **prédit tout d'un coup**.
+
+**Librairies dédiées** (pour aller plus loin) :
+- **BentoML** : framework ML-first avec batching auto
+- **TorchServe / Triton** : pour les modèles PyTorch lourds
+- **vLLM / TGI** : pour les LLM
+
+Pour un premier projet, on reste simple : **endpoint batch explicite** (`/predict-batch`) que le client appelle avec plusieurs items.
+
+# 8. Bonnes pratiques production
+
+Quelques réflexes **non négociables** pour un vrai déploiement :
+
+## ✅ 1. Health check
+
+Un endpoint `/health` qui dit "je tourne" (utilisé par Kubernetes, load balancers...) :
+
+```python
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+```
+
+## ✅ 2. Chargement du modèle au startup
+
+**Mauvais** : charger le modèle à chaque requête (lent !)
+**Bon** : charger **une fois** au démarrage (comme on a fait plus haut)
+
+```python
+modele = joblib.load("model.joblib")  # au niveau module, une seule fois
+
+@app.post("/predict")
+def predict(...):
+    # modele est déjà en mémoire
+    ...
+```
+
+## ✅ 3. Variables d'environnement
+
+La config ne doit **pas être dans le code** (12 facteurs, Notion 8.1).
+
+```{python}
+import os
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    """Config de l'app, lue depuis .env ou variables d'env."""
+    model_path: str = "/tmp/models/iris_model.joblib"
+    api_key: str = ""
+    max_batch_size: int = 100
+    log_level: str = "INFO"
+    
+    model_config = {"env_file": ".env", "extra": "ignore"}
+
+# Utilisation
+try:
+    settings = Settings()
+    print(f"model_path : {settings.model_path}")
+    print(f"max_batch_size : {settings.max_batch_size}")
+except Exception as e:
+    print(f"(Note : pydantic_settings nécessite une install séparée)")
+```
+
+## ✅ 4. Logs structurés
+
+Utilise `logging` avec format JSON en prod (facilite la recherche) :
+
+```python
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+)
+logger = logging.getLogger("iris-api")
+
+@app.post("/predict")
+def predict(features: IrisFeatures):
+    logger.info(f"Prédiction demandée : {features.model_dump()}")
+    # ...
+```
+
+## ✅ 5. Sécurité : CORS, auth
+
+Pour une API accessible depuis un navigateur, configure CORS :
+
+```python
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://mon-site.com"],  # pas "*" en prod !
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+Pour l'authentification, la méthode simple : **API key dans un header** :
+
+```python
+from fastapi import Header, Depends
+
+def verify_api_key(x_api_key: str = Header(None)):
+    if x_api_key != os.getenv("API_KEY"):
+        raise HTTPException(status_code=401, detail="Clé invalide")
+
+@app.post("/predict", dependencies=[Depends(verify_api_key)])
+def predict(...):
+    ...
+```
+
+# 🏁 Exercice bilan — API TechVolt minimale
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis une **API FastAPI** qui expose 3 endpoints liés au monde TechVolt :
+
+1. **`GET /health`** → `{"status": "ok", "version": "1.0.0"}`
+
+2. **`POST /diagnostic-erreur`** avec :
+   - Input : `{"code": "E04"}` (Pydantic avec pattern `E\d{2}`)
+   - Output : `{"code": "...", "urgence": "...", "action": "..."}`
+   - Pour E01/E02/E03/E04/E05 : réponse prédéfinie
+   - Pour autre : HTTPException 404
+
+3. **`POST /classifier-avis`** avec :
+   - Input : `{"texte": "..."}` (min 5 caractères)
+   - Output : `{"sentiment": "positif|neutre|negatif", "confidence": 0.XX}`
+   - Implémentation **mock** : compte les mots positifs/négatifs pour déterminer le sentiment (pas besoin de vrai modèle)
+
+4. Écris **au moins 4 tests** avec TestClient
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from fastapi import FastAPI, HTTPException
+from fastapi.testclient import TestClient
+from pydantic import BaseModel, Field
+from typing import Literal
+
+app_techvolt = FastAPI(title="TechVolt API", version="1.0.0")
+
+# --- Base de connaissance ---
+DB_ERREURS = {
+    "E01": {"urgence": "NORMALE", "action": "Laisser refroidir 30min"},
+    "E02": {"urgence": "HAUTE", "action": "Ne pas utiliser, appeler électricien"},
+    "E03": {"urgence": "NORMALE", "action": "Vérifier wifi et redémarrer"},
+    "E04": {"urgence": "URGENTE", "action": "Débrancher, couper disjoncteur, appeler 0800 000 000"},
+    "E05": {"urgence": "NORMALE", "action": "Vérifier câble et connecteur"},
+}
+
+MOTS_POSITIFS = {"super", "excellent", "parfait", "adore", "rapide", "professionnel"}
+MOTS_NEGATIFS = {"nul", "cassé", "panne", "bug", "déçu", "inadmissible", "lent"}
+
+# --- Schémas Pydantic ---
+class ErreurInput(BaseModel):
+    code: str = Field(..., pattern=r"^E\d{2}$")
+
+class ErreurOutput(BaseModel):
+    code: str
+    urgence: Literal["NORMALE", "HAUTE", "URGENTE"]
+    action: str
+
+class AvisInput(BaseModel):
+    texte: str = Field(..., min_length=5)
+
+class AvisOutput(BaseModel):
+    sentiment: Literal["positif", "neutre", "negatif"]
+    confidence: float = Field(..., ge=0, le=1)
+
+# --- Endpoints ---
+@app_techvolt.get("/health")
+def health():
+    return {"status": "ok", "version": "1.0.0"}
+
+@app_techvolt.post("/diagnostic-erreur", response_model=ErreurOutput)
+def diagnostic(err: ErreurInput):
+    info = DB_ERREURS.get(err.code)
+    if info is None:
+        raise HTTPException(status_code=404, detail=f"Code {err.code} inconnu")
+    return ErreurOutput(code=err.code, **info)
+
+@app_techvolt.post("/classifier-avis", response_model=AvisOutput)
+def classifier(avis: AvisInput):
+    mots = avis.texte.lower().split()
+    n_pos = sum(1 for m in mots if m in MOTS_POSITIFS)
+    n_neg = sum(1 for m in mots if m in MOTS_NEGATIFS)
+    total = max(n_pos + n_neg, 1)
+    
+    if n_pos > n_neg:
+        return AvisOutput(sentiment="positif", confidence=n_pos / total)
+    elif n_neg > n_pos:
+        return AvisOutput(sentiment="negatif", confidence=n_neg / total)
+    else:
+        return AvisOutput(sentiment="neutre", confidence=0.5)
+
+# --- Tests ---
+c = TestClient(app_techvolt)
+
+# Test 1 : health
+r = c.get("/health")
+assert r.status_code == 200 and r.json()["status"] == "ok"
+print("✅ test_health PASSED")
+
+# Test 2 : diagnostic E04
+r = c.post("/diagnostic-erreur", json={"code": "E04"})
+assert r.status_code == 200 and r.json()["urgence"] == "URGENTE"
+print("✅ test_diagnostic_E04 PASSED")
+
+# Test 3 : diagnostic code invalide (format)
+r = c.post("/diagnostic-erreur", json={"code": "XYZ"})
+assert r.status_code == 422  # validation Pydantic
+print("✅ test_diagnostic_code_invalide_format PASSED")
+
+# Test 4 : diagnostic code inconnu
+r = c.post("/diagnostic-erreur", json={"code": "E99"})
+assert r.status_code == 404
+print("✅ test_diagnostic_code_inconnu PASSED")
+
+# Test 5 : avis positif
+r = c.post("/classifier-avis", json={"texte": "Installation rapide et technicien professionnel, parfait !"})
+assert r.json()["sentiment"] == "positif"
+print("✅ test_avis_positif PASSED")
+
+# Test 6 : avis négatif
+r = c.post("/classifier-avis", json={"texte": "Ma borne est cassée, inadmissible de la part du SAV"})
+assert r.json()["sentiment"] == "negatif"
+print("✅ test_avis_negatif PASSED")
+
+# Test 7 : avis trop court
+r = c.post("/classifier-avis", json={"texte": "ok"})
+assert r.status_code == 422
+print("✅ test_avis_trop_court PASSED")
+
+print("\n🎉 Tous les tests passent !")
+```
+
+**Ton API est prête à être :**
+- **Containerisée** (Notion 8.3 — on l'embarque dans Docker)
+- **Déployée** (Notion 8.6 — CI/CD et HF Spaces)
+- **Monitorée** (Notion 8.5 — logs, métriques)
+
+Tu viens de construire **une vraie API production-ready**. 🎉
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **FastAPI** | Framework Python moderne : vite, typé, doc auto |
+| **`@app.get/post`** | Décorateurs pour déclarer des endpoints |
+| **Pydantic** | Validation automatique des inputs et outputs |
+| **`response_model`** | Valide aussi la réponse + doc Swagger |
+| **`TestClient`** | Tester sans lancer de serveur |
+| **`HTTPException`** | Lever des erreurs HTTP proprement |
+| **Swagger `/docs`** | Doc auto générée, gratuite |
+| **async vs sync** | async pour I/O, sync pour CPU (modèles ML) |
+| **Batching** | Prédire N items en 1 appel >> N appels de 1 item |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Pydantic partout** : schéma d'input ET de response_model
+2. **Charger le modèle au démarrage**, jamais à chaque requête
+3. **`/health`** endpoint **obligatoire** (load balancers en dépendent)
+4. **Tests avec TestClient** dès le début — pas après coup
+5. **Logs structurés** pour chaque requête critique
+
+## 🚨 Les pièges à éviter
+
+1. **Tout async** : inutile pour un modèle sklearn, tu compliques pour rien
+2. **Oublier `max_length`** sur les batches → attaque DoS possible
+3. **Pas de validation sur les outputs** → le modèle peut renvoyer n'importe quoi
+4. **Logs sans info utile** → débogage impossible
+5. **Secrets dans le code** → clé API volée, tu connais la chanson
+
+## 🚀 La suite
+
+Ton API marche **sur ta machine**. Maintenant il faut qu'elle tourne **n'importe où** de façon **identique**.
+
+Dans la [**Notion 8.3 — Docker**](notion_8_3_docker.qmd), tu vas :
+- Comprendre ce qu'est un **container** (et pourquoi c'est génial)
+- Écrire un **Dockerfile** pour ton app FastAPI
+- Construire et lancer ton **image Docker**
+- Utiliser **Docker Compose** pour plusieurs services (API + base de données)
+- **Pousser** ton image sur Docker Hub
+
+C'est la notion qui rend ton code **vraiment portable**. 🐳
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Prends **un modèle** que tu as entraîné dans les modules précédents (le fraud detector M4, le classifier M6, ou le chatbot M7).
+
+1. Exporte-le avec joblib ou torch.save
+2. Écris une API FastAPI qui l'expose (endpoint `/predict`)
+3. Documente-la (description, tags, exemples)
+4. Écris **10 tests** qui couvrent les cas nominaux + erreurs
+5. Lance `uvicorn app:app` et teste via `/docs`
+
+**Tu viens d'industrialiser ton modèle.** Ce projet **seul** suffit à justifier ton niveau sur ton CV. 💪
+:::
