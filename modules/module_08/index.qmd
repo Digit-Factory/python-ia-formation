@@ -40,7 +40,7 @@ En 2026, **tous les data scientists** savent entraîner des modèles. Mais **peu
 | **8.4** | [Tracking d'expériences avec MLflow](notion_8_4_mlflow.qmd) | 3-4 h |
 | **8.5** | [Monitoring en production](notion_8_5_monitoring.qmd) | 3 h |
 | **8.6** | [CI/CD pour le ML](notion_8_6_cicd.qmd) | 3 h |
-| **🎓 TP** | Déployer le chatbot TechVolt en production _(à venir)_ | 10-12 h |
+| **🎓 TP** | [Déployer le chatbot TechVolt en production](tp_sommatif.qmd) | 10-12 h |
 
 ## 📦 Récupère tes ressources pratiques
 

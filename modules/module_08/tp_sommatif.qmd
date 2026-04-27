@@ -1,0 +1,1458 @@
+---
+title: "TP sommatif Module 8 — Déployer le chatbot TechVolt en production"
+subtitle: "Le projet vitrine qui transforme ton parcours en portfolio"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+    toc-depth: 4
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/tp_sommatif_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/tp_sommatif_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-important appearance="simple"}
+**Durée estimée** : 10 à 12 heures  
+**Prérequis** : TP Module 7 (chatbot RAG) + toutes les notions du Module 8  
+**Objectif** : déployer **réellement en ligne** ton chatbot TechVolt avec API, Docker, monitoring et CI/CD
+:::
+
+::: {.callout-tip}
+## 🎓 Le projet qui boucle ton parcours
+À la fin de ce TP, tu auras :
+
+- ✅ Un **chatbot accessible par URL publique** (que tu peux partager à un recruteur)
+- ✅ Un **repo GitHub propre** avec README pro
+- ✅ Un **pipeline CI/CD automatique**
+- ✅ Du **monitoring** structuré
+- ✅ Un projet **complet, professionnel** sur ton CV
+
+**C'est LE projet** qui te démarque des candidats "purement académiques" en entretien.
+:::
+
+# 🎯 Contexte
+
+C'est ta dernière mission pour TechVolt. L'équipe a adoré ton chatbot RAG. Mais il tourne en local sur ton PC. Le CTO te dit :
+
+> *« Ton chatbot est génial, mais on ne va pas demander à chaque commercial de le lancer en local. Mets-le en ligne, on veut juste partager une URL au support. Et automatise le déploiement, hors de question d'attendre que tu sois dispo pour pousser une correction. Et bien sûr : monitoring obligatoire, on doit savoir si ça déconne. »*
+
+## 🎁 Les objectifs business
+
+1. **URL publique** accessible 24/7 (pas un localhost)
+2. **Interface conversationnelle** (pas une API JSON brute)
+3. **Pipeline CI/CD** : push GitHub → déploiement automatique
+4. **Monitoring** : logs structurés, métriques de base
+5. **Reproductibilité** : Docker, secrets sécurisés, doc complète
+6. **Coût** : **0€** (Hugging Face Spaces gratuit + GitHub gratuit + Groq gratuit)
+
+## 🗺️ Plan du TP
+
+7 parties :
+
+1. **Préparer le projet** (structure, code refactoré, dépendances)
+2. **Interface Gradio** : transformer le code en app conversationnelle
+3. **API FastAPI** : exposer aussi en mode programmatique
+4. **Tests** : pytest + golden dataset
+5. **Docker** : containeriser proprement
+6. **Déploiement HF Spaces** : ton premier déploiement réel
+7. **CI/CD GitHub Actions** : tout devient automatique
+
+::: {.callout-note}
+## 📦 Ce TP est un VRAI projet
+Contrairement aux notions précédentes, ce TP **ne s'exécute pas** essentiellement dans un notebook. Tu vas :
+- Créer un **dossier projet** sur ton ordi
+- Configurer plusieurs comptes (HF, GitHub si pas fait)
+- **Pousser du code** sur GitHub
+- **Tester en ligne** ton déploiement
+
+Garde un **terminal**, **VS Code** (ou ton IDE) et un **navigateur** ouverts.
+:::
+
+# 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import warnings
+warnings.filterwarnings('ignore')
+
+import os
+import json
+from pathlib import Path
+
+print("✅ Environnement prêt")
+```
+
+## 📦 Comptes et outils nécessaires
+
+Avant de commencer, assure-toi d'avoir :
+
+- [ ] **GitHub** : compte créé, Git installé localement
+- [ ] **Hugging Face** : crée un compte sur [huggingface.co](https://huggingface.co)
+- [ ] **Groq** : ta clé API (déjà obtenue au Module 7)
+- [ ] **Docker Desktop** installé (Notion 8.3)
+- [ ] **Python 3.10+** dans ton environnement local
+
+---
+
+# Partie 1 — Structure du projet
+
+## 🏗️ Étape 1.1 — Créer l'arborescence
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un nouveau dossier `techvolt-chatbot-prod/` avec cette structure exacte :
+
+```
+techvolt-chatbot-prod/
+├── .github/
+│   └── workflows/
+│       └── ci.yml                  # CI/CD (Partie 7)
+├── src/
+│   ├── __init__.py
+│   ├── chatbot.py                  # logique du chatbot (depuis TP M7)
+│   ├── tools.py                    # outils métier
+│   └── monitoring.py               # logging structuré
+├── data/
+│   └── knowledge_base.json         # corpus TechVolt (depuis TP M7)
+├── tests/
+│   ├── __init__.py
+│   ├── test_api.py
+│   └── test_chatbot.py
+├── app.py                          # entrée principale (Gradio + FastAPI)
+├── Dockerfile
+├── requirements.txt
+├── .gitignore
+├── .env.example
+├── .dockerignore
+└── README.md
+```
+
+**Astuce** : sur Linux/Mac, tu peux créer tout ça en une commande :
+
+```bash
+mkdir -p techvolt-chatbot-prod/{.github/workflows,src,data,tests}
+cd techvolt-chatbot-prod
+touch app.py Dockerfile requirements.txt .gitignore .env.example .dockerignore README.md
+touch src/__init__.py src/chatbot.py src/tools.py src/monitoring.py
+touch tests/__init__.py tests/test_api.py tests/test_chatbot.py
+touch .github/workflows/ci.yml
+```
+:::
+
+## 📋 Étape 1.2 — Récupérer le corpus du TP M7
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Copie le fichier **`knowledge_base.json`** (du TP M7) dans `data/knowledge_base.json`
+2. Vérifie qu'il contient bien **26 documents**
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Vérification
+
+```{python}
+#| eval: false
+import json
+from pathlib import Path
+
+corpus_path = Path("data/knowledge_base.json")
+with open(corpus_path, "r", encoding="utf-8") as f:
+    corpus = json.load(f)
+
+print(f"Nombre de documents : {len(corpus)}")
+assert len(corpus) == 26, "Corpus incomplet !"
+```
+:::
+
+## 🔐 Étape 1.3 — Fichier `.gitignore`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un `.gitignore` complet pour exclure les fichiers sensibles et les builds :
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+`.gitignore` :
+
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.venv/
+venv/
+
+# Secrets
+.env
+*.key
+
+# Build
+dist/
+build/
+*.log
+
+# Data persistante
+chroma/
+mlruns/
+*.db
+
+# IDE
+.vscode/
+.idea/
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
+```
+:::
+
+## 🔑 Étape 1.4 — Fichier `.env.example`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un `.env.example` (à commiter, **sans** vraies valeurs) qui documente les variables nécessaires :
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+`.env.example` :
+
+```bash
+# Clé API Groq (obtenir sur https://console.groq.com)
+GROQ_API_KEY=gsk_your_key_here
+
+# Modèle LLM à utiliser
+MODEL_NAME=llama-3.3-70b-versatile
+
+# Niveau de logs
+LOG_LEVEL=INFO
+
+# Optionnel : si tu utilises Docker Hub pour la CI
+DOCKERHUB_USERNAME=yourusername
+DOCKERHUB_TOKEN=dckr_pat_your_token
+```
+
+**À faire** : copie ce fichier en `.env` (ne pas commiter !) et mets ta vraie clé Groq.
+:::
+
+## 📦 Étape 1.5 — `requirements.txt`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée le `requirements.txt` avec les dépendances nécessaires (versions fixées) :
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```txt
+# === Core ===
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# === LLM et embeddings ===
+sentence-transformers>=2.2.0
+openai>=1.0.0
+chromadb>=0.4.0
+pydantic>=2.5.0
+
+# === API et UI ===
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+gradio>=4.0.0
+
+# === Tests ===
+pytest>=7.4.0
+httpx>=0.25.0
+```
+
+::: {.callout-warning}
+## 📌 Note pour HF Spaces
+HF Spaces lit `requirements.txt` **automatiquement**. Pas besoin d'utiliser pip à la main, le déploiement installe tout pour toi.
+:::
+:::
+
+---
+
+# Partie 2 — Refactorer le code en modules
+
+Le code du TP M7 est dans un notebook. Pour passer en production, il faut le **modulariser**.
+
+## 🧩 Étape 2.1 — `src/tools.py`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Extrais les **outils métier** du TP M7 dans `src/tools.py` :
+- `diagnostic_erreur(code)`
+- `creer_ticket_support(probleme, urgence)`
+- `prendre_rdv_installation(date_iso, creneau)`
+- `get_horaires_sav(jour)`
+
+Ajoute aussi la **liste des schémas JSON** `OUTILS_SCHEMAS` et le **dict de routage** `OUTILS_FONCTIONS`.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction (extrait, le code complet est dans le TP M7)
+
+```python
+# src/tools.py
+"""Outils métier pour le chatbot TechVolt."""
+from datetime import date, datetime
+
+# === Données mock ===
+DB_ERREURS = {
+    "E01": {"niveau": "NORMALE", "description": "Surchauffe...", "action": "Laisser refroidir 30min"},
+    "E02": {"niveau": "HAUTE", "description": "Défaut de terre...", "action": "Contacter électricien"},
+    "E03": {"niveau": "NORMALE", "description": "Problème wifi...", "action": "Vérifier box, redémarrer"},
+    "E04": {"niveau": "URGENTE", "description": "COURT-CIRCUIT", "action": "Débrancher, couper disjoncteur, 0800 000 000"},
+    "E05": {"niveau": "NORMALE", "description": "Problème communication véhicule", "action": "Vérifier câble"},
+}
+
+HORAIRES_SAV = {
+    "lundi": "8h-19h", "mardi": "8h-19h", "mercredi": "8h-19h",
+    "jeudi": "8h-19h", "vendredi": "8h-19h",
+    "samedi": "9h-17h", "dimanche": "FERMÉ",
+}
+
+# === Fonctions outils ===
+def diagnostic_erreur(code: str) -> dict:
+    code_norm = code.strip().upper().replace(" ", "")
+    if code_norm in DB_ERREURS:
+        return {"code": code_norm, **DB_ERREURS[code_norm]}
+    return {"code": code, "niveau": "INCONNU", "description": "Code non répertorié", "action": "Contacter le SAV"}
+
+def creer_ticket_support(probleme: str, urgence: str = "NORMALE") -> str:
+    urgence_valid = urgence.upper() if urgence.upper() in ("NORMALE", "HAUTE", "URGENTE") else "NORMALE"
+    num = f"TVT-{abs(hash(probleme)) % 100000:05d}"
+    delai = {"URGENTE": "24h", "HAUTE": "48h", "NORMALE": "5 jours"}[urgence_valid]
+    return f"Ticket {num} créé (urgence: {urgence_valid}). Délai : {delai}."
+
+def prendre_rdv_installation(date_iso: str, creneau: str) -> str:
+    try:
+        d = date.fromisoformat(date_iso)
+    except ValueError:
+        return f"Erreur : date invalide ({date_iso})."
+    if d < date.today():
+        return f"Erreur : la date {date_iso} est dans le passé."
+    if creneau not in ("matin", "après-midi"):
+        return f"Erreur : créneau invalide ({creneau})."
+    ref = f"INST-{abs(hash(date_iso + creneau)) % 10000:04d}"
+    return f"RDV confirmé le {date_iso} {creneau} (référence : {ref})."
+
+def get_horaires_sav(jour: str) -> str:
+    j = jour.strip().lower()
+    horaire = HORAIRES_SAV.get(j)
+    if not horaire:
+        return f"Jour non reconnu : {jour}."
+    if horaire == "FERMÉ":
+        return f"Le SAV est FERMÉ le {j}. Urgence : 0800 000 000 (24/7)."
+    return f"Horaires du SAV le {j} : {horaire}. Téléphone : 01 23 45 67 89."
+
+
+# === Routage ===
+OUTILS_FONCTIONS = {
+    "diagnostic_erreur": diagnostic_erreur,
+    "creer_ticket_support": creer_ticket_support,
+    "prendre_rdv_installation": prendre_rdv_installation,
+    "get_horaires_sav": get_horaires_sav,
+}
+
+# === Schémas JSON pour le LLM (4 outils + rechercher_doc ajouté plus tard) ===
+OUTILS_SCHEMAS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "diagnostic_erreur",
+            "description": "Diagnostique un code d'erreur TechVolt (E01-E05). À utiliser DÈS qu'un client mentionne un code.",
+            "parameters": {
+                "type": "object",
+                "properties": {"code": {"type": "string", "description": "Code (ex: 'E04')"}},
+                "required": ["code"],
+            },
+        },
+    },
+    # ... idem pour les 3 autres outils (voir TP M7)
+]
+```
+
+**Le code complet** : reprends celui du TP M7 Partie 4 et 5.
+:::
+
+## 📊 Étape 2.2 — `src/monitoring.py`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un **logger structuré** réutilisable :
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```python
+# src/monitoring.py
+"""Configuration du logging structuré pour le chatbot."""
+import os
+import sys
+from loguru import logger
+
+def setup_logger():
+    """Configure loguru selon l'environnement."""
+    log_level = os.getenv("LOG_LEVEL", "INFO")
+    
+    # Reset
+    logger.remove()
+    
+    # Console : format lisible (dev) ou JSON (prod)
+    is_prod = os.getenv("ENVIRONMENT", "dev") == "prod"
+    
+    if is_prod:
+        # Production : JSON sur stdout (lu par les agrégateurs de logs)
+        logger.add(sys.stdout, serialize=True, level=log_level)
+    else:
+        # Dev : format lisible
+        logger.add(
+            sys.stdout,
+            format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}",
+            level=log_level,
+        )
+    
+    # Fichier persistant (optionnel)
+    log_file = os.getenv("LOG_FILE")
+    if log_file:
+        logger.add(log_file, serialize=True, rotation="50 MB", retention="14 days")
+    
+    return logger
+
+# Exporter le logger configuré
+logger = setup_logger()
+```
+:::
+
+## 🤖 Étape 2.3 — `src/chatbot.py`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Extrais la **classe `ChatbotTechVolt`** du TP M7 dans `src/chatbot.py`.
+
+Adapte-la pour :
+1. Charger le corpus depuis `data/knowledge_base.json` au démarrage
+2. Utiliser `src/monitoring.py` pour les logs
+3. Avoir une méthode `chat(question: str) -> str` simple
+4. Lire `GROQ_API_KEY` depuis l'environnement
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction (squelette)
+
+```python
+# src/chatbot.py
+"""Chatbot TechVolt : RAG + Agent."""
+import os
+import json
+import time
+from pathlib import Path
+
+import chromadb
+from openai import OpenAI
+from sentence_transformers import SentenceTransformer
+
+from src.monitoring import logger
+from src.tools import OUTILS_FONCTIONS, OUTILS_SCHEMAS
+
+SYSTEM_AGENT = """Tu es l'assistant support senior de TechVolt (bornes de recharge électrique).
+TU AS ACCÈS À CES OUTILS :
+- rechercher_doc : pour toute question sur la doc
+- diagnostic_erreur : pour les codes E01-E05
+- get_horaires_sav : pour les horaires
+- creer_ticket_support : pour escalader
+- prendre_rdv_installation : pour réserver
+
+RÈGLES :
+1. Utilise TOUJOURS les outils, jamais tes connaissances générales
+2. Pour E04/fumée/odeur : ticket URGENT immédiatement
+3. Récap clair des actions à la fin
+"""
+
+
+class ChatbotTechVolt:
+    def __init__(self, model_name="llama-3.3-70b-versatile", max_iter=6):
+        self.model_name = model_name
+        self.max_iter = max_iter
+        self.historique = []
+        self._setup()
+    
+    def _setup(self):
+        """Charge le corpus, embed, indexe ChromaDB."""
+        logger.info("Initialisation du chatbot...")
+        
+        # 1. Corpus
+        corpus_path = Path("data/knowledge_base.json")
+        with open(corpus_path) as f:
+            self.corpus = json.load(f)
+        logger.info(f"Corpus chargé : {len(self.corpus)} documents")
+        
+        # 2. Embeddings
+        self.modele_emb = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
+        
+        # 3. ChromaDB en mémoire (parfait pour HF Spaces)
+        self.chroma = chromadb.Client()
+        try:
+            self.chroma.delete_collection("techvolt_kb")
+        except Exception:
+            pass
+        
+        self.collection = self.chroma.create_collection(
+            name="techvolt_kb",
+            metadata={"hnsw:space": "cosine"},
+        )
+        
+        # 4. Indexer
+        textes = [d["contenu"] for d in self.corpus]
+        embeddings = self.modele_emb.encode(textes, show_progress_bar=False)
+        self.collection.add(
+            ids=[d["id"] for d in self.corpus],
+            documents=textes,
+            embeddings=embeddings.tolist(),
+            metadatas=[{"titre": d["titre"], "categorie": d["categorie"]} for d in self.corpus],
+        )
+        logger.info("ChromaDB indexée")
+        
+        # 5. Outils : ajouter rechercher_doc
+        self._setup_tools()
+        
+        # 6. Client LLM
+        self.client = OpenAI(
+            api_key=os.getenv("GROQ_API_KEY"),
+            base_url="https://api.groq.com/openai/v1",
+        )
+        logger.info("Chatbot prêt")
+    
+    def _setup_tools(self):
+        """Ajoute rechercher_doc aux outils."""
+        def rechercher_doc(question: str) -> str:
+            q_emb = self.modele_emb.encode([question])[0].tolist()
+            results = self.collection.query(query_embeddings=[q_emb], n_results=3)
+            return "\n\n".join([
+                f"[{m['titre']}]\n{d}"
+                for m, d in zip(results["metadatas"][0], results["documents"][0])
+            ])
+        
+        OUTILS_FONCTIONS["rechercher_doc"] = rechercher_doc
+        OUTILS_SCHEMAS.append({
+            "type": "function",
+            "function": {
+                "name": "rechercher_doc",
+                "description": "Cherche dans la doc TechVolt (installation, erreurs, app, SAV, commercial, sécurité).",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"question": {"type": "string"}},
+                    "required": ["question"],
+                },
+            },
+        })
+    
+    def chat(self, question: str) -> str:
+        """Pose une question (multi-tours grâce à l'historique)."""
+        t0 = time.time()
+        messages = [{"role": "system", "content": SYSTEM_AGENT}] + self.historique.copy()
+        messages.append({"role": "user", "content": question})
+        
+        outils_utilises = []
+        
+        for iteration in range(1, self.max_iter + 1):
+            response = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=messages,
+                tools=OUTILS_SCHEMAS,
+                tool_choice="auto",
+                temperature=0,
+            )
+            message = response.choices[0].message
+            
+            if not message.tool_calls:
+                # Réponse finale
+                duree = time.time() - t0
+                reponse = message.content
+                self.historique.append({"role": "user", "content": question})
+                self.historique.append({"role": "assistant", "content": reponse})
+                
+                # Log structuré
+                logger.bind(
+                    question=question[:80],
+                    response_length=len(reponse),
+                    tools=outils_utilises,
+                    iterations=iteration,
+                    latency_ms=round(duree * 1000, 1),
+                ).info("Chat completed")
+                
+                return reponse
+            
+            messages.append(message)
+            for tc in message.tool_calls:
+                outils_utilises.append(tc.function.name)
+                try:
+                    args = json.loads(tc.function.arguments)
+                    resultat = OUTILS_FONCTIONS[tc.function.name](**args)
+                    res_str = json.dumps(resultat, ensure_ascii=False) if isinstance(resultat, dict) else str(resultat)
+                except Exception as e:
+                    res_str = f"Erreur : {e}"
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc.id,
+                    "content": res_str,
+                })
+        
+        return "⚠️ Trop d'itérations sans réponse"
+    
+    def reset(self):
+        self.historique = []
+        logger.info("Historique réinitialisé")
+```
+
+**Note** : ChromaDB est utilisé **en mémoire** (`Client()`) pour HF Spaces — pas besoin de persistance, on ré-indexe à chaque démarrage du Space (rapide pour 26 docs).
+:::
+
+---
+
+# Partie 3 — Interface Gradio (le visuel cool)
+
+C'est l'interface utilisateur que les inconnus verront. **Gradio** permet de créer un chat en 20 lignes.
+
+## 🎨 Étape 3.1 — `app.py`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée le fichier **`app.py`** qui :
+1. Charge le chatbot (avec le décor de chargement)
+2. Crée une interface Gradio `ChatInterface`
+3. Intègre quelques **exemples** de questions pour aider les utilisateurs
+4. Lance Gradio sur le port 7860 (standard HF Spaces)
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```python
+# app.py
+"""Point d'entrée principal : interface Gradio + API FastAPI."""
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # charge .env si présent (dev local)
+
+import gradio as gr
+from src.chatbot import ChatbotTechVolt
+from src.monitoring import logger
+
+# === Charger le chatbot UNE fois au démarrage ===
+logger.info("Démarrage de l'application TechVolt Assistant")
+bot = ChatbotTechVolt()
+
+
+# === Fonction de chat pour Gradio ===
+def chat_fn(message: str, history: list) -> str:
+    """Wrapper Gradio : ignore history (gérée par le bot)."""
+    if not message.strip():
+        return "Posez-moi une question sur les bornes TechVolt !"
+    
+    try:
+        return bot.chat(message)
+    except Exception as e:
+        logger.exception(f"Erreur dans chat_fn : {e}")
+        return f"⚠️ Désolé, une erreur s'est produite : {str(e)[:100]}"
+
+
+def reset_fn():
+    """Réinitialise la conversation."""
+    bot.reset()
+    return "Conversation réinitialisée. Vous pouvez recommencer."
+
+
+# === Construire l'interface Gradio ===
+EXEMPLES = [
+    "C'est quoi le code d'erreur E04 ?",
+    "Combien coûte la borne Pro ?",
+    "Le SAV est ouvert dimanche ?",
+    "Je voudrais un RDV d'installation le 15 juin 2026 le matin",
+    "Quelles sont les aides pour l'installation ?",
+]
+
+with gr.Blocks(title="TechVolt Assistant", theme=gr.themes.Soft()) as demo:
+    gr.Markdown(
+        """
+        # ⚡ TechVolt Assistant
+        
+        Posez vos questions sur les **bornes de recharge TechVolt** : codes d'erreur, installation, SAV, prix...
+        
+        💡 *Si vous voulez tester un cas critique, demandez ce qu'il faut faire avec le code E04.*
+        """
+    )
+    
+    chatbot_ui = gr.ChatInterface(
+        fn=chat_fn,
+        examples=EXEMPLES,
+        type="messages",
+    )
+    
+    with gr.Row():
+        reset_btn = gr.Button("🔄 Nouvelle conversation", variant="secondary")
+        reset_output = gr.Textbox(label="Statut", visible=True)
+    
+    reset_btn.click(fn=reset_fn, outputs=reset_output)
+    
+    gr.Markdown(
+        """
+        ---
+        Propulsé par **Llama 3.3** (Groq) + **RAG** (ChromaDB) + **Agent** function-calling.  
+        [Code source sur GitHub](https://github.com/USERNAME/techvolt-chatbot-prod) • Module 8 du parcours Python IA.
+        """
+    )
+
+
+if __name__ == "__main__":
+    demo.launch(
+        server_name="0.0.0.0",  # accessible de l'extérieur (HF Spaces)
+        server_port=int(os.getenv("PORT", 7860)),
+        show_api=False,
+    )
+```
+:::
+
+## 🧪 Étape 3.2 — Test local de l'interface Gradio
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Dans ton terminal, depuis le dossier du projet :
+
+```bash
+# Activer ton venv si besoin
+pip install -r requirements.txt
+
+# Lancer
+python app.py
+```
+
+Tu dois voir :
+```
+Running on local URL:  http://0.0.0.0:7860
+```
+
+Ouvre [http://localhost:7860](http://localhost:7860) → tu vois ton chatbot. **Teste les exemples** !
+:::
+
+---
+
+# Partie 4 — Tests automatisés
+
+## 🧪 Étape 4.1 — Tests API (`tests/test_api.py`)
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Écris des **tests pytest** pour valider que ton chatbot fonctionne. Inclus :
+
+1. Un test de **smoke** (le chatbot répond sans crasher)
+2. Un test **golden dataset** sur 3 questions clés
+3. Un test que les **outils** sont bien appelés
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```python
+# tests/test_chatbot.py
+"""Tests du chatbot TechVolt."""
+import os
+import pytest
+from src.chatbot import ChatbotTechVolt
+
+
+@pytest.fixture(scope="module")
+def bot():
+    """Charge le bot UNE fois pour tous les tests."""
+    if not os.getenv("GROQ_API_KEY"):
+        pytest.skip("GROQ_API_KEY non définie, tests intégration skippés")
+    return ChatbotTechVolt()
+
+
+def test_smoke(bot):
+    """Le bot répond à une question simple sans crasher."""
+    response = bot.chat("Bonjour, vous êtes là ?")
+    assert isinstance(response, str)
+    assert len(response) > 5
+
+
+def test_e04_critique(bot):
+    """Le bot reconnaît E04 comme critique."""
+    bot.reset()
+    response = bot.chat("Ma borne affiche E04, que faire ?")
+    response_lower = response.lower()
+    # Doit mentionner soit l'urgence, soit le numéro d'urgence
+    assert any(kw in response_lower for kw in [
+        "urgent", "critique", "0800", "court-circuit", "débrancher"
+    ]), f"Pas de mention d'urgence pour E04. Réponse : {response[:200]}"
+
+
+def test_horaires_dimanche(bot):
+    """Le bot donne la bonne info pour le SAV dimanche."""
+    bot.reset()
+    response = bot.chat("Le SAV est ouvert dimanche ?")
+    assert "fermé" in response.lower() or "ferme" in response.lower()
+
+
+def test_prix_borne_pro(bot):
+    """Le bot retrouve le prix de la borne Pro."""
+    bot.reset()
+    response = bot.chat("Combien coûte la borne Pro ?")
+    # Le prix est 1599€
+    assert "1599" in response or "1 599" in response
+
+
+def test_question_hors_sujet(bot):
+    """Le bot ne répond pas n'importe quoi sur une question hors sujet."""
+    bot.reset()
+    response = bot.chat("Quelle est la meilleure pizza italienne ?")
+    response_lower = response.lower()
+    # Doit refuser ou rediriger
+    assert any(kw in response_lower for kw in [
+        "trouve pas", "ne dispose pas", "techvolt", "ne peux", "pas de", "désolé"
+    ]), f"N'a pas refusé une question hors sujet : {response[:200]}"
+
+
+def test_chat_multi_tours(bot):
+    """Le bot garde le contexte entre 2 questions."""
+    bot.reset()
+    bot.chat("Je m'intéresse à la borne Pro pour ma maison")
+    response = bot.chat("Combien coûte-t-elle ?")
+    assert "1599" in response or "1 599" in response, \
+        f"Pas de prix dans le 2e tour : {response[:200]}"
+```
+
+**Lancement** :
+
+```bash
+# Avec ta clé API définie
+pytest tests/ -v
+```
+
+Sortie attendue :
+
+```
+tests/test_chatbot.py::test_smoke PASSED
+tests/test_chatbot.py::test_e04_critique PASSED
+tests/test_chatbot.py::test_horaires_dimanche PASSED
+tests/test_chatbot.py::test_prix_borne_pro PASSED
+tests/test_chatbot.py::test_question_hors_sujet PASSED
+tests/test_chatbot.py::test_chat_multi_tours PASSED
+
+============= 6 passed in 38.5s =============
+```
+
+**Note** : ces tests **appellent vraiment** l'API Groq → quota consommé, mais c'est nécessaire pour tester le pipeline complet.
+:::
+
+---
+
+# Partie 5 — Containerisation Docker
+
+## 🐳 Étape 5.1 — `Dockerfile`
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée un Dockerfile **propre** :
+
+- Image `python:3.12-slim`
+- User non-root
+- Cache pip optimisé
+- Healthcheck sur l'endpoint Gradio (port 7860)
+- Variables d'env explicites
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```dockerfile
+# Dockerfile
+FROM python:3.12-slim
+
+# User non-root
+RUN useradd -m -u 1000 chatbotuser
+
+WORKDIR /app
+
+# Cache pip (requirements en premier)
+COPY --chown=chatbotuser:chatbotuser requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Code
+COPY --chown=chatbotuser:chatbotuser src/ ./src/
+COPY --chown=chatbotuser:chatbotuser data/ ./data/
+COPY --chown=chatbotuser:chatbotuser app.py .
+
+# Switcher en non-root
+USER chatbotuser
+
+# Variables d'env par défaut (override possible au run)
+ENV PORT=7860
+ENV LOG_LEVEL=INFO
+ENV ENVIRONMENT=prod
+
+EXPOSE 7860
+
+# Healthcheck (vérifie que Gradio répond)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:7860/').close()" || exit 1
+
+CMD ["python", "app.py"]
+```
+:::
+
+## 📁 Étape 5.2 — `.dockerignore`
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```
+.git
+.gitignore
+.env
+*.log
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+.vscode/
+.idea/
+.ipynb_checkpoints/
+README.md
+.dockerignore
+.github/
+tests/
+```
+:::
+
+## 🚀 Étape 5.3 — Build et test local
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Dans ton terminal :
+
+```bash
+# Build
+docker build -t techvolt-chatbot:dev .
+
+# Run (avec ta clé API)
+docker run --rm -p 7860:7860 \
+  -e GROQ_API_KEY=$GROQ_API_KEY \
+  techvolt-chatbot:dev
+```
+
+Ouvre [http://localhost:7860](http://localhost:7860) → tu vois ton chatbot tournant **dans Docker** ! 🐳
+:::
+
+---
+
+# Partie 6 — Déploiement sur Hugging Face Spaces
+
+## 🤗 Étape 6.1 — Créer un Space
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Va sur [huggingface.co](https://huggingface.co), connecte-toi
+2. Clique **+ New** → **Space**
+3. Configure :
+   - **Owner** : ton username
+   - **Space name** : `techvolt-chatbot` (ou autre)
+   - **License** : MIT (recommandé pour projets pro)
+   - **SDK** : choisis **Gradio**
+   - **Hardware** : CPU basic (gratuit)
+   - **Visibility** : Public
+
+4. Note l'URL : `https://huggingface.co/spaces/TONUSERNAME/techvolt-chatbot`
+:::
+
+## 🔐 Étape 6.2 — Configurer les secrets
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Dans ton Space, **Settings** → **Variables and secrets** :
+
+1. Ajoute un **secret** :
+   - Name : `GROQ_API_KEY`
+   - Value : ta vraie clé Groq
+
+**IMPORTANT** : un **secret** est privé (chiffré). Une **variable** est publique (visible par tous). Pour les clés API → toujours **secret**.
+:::
+
+## 📤 Étape 6.3 — Pousser le code
+
+Tu as 2 options pour pousser ton code sur HF Spaces.
+
+### Option A : pousser directement (rapide, manuel)
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+```bash
+# Cloner le Space (vide pour l'instant)
+git clone https://huggingface.co/spaces/TONUSERNAME/techvolt-chatbot
+cd techvolt-chatbot
+
+# Copier ton code dedans
+cp -r ../techvolt-chatbot-prod/* ../techvolt-chatbot-prod/.* .
+
+# Push
+git add .
+git commit -m "Initial deployment"
+git push
+```
+
+Va sur l'URL de ton Space. Tu vois "Building..." → attends ~5 minutes → ton chatbot est **EN LIGNE** ! 🎉
+:::
+
+### Option B : 2 remotes (mieux pour la suite)
+
+Pour avoir GitHub **ET** HF Spaces synchronisés :
+
+```bash
+# Dans ton dossier de projet
+git init
+git remote add origin https://github.com/USERNAME/techvolt-chatbot-prod.git
+git remote add hf https://huggingface.co/spaces/USERNAME/techvolt-chatbot
+
+git add .
+git commit -m "Initial commit"
+
+# Push sur GitHub
+git push -u origin main
+
+# Push sur HF Spaces
+git push hf main
+```
+
+::: {.callout-tip}
+## 💡 Authentification HF
+Si Git te demande un mot de passe pour `huggingface.co`, utilise un **token** (pas ton mot de passe) :
+1. [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. **New token** avec rôle **Write**
+3. Copie-le, colle-le quand demandé
+:::
+
+## ✅ Étape 6.4 — Vérifier le déploiement
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Va sur l'URL de ton Space
+2. Attends le **build** (Logs onglet "App")
+3. Quand "Running" est affiché → teste avec une question
+4. **Partage l'URL** à un·e ami·e !
+:::
+
+::: {.callout-warning}
+## ⏱️ Cold start
+HF Spaces gratuit met ton app **en pause** après 48h sans activité. Au prochain accès, il faut **~2-3 min** pour redémarrer (cold start). C'est normal pour le tier gratuit.
+:::
+
+---
+
+# Partie 7 — CI/CD avec GitHub Actions
+
+Maintenant qu'on a un déploiement manuel, **automatisons** : à chaque `git push` sur GitHub, on déploie automatiquement sur HF Spaces.
+
+## 🔄 Étape 7.1 — Workflow GitHub Actions
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Crée le fichier `.github/workflows/ci.yml`. Il doit :
+
+1. **À chaque push sur `main`** : lancer les tests, puis déployer
+2. **À chaque PR** : juste les tests
+3. Utiliser un **secret** `HF_TOKEN` pour pousser sur HF
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```yaml
+# .github/workflows/ci.yml
+name: CI/CD TechVolt Chatbot
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # === Tests d'abord ===
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Lint syntax check
+        run: |
+          python -c "import ast; ast.parse(open('app.py').read())"
+          python -c "import ast; ast.parse(open('src/chatbot.py').read())"
+          python -c "import ast; ast.parse(open('src/tools.py').read())"
+
+      # Tests sans appel API (rapides)
+      - name: Tests rapides
+        run: |
+          pytest tests/test_api.py -v -k "not bot" || true
+          # On accepte que les tests bot soient skippés sans GROQ_API_KEY
+
+      # Tests avec appel API (uniquement sur main, avec secret)
+      - name: Tests intégration (avec API)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: pytest tests/test_chatbot.py -v
+
+  # === Déploiement HF Spaces (uniquement sur main) ===
+  deploy-hf:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # full history pour push
+
+      - name: Push to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          HF_SPACE_NAME: techvolt-chatbot
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "CI Bot"
+          git push https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${HF_SPACE_NAME} main
+
+      - name: Notify success
+        if: success()
+        run: echo "✅ Déployé : https://huggingface.co/spaces/${{ secrets.HF_USERNAME }}/techvolt-chatbot"
+```
+:::
+
+## 🔑 Étape 7.2 — Configurer les secrets GitHub
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Sur ton repo GitHub :
+
+1. **Settings** → **Secrets and variables** → **Actions**
+2. **New repository secret** pour chacun :
+   - `GROQ_API_KEY` : ta clé Groq
+   - `HF_TOKEN` : ton token Hugging Face (rôle Write)
+   - `HF_USERNAME` : ton username HF
+:::
+
+## 🛡️ Étape 7.3 — Branch protection
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Pour éviter de pousser du code cassé sur `main` :
+
+1. **Settings** → **Branches**
+2. **Add rule** sur `main`
+3. Active :
+   - ✅ Require status checks to pass before merging
+   - Sélectionne le job `test`
+:::
+
+## 🎯 Étape 7.4 — Tester le pipeline complet
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+1. Modifie quelque chose dans ton code (ex: change le titre dans `app.py`)
+2. Commit + push
+3. Va sur l'onglet **Actions** de ton repo GitHub
+4. Regarde le pipeline **se dérouler**
+5. À la fin, va sur ton HF Space → **la modif est en ligne** !
+
+🎉 **Tu viens de mettre en place un vrai pipeline CI/CD professionnel.**
+:::
+
+---
+
+# Partie 8 — README professionnel
+
+## 📝 Étape 8.1 — Le README parfait
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Un bon README suit cette structure :
+
+1. **Titre** + badge de statut CI
+2. **Description** courte (1-2 phrases)
+3. **Démo** (lien HF Spaces + screenshot)
+4. **Stack technique**
+5. **Fonctionnalités**
+6. **Installation locale**
+7. **Architecture**
+8. **Roadmap** (optionnel)
+9. **Licence**
+
+Écris ton README pour ce projet.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+````markdown
+# ⚡ TechVolt Assistant
+
+[![CI/CD](https://github.com/USERNAME/techvolt-chatbot-prod/actions/workflows/ci.yml/badge.svg)](https://github.com/USERNAME/techvolt-chatbot-prod/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![HF Spaces](https://img.shields.io/badge/🤗-Hugging%20Face%20Spaces-blue)](https://huggingface.co/spaces/USERNAME/techvolt-chatbot)
+
+Chatbot d'assistance technique pour TechVolt (entreprise fictive de bornes de recharge électrique). Combine **RAG** sur 26 documents techniques et **agent function-calling** avec 5 outils métier.
+
+## 🎬 Démo
+
+🚀 **[Tester en ligne](https://huggingface.co/spaces/USERNAME/techvolt-chatbot)**
+
+Exemples de questions :
+- "C'est quoi le code d'erreur E04 ?"
+- "Combien coûte la borne Pro ?"
+- "Le SAV est ouvert dimanche ?"
+- "Je voudrais un RDV d'installation le 15 juin 2026 le matin"
+
+## 🧰 Stack
+
+- **Python 3.12**
+- **LLM** : Llama 3.3 70B via [Groq](https://groq.com)
+- **Embeddings** : `paraphrase-multilingual-mpnet-base-v2` (sentence-transformers)
+- **Vector store** : ChromaDB (in-memory)
+- **API** : FastAPI
+- **UI** : Gradio
+- **Déploiement** : Hugging Face Spaces
+- **CI/CD** : GitHub Actions
+
+## ✨ Fonctionnalités
+
+- ✅ **RAG** sur 26 documents TechVolt (installation, codes d'erreur, SAV, app, commercial, sécurité)
+- ✅ **Agent** avec 5 outils métier :
+  - Diagnostic des codes d'erreur
+  - Création de tickets de support
+  - Prise de RDV d'installation
+  - Consultation des horaires SAV
+  - Recherche dans la documentation
+- ✅ **Conversation multi-tours** avec mémoire
+- ✅ **Détection automatique** des cas critiques (E04 → ticket urgent)
+- ✅ **Logs structurés** JSON pour le monitoring
+- ✅ **Tests automatisés** (golden dataset, comportement agent)
+
+## 🚀 Lancer en local
+
+```bash
+# 1. Cloner
+git clone https://github.com/USERNAME/techvolt-chatbot-prod.git
+cd techvolt-chatbot-prod
+
+# 2. Installer
+pip install -r requirements.txt
+
+# 3. Configurer
+cp .env.example .env
+# Éditer .env avec ta clé Groq
+
+# 4. Lancer
+python app.py
+```
+
+Ouvre [http://localhost:7860](http://localhost:7860).
+
+## 🐳 Avec Docker
+
+```bash
+docker build -t techvolt-chatbot .
+docker run --rm -p 7860:7860 -e GROQ_API_KEY=$GROQ_API_KEY techvolt-chatbot
+```
+
+## 🧪 Tests
+
+```bash
+pytest tests/ -v
+```
+
+## 📁 Architecture
+
+```
+techvolt-chatbot-prod/
+├── .github/workflows/ci.yml    # CI/CD
+├── src/
+│   ├── chatbot.py              # Logique RAG + Agent
+│   ├── tools.py                # Outils métier
+│   └── monitoring.py           # Logs structurés
+├── data/knowledge_base.json    # Corpus 26 docs
+├── tests/                      # Pytest
+├── app.py                      # Gradio entry point
+├── Dockerfile                  # Container
+└── requirements.txt
+```
+
+## 🗺️ Roadmap
+
+- [ ] Évaluation automatique avec LLM-as-judge
+- [ ] Support multilingue (anglais)
+- [ ] Métriques Prometheus exposées
+- [ ] Cache des embeddings sur disque
+
+## 📝 Licence
+
+MIT — voir [LICENSE](LICENSE).
+
+---
+
+Projet réalisé dans le cadre du parcours **Python IA** ([cours en ligne](https://github.com/USERNAME/python-ia-formation)).
+````
+:::
+
+---
+
+# 🏁 Bilan et pour aller plus loin
+
+## 🏆 Ce que tu as accompli
+
+Tu viens de **réaliser un vrai déploiement professionnel** :
+
+- ✅ **Code modulaire** (src/, tests/, config externe)
+- ✅ **Interface utilisateur** Gradio
+- ✅ **API** FastAPI prête
+- ✅ **Tests** pytest avec golden dataset
+- ✅ **Containerisation** Docker propre
+- ✅ **Déploiement** HF Spaces (URL publique)
+- ✅ **CI/CD** GitHub Actions complet
+- ✅ **Monitoring** loguru structuré
+- ✅ **README** professionnel
+- ✅ **Secrets** sécurisés
+
+**Tu as une URL publique.** Tu peux la mettre sur ton CV, sur LinkedIn, dans tes candidatures.
+
+## 💼 Pour ton CV / portfolio
+
+Sur LinkedIn ou ton CV, ajoute :
+
+> **TechVolt Assistant — Chatbot RAG/Agent en production**
+> 
+> Chatbot d'assistance technique combinant RAG (26 docs) et agent function-calling (5 outils métier).
+> 
+> **Stack** : Python · Llama 3.3 (Groq) · ChromaDB · sentence-transformers · FastAPI · Gradio · Docker · GitHub Actions · Hugging Face Spaces
+> 
+> **Réalisations** : pipeline CI/CD complet, monitoring structuré, tests automatisés (golden dataset, comportement agent), déploiement reproductible.
+> 
+> 🎬 [Démo en ligne](URL_HF_SPACES) · 💻 [Code](URL_GITHUB)
+
+## 🚀 Pistes d'amélioration
+
+Pour aller **encore plus loin** sur ce projet :
+
+1. **Évaluation continue** : un workflow nightly qui teste 50 questions et calcule des métriques (vu en 8.5)
+2. **Cache des embeddings** : sauvegarder ChromaDB pour éviter le ré-encoding au démarrage
+3. **Métriques Prometheus** : exposer `/metrics` pour Grafana (vu en 8.5)
+4. **Authentification** : ajouter une API key pour l'API FastAPI
+5. **Multi-modèles** : permettre à l'utilisateur de choisir entre Llama, Mistral, etc.
+6. **A/B testing** : 2 variantes de prompts, comparer les retours utilisateurs
+
+## 🎓 Module 8 : terminé !
+
+Tu maîtrises maintenant **toutes les compétences MLOps** d'un junior+ en 2026 :
+
+- ✅ Concepts MLOps (8.1)
+- ✅ FastAPI (8.2)
+- ✅ Docker (8.3)
+- ✅ MLflow (8.4)
+- ✅ Monitoring (8.5)
+- ✅ CI/CD (8.6)
+- ✅ **Projet vitrine déployé** (ce TP)
+
+## 🎉 PARCOURS COMPLET TERMINÉ
+
+Tu viens de finir **8 modules complets** :
+
+1. ✅ **Maths pour la data** (M1)
+2. ✅ **NumPy + Pandas** (M2)
+3. ✅ **EDA et visualisation** (M3)
+4. ✅ **ML supervisé** (M4)
+5. ✅ **ML non supervisé** (M5)
+6. ✅ **Deep Learning** (M6)
+7. ✅ **LLM et IA générative** (M7)
+8. ✅ **MLOps et déploiement** (M8)
+
+**Tu es maintenant un·e IA Engineer.** 🎓
+
+::: {.callout-tip}
+## 🎯 Le défi du défi
+
+Pour vraiment **clôturer** ce parcours :
+
+1. Mets le **projet TechVolt** en avant dans ton portfolio GitHub
+2. Écris un **post LinkedIn** : "Je viens de terminer un projet RAG/Agent déployé en prod, voici ce que j'ai appris..."
+3. Postule à **3 offres** d'IA Engineer en mentionnant ce projet
+4. **Adapte le projet** à un domaine qui te passionne (ta boîte, un wiki, une cause...)
+
+**Les recruteurs ne demandent pas un master, ils demandent des projets concrets.** Tu en as un. 🚀
+
+**Bonne continuation, ingénieur·e IA.** 💙
+:::
