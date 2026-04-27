@@ -1,0 +1,917 @@
+---
+title: "Notion 8.6 — CI/CD pour le ML"
+subtitle: "Push → Test → Build → Deploy : tout automatique"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_6_cicd_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_6_cicd_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notions 8.2 (FastAPI), 8.3 (Docker), un compte GitHub  
+**Objectif** : automatiser tests, build et déploiement avec GitHub Actions
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **CI** (Continuous Integration) et **CD** (Continuous Delivery / Deployment)
+- Configurer un **workflow GitHub Actions**
+- Lancer des **tests automatiques** à chaque push
+- **Builder une image Docker** automatiquement
+- **Déployer** vers Hugging Face Spaces ou Railway automatiquement
+- Écrire des **tests ML spécifiques** (golden dataset, performance, drift)
+- Faire de l'**A/B testing** simple
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as construit un super modèle. Tu l'as exposé en API. Tu l'as containerisé. Tu le monitores. **Mais à chaque modification**, tu refais à la main :
+
+- ❌ Lancer les tests (`pytest`) → tu oublies parfois
+- ❌ Builder l'image Docker (`docker build`) → 5 minutes
+- ❌ Pousser sur Docker Hub (`docker push`) → 2 minutes
+- ❌ Déployer sur le serveur (SSH, copier fichier...) → 10 minutes
+- ❌ Si bug → rollback **manuel** stressant
+
+**Total** : **20-30 minutes** par déploiement, **anxiogène**, **propice aux erreurs**.
+
+**Avec CI/CD** : tu fais `git push`. **Tout** se passe automatiquement en arrière-plan. **Zéro stress.**
+
+::: {.callout-important}
+## 💼 Le standard professionnel
+**Toute équipe ML un peu sérieuse** a une CI/CD. C'est ce qui fait la différence entre :
+- **Niveau 0** (manuel, anxiogène, lent) ← où la plupart sont
+- **Niveau 1** (automatisé, rapide, fiable) ← niveau attendu d'un junior+ en 2026
+:::
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import warnings
+warnings.filterwarnings('ignore')
+
+import os
+import json
+from pathlib import Path
+import numpy as np
+import pandas as pd
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Outils nécessaires (pas dans Python)
+
+- **Compte GitHub** (gratuit)
+- **Compte Docker Hub** (gratuit, optionnel)
+- **Compte Hugging Face** (gratuit, pour le déploiement)
+
+Tout ce qui suit s'exécute **sur GitHub** quand tu pushes du code, pas dans ce notebook.
+:::
+
+# 1. CI vs CD vs CD : 3 lettres, 3 concepts
+
+## 📚 Définitions claires
+
+| Terme | Sens | Quand ça se passe |
+|---|---|---|
+| **CI** — Continuous Integration | Tester automatiquement à chaque commit | À chaque `git push` |
+| **CD** — Continuous Delivery | Préparer un artefact prêt à déployer (image Docker, etc.) | Après les tests OK |
+| **CD** — Continuous Deployment | Déployer automatiquement en prod | Après le build OK |
+
+::: {.callout-note}
+## ⚠️ Attention au double sens de "CD"
+"CD" peut signifier **Delivery** (préparer le déploiement, qu'un humain valide) OU **Deployment** (déployer automatiquement). En pratique, on dit **"CI/CD"** pour parler de l'ensemble.
+:::
+
+## 🔄 Le pipeline complet
+
+```{python}
+#| label: fig-cicd-pipeline
+#| fig-cap: "Pipeline CI/CD typique pour un projet ML"
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+from matplotlib.patches import FancyArrowPatch
+
+fig, ax = plt.subplots(figsize=(15, 5))
+ax.set_xlim(0, 16); ax.set_ylim(0, 5); ax.axis('off')
+
+etapes = [
+    (1, 2.5, "git\npush", "#6b7280", "📤"),
+    (3.5, 2.5, "Tests\nunitaires", "#3b82f6", "🧪"),
+    (6, 2.5, "Tests ML\n(perf)", "#8b5cf6", "📊"),
+    (8.5, 2.5, "Build\nDocker", "#06b6d4", "🐳"),
+    (11, 2.5, "Push\nregistry", "#10b981", "📦"),
+    (13.5, 2.5, "Deploy\nprod", "#f59e0b", "🚀"),
+]
+
+for x, y, label, couleur, emoji in etapes:
+    ax.add_patch(plt.Circle((x, y), 0.7, facecolor=couleur,
+                             edgecolor='black', linewidth=2))
+    ax.text(x, y + 0.05, emoji, ha='center', va='center', fontsize=20)
+    ax.text(x, y - 1.2, label, ha='center', va='center',
+             fontsize=10, fontweight='bold')
+
+# Flèches
+for i in range(len(etapes) - 1):
+    x1 = etapes[i][0] + 0.7
+    x2 = etapes[i + 1][0] - 0.7
+    arrow = FancyArrowPatch((x1, 2.5), (x2, 2.5), arrowstyle='->',
+                             mutation_scale=20, color='#374151', linewidth=1.5)
+    ax.add_patch(arrow)
+
+# Bandeaux CI / CD
+ax.add_patch(mpatches.Rectangle((2.5, 0.5), 5, 0.4, facecolor='#3b82f6', alpha=0.6))
+ax.text(5, 0.7, "CI (Continuous Integration)", ha='center', fontsize=10,
+         color='white', fontweight='bold')
+
+ax.add_patch(mpatches.Rectangle((7.5, 0.5), 6.5, 0.4, facecolor='#10b981', alpha=0.6))
+ax.text(10.75, 0.7, "CD (Continuous Delivery / Deployment)", ha='center',
+         fontsize=10, color='white', fontweight='bold')
+
+ax.set_title("Pipeline CI/CD pour ML : 6 étapes automatiques après git push",
+              fontsize=13, fontweight='bold', pad=20)
+plt.tight_layout()
+plt.show()
+```
+
+# 2. GitHub Actions en 5 minutes
+
+## 🎬 Le concept
+
+**GitHub Actions** est l'outil de CI/CD intégré à GitHub. Quand tu pushes sur GitHub, Actions peut **automatiquement** :
+
+1. **Lancer une VM** (gratuite, 2000 min/mois pour comptes free)
+2. **Cloner ton repo** sur cette VM
+3. **Exécuter des commandes** (tests, build, deploy...)
+4. Te **notifier** du résultat
+
+## 📁 Structure d'un workflow
+
+Les workflows sont des fichiers **YAML** dans `.github/workflows/` à la racine de ton repo :
+
+```
+mon-projet/
+├── .github/
+│   └── workflows/
+│       ├── ci.yml          ← lancé à chaque push
+│       └── deploy.yml      ← lancé sur main uniquement
+├── src/
+├── tests/
+├── Dockerfile
+└── ...
+```
+
+## 🚀 Premier workflow : tests à chaque push
+
+```{python}
+#| eval: false
+# .github/workflows/ci.yml
+"""
+name: CI
+
+# Quand déclencher ?
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest    # une VM Linux gratuite
+
+    steps:
+      # 1. Cloner le repo
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Setup Python
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      # 3. Installer les deps
+      - name: Install
+        run: |
+          pip install -r requirements.txt
+          pip install pytest
+
+      # 4. Lancer les tests
+      - name: Tests
+        run: pytest tests/ -v
+
+      # 5. Linter (bonus)
+      - name: Lint
+        run: |
+          pip install ruff
+          ruff check src/
+"""
+```
+
+## 📊 Ce que tu verras dans GitHub
+
+Quand le workflow tourne, tu accèdes à un **dashboard** :
+
+```
+✅ CI #42 (main) - Tests passés
+   ├─ ✅ Checkout              (3s)
+   ├─ ✅ Setup Python          (5s)
+   ├─ ✅ Install                (45s)
+   ├─ ✅ Tests                  (12s)
+   └─ ✅ Lint                   (4s)
+
+   Total : 1m 09s
+```
+
+Si un test plante, tu reçois un **email** automatique avec les détails.
+
+# 3. Tests dans la CI
+
+## 🧪 Niveau 1 : tests unitaires Python (classique)
+
+C'est ce que tu écris déjà. Le fichier `tests/test_api.py` (Notion 8.2) est déjà compatible.
+
+## 📊 Niveau 2 : tests ML spécifiques
+
+Pour un projet ML, tu veux **en plus** vérifier :
+
+### Test 1 : Performance minimale du modèle
+
+```{python}
+import joblib
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
+# Setup minimal pour la démo (en vrai, tu charges ton modèle de prod)
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42, stratify=y)
+model = RandomForestClassifier(n_estimators=100, random_state=42).fit(X_train, y_train)
+joblib.dump(model, "/tmp/model_test.joblib")
+
+# === Test 1 : performance minimale ===
+def test_model_accuracy_min():
+    """Le modèle DOIT avoir au moins 85% d'accuracy."""
+    model = joblib.load("/tmp/model_test.joblib")
+    acc = model.score(X_test, y_test)
+    assert acc >= 0.85, f"Accuracy {acc:.3f} < 0.85 (régression de perf !)"
+
+test_model_accuracy_min()
+print("✅ Test 1 : performance minimale OK")
+```
+
+### Test 2 : Golden dataset (cas critiques)
+
+Un **golden dataset** = un petit jeu de cas que **tu sais** comment ton modèle doit répondre. Si la prédiction change → alerte.
+
+```{python}
+# === Test 2 : golden dataset ===
+GOLDEN_CASES = [
+    # (features, classe attendue)
+    ([5.1, 3.5, 1.4, 0.2], 0),  # setosa typique
+    ([6.5, 3.0, 5.5, 2.0], 2),  # virginica typique
+    ([5.9, 3.0, 4.2, 1.5], 1),  # versicolor typique
+]
+
+def test_golden_dataset():
+    """Vérifie les prédictions sur des cas connus."""
+    model = joblib.load("/tmp/model_test.joblib")
+    erreurs = []
+    for features, expected in GOLDEN_CASES:
+        pred = int(model.predict([features])[0])
+        if pred != expected:
+            erreurs.append((features, expected, pred))
+    
+    assert not erreurs, f"Erreurs sur le golden dataset : {erreurs}"
+
+test_golden_dataset()
+print("✅ Test 2 : golden dataset OK")
+```
+
+**Pourquoi c'est puissant** : si demain quelqu'un re-train le modèle et que les prédictions sur ces cas changent, **la CI bloque le merge**. Tu détectes les régressions immédiatement.
+
+### Test 3 : Format de sortie
+
+```{python}
+# === Test 3 : format de sortie ===
+def test_output_format():
+    """Vérifie que predict_proba retourne bien des probas."""
+    model = joblib.load("/tmp/model_test.joblib")
+    probas = model.predict_proba(X_test[:5])
+    
+    # Shape attendue
+    assert probas.shape == (5, 3), f"Shape incorrecte : {probas.shape}"
+    
+    # Toutes les valeurs entre 0 et 1
+    assert (probas >= 0).all() and (probas <= 1).all()
+    
+    # Somme ~ 1 par ligne
+    assert np.allclose(probas.sum(axis=1), 1.0)
+
+test_output_format()
+print("✅ Test 3 : format de sortie OK")
+```
+
+### Test 4 : Robustesse aux inputs bizarres
+
+```{python}
+# === Test 4 : robustesse ===
+def test_robustness_edge_cases():
+    """Vérifie que le modèle gère les cas limites."""
+    model = joblib.load("/tmp/model_test.joblib")
+    
+    # Input avec des valeurs extrêmes
+    X_extreme = np.array([
+        [0.1, 0.1, 0.1, 0.1],   # très petit
+        [10.0, 10.0, 10.0, 10.0],  # très grand
+        [5.0, 3.0, 4.0, 1.0],   # normal
+    ])
+    
+    # Le modèle ne doit PAS crasher
+    try:
+        preds = model.predict(X_extreme)
+        assert len(preds) == 3
+    except Exception as e:
+        raise AssertionError(f"Le modèle crashe sur des inputs extrêmes : {e}")
+
+test_robustness_edge_cases()
+print("✅ Test 4 : robustesse OK")
+```
+
+## 🎯 En CI : structure recommandée
+
+Dans `tests/test_model.py` :
+
+```python
+import pytest
+import joblib
+import numpy as np
+
+# Charger le modèle UNE fois pour tous les tests
+@pytest.fixture(scope="module")
+def model():
+    return joblib.load("models/iris.joblib")
+
+@pytest.fixture(scope="module")
+def golden_data():
+    return [
+        ([5.1, 3.5, 1.4, 0.2], "setosa"),
+        ([6.5, 3.0, 5.5, 2.0], "virginica"),
+    ]
+
+def test_accuracy_min(model):
+    # ...
+
+def test_golden(model, golden_data):
+    # ...
+```
+
+# 4. Build et push Docker dans la CI
+
+## 🐳 Workflow type : build + push
+
+```{python}
+#| eval: false
+# .github/workflows/docker.yml
+"""
+name: Docker Build & Push
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']    # déclenche aussi sur les tags v1.0.0, v1.1.0...
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            monusername/iris-api:latest
+            monusername/iris-api:${{ github.sha }}
+"""
+```
+
+## 🔐 Secrets GitHub : où mettre les credentials ?
+
+**JAMAIS** dans le YAML directement. **Toujours** dans **GitHub Secrets** :
+
+1. Va sur ton repo → **Settings** → **Secrets and variables** → **Actions**
+2. **New repository secret**
+3. Nom : `DOCKERHUB_TOKEN`, valeur : ton token Docker Hub
+
+Dans le YAML, tu y accèdes avec `${{ secrets.NOM_DU_SECRET }}`.
+
+**Exemples de secrets typiques** :
+- `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`
+- `HF_TOKEN` (Hugging Face)
+- `GROQ_API_KEY`
+- `RAILWAY_TOKEN`
+
+# 5. Déploiement automatique
+
+## 🤗 Vers Hugging Face Spaces (gratuit, simple)
+
+**Hugging Face Spaces** est l'équivalent "Heroku gratuit" pour les projets ML. Idéal pour les démos et prototypes.
+
+### Setup HF Spaces
+
+1. Crée un compte sur [huggingface.co](https://huggingface.co)
+2. **New Space** → choisis **Gradio** ou **Docker** comme SDK
+3. Clone le Space en local et pousse ton code
+
+### Workflow GitHub → HF Spaces
+
+```{python}
+#| eval: false
+# .github/workflows/deploy_hf.yml
+"""
+name: Deploy to HF Spaces
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0     # full history pour push
+
+      - name: Push to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          git push https://USER:$HF_TOKEN@huggingface.co/spaces/USER/MY_SPACE main
+"""
+```
+
+**Avantage HF Spaces** : pas de carte bancaire, pas de config infra, juste un `git push`. Idéal pour les chatbots, démos d'IA.
+
+**Inconvénient** : limite à 16 GB RAM, 2 vCPU sur le tier gratuit. Pas pour la prod à grande échelle.
+
+## 🚂 Vers Railway (alternative cloud "vraie")
+
+**Railway** propose un **vrai** déploiement cloud avec base de données, secrets, monitoring. Free tier généreux ($5/mois de crédit).
+
+### Workflow Railway
+
+```{python}
+#| eval: false
+# .github/workflows/deploy_railway.yml
+"""
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      
+      - name: Deploy
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: railway up --service api
+"""
+```
+
+Railway détecte automatiquement ton Dockerfile et le build.
+
+## 📊 Comparaison HF Spaces vs Railway
+
+| Critère | HF Spaces | Railway |
+|---|---|---|
+| **Coût free tier** | Vraiment gratuit | $5/mois de crédit |
+| **Setup** | Très simple | Simple |
+| **Idéal pour** | Démo IA, chatbots | Vraie app, base de données |
+| **GPU** | Disponible (T4 free) | Limité |
+| **Bases de données** | Non | Postgres, Redis natifs |
+| **Custom domain** | Payant | Gratuit |
+| **Communauté ML** | ⭐ Énorme | Plus généraliste |
+
+**Recommandation** :
+- **TP Module 8 + démos** → HF Spaces
+- **Projets perso à long terme** → Railway
+
+# 6. Versioning des modèles
+
+## 🏷️ Tagger les versions
+
+Quand tu releases une nouvelle version de ton modèle, **tag** la commit :
+
+```bash
+git tag -a v1.2.0 -m "Modèle re-trained avec données Q2 2026"
+git push origin v1.2.0
+```
+
+Ton workflow Docker peut alors créer **automatiquement** une image avec le tag `v1.2.0`.
+
+## 🔄 Stratégie de release ML
+
+```{python}
+#| label: fig-release-strategy
+#| fig-cap: "Stratégie de release pour modèles ML"
+
+releases = pd.DataFrame({
+    "Version": ["v1.0.0", "v1.0.1", "v1.1.0", "v1.2.0", "v2.0.0"],
+    "Type": ["MAJOR", "PATCH", "MINOR", "MINOR", "MAJOR"],
+    "Description": [
+        "Premier modèle en prod",
+        "Bug fix dans la prédiction batch",
+        "Nouvelle feature : prédire en streaming",
+        "Re-train avec données récentes",
+        "Nouveau modèle (XGBoost → DL)",
+    ],
+})
+print(releases.to_string(index=False))
+```
+
+**SemVer** pour les modèles :
+- **MAJOR** (1.x → 2.x) : changement d'algo ou de structure d'API
+- **MINOR** (1.0 → 1.1) : amélioration des perfs, re-train
+- **PATCH** (1.0.0 → 1.0.1) : bug fix
+
+## 🔀 A/B testing : déployer 2 versions en parallèle
+
+Dans une vraie prod, tu **ne déploies pas direct** une nouvelle version sur 100% du trafic. Tu fais de l'**A/B testing** :
+
+```{python}
+#| label: fig-ab-test
+#| fig-cap: "A/B testing entre 2 versions de modèle"
+
+fig, ax = plt.subplots(figsize=(11, 5))
+
+# Données simulées : v1 stable, v2 légèrement meilleure
+np.random.seed(42)
+jours = np.arange(1, 15)
+v1_acc = 0.88 + np.random.normal(0, 0.005, 14)
+v2_acc = 0.91 + np.random.normal(0, 0.005, 14)
+
+ax.plot(jours, v1_acc, marker='o', label='v1.0 (90% du trafic)', color='#3b82f6')
+ax.plot(jours, v2_acc, marker='s', label='v2.0 (10% du trafic — canary)', color='#10b981')
+ax.fill_between(jours, v1_acc - 0.01, v1_acc + 0.01, alpha=0.2, color='#3b82f6')
+ax.fill_between(jours, v2_acc - 0.01, v2_acc + 0.01, alpha=0.2, color='#10b981')
+
+ax.set_xlabel("Jour de l'expérimentation")
+ax.set_ylabel("Accuracy")
+ax.set_title("A/B test : v2 bat v1 → on peut router 100% sur v2", fontweight='bold')
+ax.legend()
+ax.set_ylim(0.84, 0.94)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Pattern courant** : **Canary deployment** = on commence à 1-5% du trafic, on monte progressivement (10%, 25%, 50%, 100%) en surveillant les métriques.
+
+**Outils pour faire de l'A/B testing simple** :
+- **Reverse proxy** (nginx, Traefik) avec routing pondéré
+- **Feature flags** (LaunchDarkly, Unleash)
+- **Logique applicative** : `if random() < 0.1: use_v2() else: use_v1()`
+
+# 7. Bonnes pratiques CI/CD pour le ML
+
+## ✅ 1. Pipeline lent ? Découpe en étapes parallèles
+
+GitHub Actions permet de paralléliser les jobs :
+
+```{python}
+#| eval: false
+"""
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - run: pytest tests/
+
+  lint:
+    runs-on: ubuntu-latest      # ← s'exécute EN PARALLÈLE de test
+    steps:
+      - run: ruff check .
+
+  build:
+    needs: [test, lint]          # ← attend que test ET lint soient OK
+    runs-on: ubuntu-latest
+    steps:
+      - run: docker build -t app .
+"""
+```
+
+## ✅ 2. Cache les dépendances
+
+Sans cache, `pip install` prend 2 minutes à chaque CI. **Avec cache** :
+
+```{python}
+#| eval: false
+"""
+- name: Setup Python
+  uses: actions/setup-python@v5
+  with:
+    python-version: '3.12'
+    cache: 'pip'                 # ← magique
+"""
+```
+
+Économie : **80-90%** sur les builds suivants.
+
+## ✅ 3. Tests rapides en CI, lents en nightly
+
+Si tes tests ML prennent 30 minutes, **ne les lance pas à chaque push** :
+
+```{python}
+#| eval: false
+"""
+on:
+  push:
+    branches: [main]    # → test rapide
+  schedule:
+    - cron: '0 2 * * *' # → tests lents tous les jours à 2h du matin
+"""
+```
+
+## ✅ 4. Status checks obligatoires
+
+Dans GitHub, configure :
+- **Settings** → **Branches** → **Branch protection rules**
+- Active "Require status checks to pass before merging"
+- Sélectionne ton job CI
+
+**Conséquence** : impossible de merger une PR si la CI échoue. **Filet de sécurité** indispensable.
+
+## ✅ 5. Notifications utiles, pas spam
+
+Configure :
+- **✅ Sur main** : Slack/Discord en cas d'échec uniquement
+- **❌ Sur PR** : déjà visible dans GitHub, pas besoin de notif
+
+# 🏁 Exercice bilan — Workflow CI/CD complet
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Imagine que tu mettes ton **chatbot TechVolt** en production. Conçois le workflow CI/CD complet :
+
+1. **Liste les étapes** que ton pipeline doit exécuter (de `git push` à "déployé en prod")
+
+2. Pour chaque étape :
+   - Sa **durée estimée**
+   - Ce qui se passe en cas **d'échec**
+   - Si elle peut être **parallélisée**
+
+3. Écris (en pseudo-YAML) le workflow `.github/workflows/cicd.yml`
+
+4. **Liste les secrets** nécessaires dans GitHub
+
+5. **Liste les tests ML** à inclure (3 minimum)
+
+6. **Stratégie de déploiement** : direct, canary, ou autre ?
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+### 1. Étapes du pipeline
+
+| # | Étape | Durée | Si échec | Parallèle ? |
+|:-:|---|:-:|---|:-:|
+| 1 | Checkout repo | 5s | Stop | Non |
+| 2 | Setup Python + cache | 30s | Stop | Non |
+| 3 | Install deps | 60s | Stop | Non |
+| 4 | Lint (ruff) | 10s | **Block merge** | ✅ |
+| 5 | Tests unitaires | 30s | **Block merge** | ✅ |
+| 6 | Tests ML (golden, perf) | 60s | **Block merge** | ✅ |
+| 7 | Build Docker | 90s | Stop | Non |
+| 8 | Push à HF Spaces | 30s | Alerte Discord | Non |
+| 9 | Smoke test post-deploy | 30s | **Rollback** | Non |
+| **Total** | | **~6 min** | | |
+
+### 2. Pseudo-YAML
+
+```yaml
+name: CI/CD TechVolt Chatbot
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # === ÉTAPES PARALLÈLES ===
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - run: pip install ruff
+      - run: ruff check src/ tests/
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - run: pytest tests/test_api.py tests/test_tools.py -v
+
+  ml-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12', cache: 'pip' }
+      - run: pip install -r requirements.txt
+      - run: pytest tests/test_chatbot_quality.py -v
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY_TEST }}
+
+  # === ÉTAPES SÉQUENTIELLES ===
+  build-and-deploy:
+    needs: [lint, unit-tests, ml-tests]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      
+      - name: Build Docker
+        run: docker build -t techvolt-chatbot:${{ github.sha }} .
+      
+      - name: Deploy to HF Spaces
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git config user.email "ci@example.com"
+          git config user.name "CI"
+          git push https://USER:$HF_TOKEN@huggingface.co/spaces/USER/techvolt-chatbot main
+      
+      - name: Smoke test post-deploy
+        run: |
+          sleep 30  # laisser le déploiement se propager
+          curl -f https://USER-techvolt-chatbot.hf.space/health || exit 1
+      
+      - name: Notify Discord (success)
+        if: success()
+        run: |
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{"content": "🚀 Déploiement v${{ github.sha }} réussi"}'
+      
+      - name: Notify Discord (failure)
+        if: failure()
+        run: |
+          curl -X POST ${{ secrets.DISCORD_WEBHOOK_URL }} \
+            -H "Content-Type: application/json" \
+            -d '{"content": "🚨 Déploiement échoué, rollback recommandé"}'
+```
+
+### 3. Secrets nécessaires
+
+- `GROQ_API_KEY_TEST` : clé pour les tests ML (compte de test, quota séparé)
+- `HF_TOKEN` : token Hugging Face pour push sur Spaces
+- `DISCORD_WEBHOOK_URL` : pour les notifications
+
+### 4. Tests ML à inclure
+
+1. **`test_rag_quality.py`** : sur 5 questions golden, vérifier que la bonne source est dans le top 3
+2. **`test_agent_uses_tools.py`** : vérifier que l'agent appelle `creer_ticket_support` quand on dit "E04"
+3. **`test_no_hallucination.py`** : sur une question hors-sujet ("pizza"), le chatbot doit dire "je ne trouve pas"
+
+### 5. Stratégie de déploiement
+
+Pour ce TP : **déploiement direct** sur HF Spaces (le tier gratuit ne permet pas vraiment du canary).
+
+Pour une **vraie prod** :
+- **Canary** sur Railway/AWS : 1% → 5% → 25% → 100% sur une semaine
+- **Smoke tests** après chaque palier
+- **Rollback automatique** si erreur > 1%
+
+**Tu viens de concevoir un pipeline production-ready** pour ton chatbot. C'est exactement ce que fait une équipe MLOps junior+. 🎉
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **CI** | Tester automatiquement à chaque commit |
+| **CD** | Déployer (Delivery = préparer / Deployment = pousser) |
+| **GitHub Actions** | YAML dans `.github/workflows/` |
+| **Tests ML spécifiques** | Performance min, golden dataset, format, robustesse |
+| **Docker dans CI** | Build + push avec `docker/build-push-action` |
+| **Secrets** | Settings → Secrets and variables, jamais en clair |
+| **HF Spaces** | Déploiement gratuit via `git push` |
+| **Railway** | Cloud "vrai" avec free tier, alternative |
+| **A/B testing** | Canary deployment progressif |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **`.github/workflows/`** dès le début du projet (pas après)
+2. **Cache pip** systématiquement
+3. **Tests ML** avec golden dataset et perf min
+4. **Branch protection** sur `main` avec status checks
+5. **Notifications minimales** (échec sur main uniquement)
+
+## 🚨 Les pièges à éviter
+
+1. **Tests trop longs en CI** → frustration équipe, contournement
+2. **Secrets en clair** dans le YAML → ✋
+3. **Déploiement automatique sans tests** → catastrophe garantie
+4. **Pas de rollback** prévu → "vendredi soir au support"
+5. **Trop de notifications** → fatigue, on ignore les vraies alertes
+
+## 🚀 Module 8 : presque terminé !
+
+Tu maîtrises maintenant :
+- ✅ Concepts MLOps (8.1)
+- ✅ FastAPI (8.2)
+- ✅ Docker (8.3)
+- ✅ MLflow (8.4)
+- ✅ Monitoring (8.5)
+- ✅ CI/CD (8.6)
+
+Il ne reste **qu'une chose** : le **TP final** où tu vas tout assembler.
+
+## 🎯 Le TP final
+
+Dans le [**TP sommatif Module 8**](tp_sommatif.qmd), tu vas :
+
+1. **Reprendre ton chatbot TechVolt** du TP Module 7
+2. L'**exposer** via FastAPI (Notion 8.2)
+3. Le **containeriser** avec Docker (Notion 8.3)
+4. Tracker les expériences avec **MLflow** (Notion 8.4)
+5. Ajouter du **monitoring** loguru (Notion 8.5)
+6. Configurer un **workflow CI/CD** complet (cette notion)
+7. **Déployer** sur Hugging Face Spaces
+
+**Livrable final** : un chatbot **vraiment** en production, avec une URL publique, monitorée, déployée automatiquement. **Ton projet vitrine pour le CV.** 🚀
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Pour **un projet GitHub** que tu as (ce parcours, un projet perso, un projet pro...) :
+
+1. Crée un fichier `.github/workflows/ci.yml`
+2. Configure-le pour lancer **pytest** à chaque push
+3. Push une modif **volontairement cassée** → vérifie que la CI échoue
+4. Fixe la modif → vérifie que la CI passe
+
+**En 30 minutes**, tu auras ton **premier vrai pipeline CI/CD**. Désormais tu **ne pourras plus pousser de bug** sans le savoir. 🛡️
+:::
