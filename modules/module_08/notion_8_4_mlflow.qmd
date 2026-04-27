@@ -1,0 +1,946 @@
+---
+title: "Notion 8.4 — Tracking d'expériences avec MLflow"
+subtitle: "« J'ai 47 modèles, lequel j'ai mis en prod déjà ? »"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_4_mlflow_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_4_mlflow_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 à 4 heures  
+**Prérequis** : Modules 4-6 (modèles ML), Notion 8.1 (concepts MLOps)  
+**Objectif** : tracker tes expériences ML proprement, comparer des runs, gérer un Model Registry
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre **pourquoi** tracker tes expériences (et pas juste les Excel)
+- Logger **params**, **métriques**, **artefacts** avec MLflow
+- Lancer la **MLflow UI** pour comparer des runs
+- **Sauvegarder** un modèle au format MLflow et le **recharger**
+- Gérer un **Model Registry** avec versions et stages
+- Connaître les alternatives (**Weights & Biases**, **Neptune**)
+
+## 🎯 Pourquoi cette notion ?
+
+Voici une histoire **vraie** d'un data scientist sans MLflow :
+
+> *« J'ai entraîné 47 versions de mon modèle de fraude. La v23 marchait bien, je l'ai mise en prod. Aujourd'hui mon manager veut savoir : quels hyperparamètres ? Quel dataset ? Quel score test exact ? Je n'ai rien noté. Je ne peux pas retrouver. Je dois tout refaire. »*
+
+Sans tracking, les expériences ML sont :
+- ❌ **Non reproductibles** (config perdue)
+- ❌ **Difficiles à comparer** (Excel manuel = erreurs)
+- ❌ **Impossibles à debugger** ("pourquoi v23 était mieux que v45 ?")
+- ❌ **Frustrantes en équipe** (collègue : "tu peux me passer le modèle de mardi ?")
+
+**MLflow résout tout ça** en automatisant le tracking de chaque entraînement.
+
+::: {.callout-important}
+## 💼 En entreprise, c'est non-négociable
+Tracker ses expériences est une **compétence professionnelle de base** en data science. Sans ça, tu **ne passes pas** la période d'essai dans une équipe ML mature.
+:::
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import os
+import warnings
+import numpy as np
+import pandas as pd
+from pathlib import Path
+
+warnings.filterwarnings('ignore')
+
+# Pour les démos : chemin local pour MLflow
+MLFLOW_DIR = Path("/tmp/mlflow_tutorial")
+MLFLOW_DIR.mkdir(exist_ok=True)
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairie à installer
+
+```bash
+pip install mlflow
+```
+:::
+
+# 1. Le problème : pourquoi tracker ?
+
+## 🤔 Avant de continuer, fais ce test
+
+Pose-toi ces questions sur ton **dernier projet ML** :
+
+- ✅ / ❌ Tu te souviens des **hyperparamètres exacts** du modèle final ?
+- ✅ / ❌ Tu peux **rejouer** l'entraînement et obtenir le même résultat ?
+- ✅ / ❌ Tu peux **comparer** facilement 5 versions différentes ?
+- ✅ / ❌ Tu sais **quelle version** de ton dataset a entraîné le modèle ?
+- ✅ / ❌ Tu peux **revenir** à un modèle précédent en 30 secondes ?
+
+Si tu as **moins de 4 ✅**, tu as besoin de MLflow. **Toute l'industrie** est dans ce cas — d'où l'importance de cette notion.
+
+## 📊 Ce que tu veux suivre par run
+
+Chaque entraînement (= **run**) a plusieurs choses à logger :
+
+| Type | Exemples |
+|---|---|
+| **Paramètres** | `n_estimators=100`, `lr=0.001`, `dataset=v3.csv` |
+| **Métriques** | accuracy=0.92, f1=0.89, loss=0.15 (au fil des époques) |
+| **Artefacts** | Modèle `.joblib`, courbe de loss `.png`, matrice de confusion |
+| **Tags** | `équipe=fraude`, `auteur=alice`, `env=dev` |
+| **Code** | Version Git, dépendances utilisées |
+
+**Sans outil**, tracker tout ça à la main est **pénible et source d'erreurs**.
+
+# 2. MLflow : présentation
+
+## 🏛️ Les 4 composants
+
+MLflow s'articule autour de **4 modules**, mais on en utilise surtout 2 :
+
+```{python}
+#| label: fig-mlflow-modules
+#| fig-cap: "Les 4 modules de MLflow"
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+fig, ax = plt.subplots(figsize=(13, 6))
+ax.set_xlim(0, 12); ax.set_ylim(0, 7); ax.axis('off')
+
+modules = [
+    (1, 4, "Tracking", "#3b82f6", "Logger params, métriques, artefacts\n(c'est le 90% d'usage)", True),
+    (4, 4, "Models", "#10b981", "Format standard pour sauvegarder\nun modèle (sklearn, torch, ...)", True),
+    (7, 4, "Model\nRegistry", "#f59e0b", "Versionner et promouvoir des modèles\n(Staging → Production)", True),
+    (10, 4, "Projects", "#8b5cf6", "Packager un projet ML\nreproductible (rare en pratique)", False),
+]
+
+for x, y, nom, couleur, desc, important in modules:
+    alpha = 1.0 if important else 0.4
+    ax.add_patch(mpatches.FancyBboxPatch((x - 0.9, y - 1), 1.8, 2,
+                                           boxstyle="round,pad=0.1",
+                                           facecolor=couleur, edgecolor='black',
+                                           linewidth=2, alpha=alpha))
+    ax.text(x, y + 0.4, nom, ha='center', va='center',
+             fontsize=12, fontweight='bold', color='white')
+    ax.text(x, y - 1.7, desc, ha='center', va='top', fontsize=9,
+             style='italic', color='#374151')
+
+ax.text(6, 6.5, "MLflow : 4 modules complémentaires",
+        ha='center', fontsize=14, fontweight='bold')
+ax.text(6, 0.3, "Les 3 premiers sont essentiels • Projects est optionnel",
+        ha='center', fontsize=10, style='italic', color='#6b7280')
+
+plt.tight_layout()
+plt.show()
+```
+
+**On va se concentrer sur Tracking + Models + Registry.**
+
+## 💡 Architecture en une phrase
+
+> Ton **code d'entraînement** appelle `mlflow.log_xxx()` → MLflow **stocke** params, métriques et fichiers dans un **backend** (SQLite, Postgres, S3...) → tu visualises tout dans la **MLflow UI**.
+
+# 3. Premier exemple : tracker un entraînement
+
+## 🌸 On reprend Iris
+
+On va entraîner plusieurs modèles avec différents hyperparamètres et les **comparer** :
+
+```{python}
+import mlflow
+from sklearn.datasets import load_iris
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score
+
+# Configuration MLflow
+# Backend SQLite (recommandé, supporté en 2026)
+TRACKING_URI = f"sqlite:///{MLFLOW_DIR}/mlflow.db"
+mlflow.set_tracking_uri(TRACKING_URI)
+mlflow.set_experiment("iris-tutorial")
+
+# Préparer les données (une fois)
+X, y = load_iris(return_X_y=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.25, random_state=42, stratify=y
+)
+
+print(f"✅ MLflow configuré : {TRACKING_URI}")
+print(f"Train : {len(X_train)}, Test : {len(X_test)}")
+```
+
+::: {.callout-note}
+## 📝 Backend : SQLite vs filesystem
+En 2026, MLflow recommande **SQLite** (ou Postgres en prod) au lieu du store filesystem (`./mlruns`) qui devient déprécié. SQLite est **simple**, **portable**, et **suffisant** pour un projet personnel ou petite équipe.
+:::
+
+## 🚀 Logger un premier run
+
+```{python}
+# Run MLflow avec context manager
+with mlflow.start_run(run_name="rf_baseline") as run:
+    # 1. Logger les hyperparamètres
+    n_est = 50
+    max_d = 5
+    mlflow.log_param("n_estimators", n_est)
+    mlflow.log_param("max_depth", max_d)
+    mlflow.log_param("dataset", "iris")
+    
+    # 2. Entraîner
+    model = RandomForestClassifier(
+        n_estimators=n_est, max_depth=max_d, random_state=42
+    )
+    model.fit(X_train, y_train)
+    
+    # 3. Évaluer
+    preds = model.predict(X_test)
+    acc = accuracy_score(y_test, preds)
+    f1 = f1_score(y_test, preds, average="weighted")
+    
+    # 4. Logger les métriques
+    mlflow.log_metric("accuracy", acc)
+    mlflow.log_metric("f1_weighted", f1)
+    
+    print(f"Run ID : {run.info.run_id}")
+    print(f"Accuracy : {acc:.4f}, F1 : {f1:.4f}")
+```
+
+**Magie** : ce `with` bloc a automatiquement :
+- ✅ Créé un **run** avec un ID unique
+- ✅ Loggé tes 3 paramètres
+- ✅ Loggé tes 2 métriques
+- ✅ Stocké tout ça dans SQLite
+
+## 🔁 Lancer plusieurs runs
+
+Maintenant le vrai intérêt : **comparer plusieurs configurations** :
+
+```{python}
+# Tester 4 combinaisons de hyperparams
+configs = [
+    {"n_estimators": 10, "max_depth": 3},
+    {"n_estimators": 50, "max_depth": 5},
+    {"n_estimators": 100, "max_depth": 10},
+    {"n_estimators": 200, "max_depth": None},
+]
+
+for i, cfg in enumerate(configs):
+    with mlflow.start_run(run_name=f"rf_cfg_{i}"):
+        # Params
+        for k, v in cfg.items():
+            mlflow.log_param(k, v)
+        
+        # Train
+        model = RandomForestClassifier(**cfg, random_state=42)
+        model.fit(X_train, y_train)
+        
+        # Metrics
+        preds = model.predict(X_test)
+        mlflow.log_metric("accuracy", accuracy_score(y_test, preds))
+        mlflow.log_metric("f1_weighted", f1_score(y_test, preds, average="weighted"))
+
+print(f"✅ {len(configs)} runs supplémentaires loggés")
+```
+
+## 🔍 Récupérer les résultats
+
+MLflow stocke tout. Pour voir tes runs :
+
+```{python}
+# Charger tous les runs de l'expérience
+runs = mlflow.search_runs(experiment_names=["iris-tutorial"])
+
+# Garder les colonnes utiles
+cols = ["run_id", "tags.mlflow.runName",
+         "params.n_estimators", "params.max_depth",
+         "metrics.accuracy", "metrics.f1_weighted"]
+print(runs[cols].to_string(index=False))
+```
+
+**Tu peux maintenant** :
+- Filtrer (`runs[runs["metrics.accuracy"] > 0.95]`)
+- Trier (`runs.sort_values("metrics.accuracy", ascending=False)`)
+- Identifier le **meilleur run** programmatiquement
+
+# 4. La MLflow UI
+
+## 🎨 Lancer l'interface
+
+```bash
+# Depuis ton terminal, dans le dossier où tu as runs MLflow
+mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+Puis ouvre [http://localhost:5000](http://localhost:5000).
+
+## 👀 Ce que tu peux faire dans l'UI
+
+1. **Vue tabulaire** : toutes tes runs, triables par métrique
+2. **Comparaison** : sélectionne 2-N runs → page avec **side-by-side params** + **graphes superposés**
+3. **Détail d'un run** : tous ses params, métriques, artefacts, code
+4. **Charts** : tracer l'accuracy en fonction du `n_estimators`
+5. **Recherche** : filtrer par tag, métrique seuil, période...
+
+C'est **l'outil principal** pour analyser tes expériences. Une fois habitué·e, tu ne reviendras pas en arrière.
+
+## 📸 Capture d'écran type
+
+Quand tu charges la MLflow UI, tu vois quelque chose comme :
+
+```
+EXPERIMENTS                  RUNS  
+┌─────────────┐             ┌────────────────────────────────────────────────────┐
+│ ▼ iris-     │             │ Run Name      │ acc   │ f1    │ n_est │ max_d │ ...│
+│   tutorial  │             ├───────────────┼───────┼───────┼───────┼───────┼────┤
+│             │             │ rf_cfg_3      │ 0.974 │ 0.974 │ 200   │ None  │ ✅ │
+│ Default     │             │ rf_cfg_2      │ 0.974 │ 0.974 │ 100   │ 10    │    │
+│             │             │ rf_cfg_1      │ 0.947 │ 0.947 │ 50    │ 5     │    │
+│             │             │ rf_baseline   │ 0.947 │ 0.947 │ 50    │ 5     │    │
+│             │             │ rf_cfg_0      │ 0.921 │ 0.921 │ 10    │ 3     │    │
+└─────────────┘             └────────────────────────────────────────────────────┘
+```
+
+D'un coup d'œil tu vois **quel run a la meilleure accuracy** et **avec quels hyperparams**.
+
+# 5. Logger plus que params + métriques
+
+## 📦 Artefacts : fichiers, plots, tout
+
+`mlflow.log_artifact()` permet de **stocker des fichiers** liés au run.
+
+```{python}
+import matplotlib.pyplot as plt
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
+
+with mlflow.start_run(run_name="rf_with_artifacts"):
+    # Train
+    model = RandomForestClassifier(n_estimators=100, max_depth=10, random_state=42)
+    model.fit(X_train, y_train)
+    preds = model.predict(X_test)
+    
+    # Métriques
+    mlflow.log_metric("accuracy", accuracy_score(y_test, preds))
+    
+    # === Artefact 1 : matrice de confusion en image ===
+    cm = confusion_matrix(y_test, preds)
+    fig, ax = plt.subplots(figsize=(6, 5))
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=ax)
+    ax.set_xlabel("Prédit"); ax.set_ylabel("Vrai")
+    ax.set_title("Confusion Matrix")
+    cm_path = MLFLOW_DIR / "confusion_matrix.png"
+    fig.savefig(cm_path)
+    plt.close(fig)
+    
+    mlflow.log_artifact(str(cm_path))  # ← uploadé dans le run
+    
+    # === Artefact 2 : un dataset de validation ===
+    pd.DataFrame(X_test, columns=[f"feat_{i}" for i in range(X_test.shape[1])]).to_csv(
+        MLFLOW_DIR / "validation_set.csv", index=False
+    )
+    mlflow.log_artifact(str(MLFLOW_DIR / "validation_set.csv"))
+    
+    print("✅ Artefacts loggés (image + CSV)")
+```
+
+Dans l'UI, l'onglet **Artifacts** d'un run te permet de **télécharger** ces fichiers.
+
+## 🏷️ Tags : étiquettes utiles
+
+```{python}
+with mlflow.start_run(run_name="rf_with_tags"):
+    mlflow.log_param("n_estimators", 100)
+    mlflow.set_tag("auteur", "alice")
+    mlflow.set_tag("équipe", "fraude")
+    mlflow.set_tag("env", "dev")
+    
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    mlflow.log_metric("accuracy", model.score(X_test, y_test))
+
+print("✅ Run avec tags loggé")
+```
+
+**Usage classique** : identifier qui a lancé un run, dans quel contexte, sur quel dataset version.
+
+## 📈 Métriques au fil du temps (deep learning)
+
+Pour le DL, on veut tracker **la loss à chaque epoch** :
+
+```{python}
+# Simulation : entraînement DL avec loss qui décroît
+np.random.seed(42)
+n_epochs = 20
+
+with mlflow.start_run(run_name="dl_simulation"):
+    mlflow.log_param("model", "MLP")
+    mlflow.log_param("epochs", n_epochs)
+    
+    for epoch in range(n_epochs):
+        # Loss simulée qui décroît
+        train_loss = 1.0 * np.exp(-0.15 * epoch) + np.random.normal(0, 0.02)
+        val_loss = 1.0 * np.exp(-0.12 * epoch) + np.random.normal(0, 0.03) + 0.05
+        
+        # Logger AVEC un step → graphe automatique dans l'UI
+        mlflow.log_metric("train_loss", train_loss, step=epoch)
+        mlflow.log_metric("val_loss", val_loss, step=epoch)
+
+print(f"✅ Run DL avec {n_epochs} époques (loss tracking)")
+```
+
+Dans la MLflow UI, l'onglet **Metrics** affiche un **graphe** train_loss vs val_loss en fonction des steps. Très utile pour repérer l'overfitting.
+
+# 6. MLflow Models : sauvegarder et charger
+
+## 💾 Logger un modèle
+
+`mlflow.<framework>.log_model()` sauvegarde le modèle dans un format **standard** :
+
+```{python}
+import mlflow.sklearn
+
+with mlflow.start_run(run_name="rf_saved") as run:
+    mlflow.log_param("n_estimators", 100)
+    
+    model = RandomForestClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    mlflow.log_metric("accuracy", model.score(X_test, y_test))
+    
+    # === Sauvegarder le modèle ===
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        name="model",
+        input_example=X_train[:5],   # exemple d'input (pour la doc)
+    )
+    
+    run_id_save = run.info.run_id
+    print(f"Run ID : {run_id_save}")
+    print(f"Modèle sauvegardé sous le nom 'model'")
+```
+
+## 📥 Charger un modèle (n'importe où, n'importe quand)
+
+```{python}
+# Recharger le modèle depuis le run
+model_uri = f"runs:/{run_id_save}/model"
+modele_recharge = mlflow.sklearn.load_model(model_uri)
+
+# Vérifier que ça marche
+preds = modele_recharge.predict(X_test[:5])
+print(f"Prédictions du modèle rechargé : {preds}")
+```
+
+**Avantage** : tu peux charger ce modèle **depuis n'importe quel script**, **en prod**, dans **une autre machine**, juste en référençant le `run_id`.
+
+## 🔌 Servir un modèle MLflow comme API
+
+MLflow peut **automatiquement** lancer une API REST :
+
+```bash
+mlflow models serve -m runs:/<run_id>/model --host 0.0.0.0 --port 5001
+```
+
+Puis tu peux poser des requêtes :
+
+```bash
+curl http://localhost:5001/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"inputs": [[5.1, 3.5, 1.4, 0.2]]}'
+```
+
+**Avantage** : pas besoin d'écrire ton FastAPI à la main pour les cas simples.
+
+# 7. Model Registry : versions et stages
+
+## 🎯 Le problème en équipe
+
+Imagine : 5 data scientists entraînent des modèles pour 3 projets différents. Comment :
+- Savoir **quel modèle est en prod** actuellement ?
+- **Promouvoir** un modèle de "Staging" à "Production" ?
+- **Rollback** rapidement si un modèle casse ?
+- Garder **plusieurs versions** d'un même modèle "fraud-detector" ?
+
+## 💡 La réponse : Model Registry
+
+C'est un **système de versions** pour les modèles, intégré à MLflow.
+
+## 📝 Enregistrer un modèle
+
+```{python}
+# Enregistrer notre modèle iris dans le registry
+result = mlflow.register_model(
+    model_uri=f"runs:/{run_id_save}/model",
+    name="iris-classifier",  # nom dans le registry
+)
+
+print(f"Modèle enregistré : {result.name} v{result.version}")
+```
+
+Maintenant, dans l'onglet **Models** de la MLflow UI, tu vois :
+```
+iris-classifier
+└── Version 1   (Stage: None)   • Run rf_saved
+```
+
+## 🚀 Promouvoir un modèle (en 2026 : aliases)
+
+::: {.callout-note}
+## 📝 Aliases plutôt que stages
+MLflow 3.x a remplacé les "stages" (None / Staging / Production) par des **aliases** plus flexibles. Tu peux nommer tes aliases comme tu veux : `champion`, `production`, `experimental`, etc.
+:::
+
+```{python}
+from mlflow.tracking import MlflowClient
+
+client = MlflowClient()
+
+# Donner l'alias "champion" à la version 1
+client.set_registered_model_alias(
+    name="iris-classifier",
+    alias="champion",
+    version=result.version,
+)
+
+print(f"✅ Version {result.version} taggée 'champion'")
+```
+
+## 📥 Charger un modèle par alias (le plus pro)
+
+```{python}
+# En prod : charger par ALIAS, pas par version (plus stable)
+model_prod = mlflow.sklearn.load_model("models:/iris-classifier@champion")
+
+# Ainsi : si tu promeus une nouvelle version en "champion",
+# le code de prod prend automatiquement la nouvelle version sans rien changer.
+
+preds = model_prod.predict(X_test[:5])
+print(f"Prédictions champion : {preds}")
+```
+
+**Workflow type en équipe** :
+
+1. Data scientist entraîne `model v2` → l'enregistre
+2. QA donne l'alias `staging` à `v2` → pipeline test l'évalue
+3. Si OK : on retire `champion` à `v1`, on le donne à `v2`
+4. La prod, qui pointe sur `@champion`, prend **automatiquement** la nouvelle version
+5. Si problème : retour de l'alias `champion` à `v1` (rollback en 30 secondes)
+
+## 🛠️ Code complet : workflow registry
+
+```{python}
+# Récupérer les versions d'un modèle
+versions = client.search_model_versions(filter_string="name='iris-classifier'")
+print(f"Versions de 'iris-classifier' :")
+for v in versions:
+    aliases = v.aliases if hasattr(v, 'aliases') else []
+    print(f"  Version {v.version} (aliases: {aliases})")
+```
+
+# 8. Auto-logging : le réflexe à prendre
+
+Ne pas logger manuellement à chaque fois est **fastidieux**. MLflow propose **`autolog()`** : il logue **automatiquement** params + métriques + modèle pour les frameworks supportés.
+
+## 🪄 Pour scikit-learn
+
+```{python}
+mlflow.sklearn.autolog()
+
+with mlflow.start_run(run_name="rf_autolog"):
+    model = RandomForestClassifier(n_estimators=80, max_depth=8, random_state=42)
+    model.fit(X_train, y_train)
+    # Pas besoin de log_param/log_metric : MLflow capture tout automatiquement !
+
+# Désactiver pour ne pas polluer les autres exemples
+mlflow.sklearn.autolog(disable=True)
+
+print("✅ Run autolog terminé. MLflow a capturé : params, métriques d'entraînement, modèle, signature.")
+```
+
+**Frameworks supportés** : sklearn, PyTorch, TensorFlow/Keras, XGBoost, LightGBM, statsmodels, fastai, et plus.
+
+**Astuce pro** : appelle `mlflow.autolog()` **au début de tes scripts**. Tu auras du tracking gratuit même si tu oublies de logger explicitement.
+
+## ✏️ Exercice 1 — Tracker une recherche d'hyperparamètres
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Lance une recherche grid avec `RandomForestClassifier` sur Iris :
+
+1. Combinaisons à tester :
+   - `n_estimators` : [10, 50, 100, 200]
+   - `max_depth` : [3, 5, 10, None]
+
+2. Pour **chaque combinaison** (16 runs au total) :
+   - Logger params et métriques (accuracy, f1)
+   - Nommer le run avec `f"grid_{n}_{d}"`
+
+3. À la fin, **trouver le meilleur run** programmatiquement (`mlflow.search_runs`)
+
+4. Afficher un **DataFrame** récap trié par accuracy
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+mlflow.set_experiment("iris-grid-search")
+
+n_estimators_grid = [10, 50, 100, 200]
+max_depth_grid = [3, 5, 10, None]
+
+for n in n_estimators_grid:
+    for d in max_depth_grid:
+        with mlflow.start_run(run_name=f"grid_{n}_{d}"):
+            mlflow.log_param("n_estimators", n)
+            mlflow.log_param("max_depth", d)
+            
+            model = RandomForestClassifier(n_estimators=n, max_depth=d, random_state=42)
+            model.fit(X_train, y_train)
+            preds = model.predict(X_test)
+            
+            mlflow.log_metric("accuracy", accuracy_score(y_test, preds))
+            mlflow.log_metric("f1_weighted", f1_score(y_test, preds, average="weighted"))
+
+# Récupérer tous les runs
+runs = mlflow.search_runs(experiment_names=["iris-grid-search"])
+
+# Tri et affichage
+top = runs.sort_values("metrics.accuracy", ascending=False)
+cols = ["tags.mlflow.runName", "params.n_estimators", "params.max_depth",
+        "metrics.accuracy", "metrics.f1_weighted"]
+print(f"Top 5 runs sur {len(runs)} :")
+print(top[cols].head().to_string(index=False))
+
+# Meilleur run
+best = top.iloc[0]
+print(f"\n🏆 Meilleur : {best['tags.mlflow.runName']}")
+print(f"   Accuracy : {best['metrics.accuracy']:.4f}")
+```
+
+**Pourquoi c'est puissant** : tu n'as **plus besoin** d'écrire un Excel ou un dict Python pour stocker tes résultats. **Tout est dans MLflow**, requêtable, comparable, partageable.
+:::
+
+# 9. MLflow vs Weights & Biases
+
+MLflow est **le standard open source**. **Weights & Biases (W&B)** est un concurrent **commercial** qui a beaucoup gagné en popularité depuis 2023.
+
+## 📊 Comparaison
+
+| Critère | MLflow | Weights & Biases |
+|---|:---:|:---:|
+| **Open source** | ✅ Apache 2.0 | ❌ (gratuit perso uniquement) |
+| **Self-hosted** | ✅ Facile | ❌ (cloud only sauf Enterprise) |
+| **UI** | Bonne | **Excellente** (plus moderne) |
+| **Visualisations DL** | Correct | **Top** (Sweep, Reports) |
+| **Collaboration** | Moyen | **Top** (workspaces, comments) |
+| **Coût** | Gratuit | Gratuit perso, payant équipe |
+| **Adoption en France** | Standard | En forte croissance |
+
+## 🎯 Quand choisir lequel
+
+- **MLflow** : projet open source, équipe interne, contrainte de souveraineté des données
+- **Weights & Biases** : recherche académique, équipe DL avec gros besoins viz, budget OK
+
+**En entreprise française en 2026**, **MLflow domine** (60-70% des cas), mais **W&B perce** dans les startups IA.
+
+## 🧪 Bonus : MLflow + W&B en simultané
+
+Tu peux logger dans les **deux** simultanément (par sécurité ou comparaison) :
+
+```python
+# Pseudo-code
+import mlflow
+import wandb
+
+mlflow.start_run()
+wandb.init(project="iris")
+
+# Train...
+mlflow.log_metric("acc", acc)
+wandb.log({"acc": acc})
+```
+
+Pour ce module, on reste sur **MLflow**, mais sache que **W&B** existe et qu'on peut basculer facilement.
+
+# 10. Bonnes pratiques en équipe
+
+Quelques règles d'or pour utiliser MLflow en équipe :
+
+## ✅ 1. Backend partagé
+
+**Solo / projet perso** : SQLite local OK.
+
+**Équipe** : un serveur MLflow centralisé avec backend Postgres + S3 :
+```bash
+mlflow server \
+    --backend-store-uri postgresql://user:pass@host/db \
+    --default-artifact-root s3://my-bucket/mlflow \
+    --host 0.0.0.0 --port 5000
+```
+
+Tout le monde se connecte à la **même UI**.
+
+## ✅ 2. Conventions de nommage
+
+Cohérence dans les noms d'**experiments** et **runs** :
+
+```python
+# Convention :
+# - experiment : <projet>-<sous-projet>
+# - run : <auteur>_<modèle>_<date>
+mlflow.set_experiment("fraude-credit-card")
+mlflow.start_run(run_name="alice_xgboost_20260315")
+```
+
+## ✅ 3. Tags systématiques
+
+Toujours :
+- `auteur` : qui a lancé le run
+- `git_commit` : version du code (auto avec autolog)
+- `dataset_version` : quel dataset (DVC, S3 path...)
+- `env` : dev/staging/prod
+
+## ✅ 4. Toujours `input_example`
+
+Permet à MLflow de **valider** les inputs et de générer la **signature** automatiquement :
+
+```python
+mlflow.sklearn.log_model(
+    sk_model=model,
+    name="model",
+    input_example=X_train[:5],  # ← ne pas oublier !
+)
+```
+
+## ✅ 5. Cleaning régulier
+
+Les runs **expérimentaux** (un test rapide qu'on n'utilisera jamais) polluent l'UI. Pense à :
+- **Supprimer** les runs vraiment inutiles
+- Ou les **archiver** (état soft delete)
+
+# 🏁 Exercice bilan — Tracker ton modèle TechVolt
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Reprends le **classifier d'avis TechVolt** de l'exercice bilan de la Notion 7.3 (sentiment positif/neutre/négatif). On va le tracker proprement avec MLflow.
+
+1. **Setup** :
+   - Tracking URI : `sqlite:///mlflow_techvolt.db`
+   - Experiment : `techvolt-sentiment`
+   - Active `mlflow.sklearn.autolog()`
+
+2. **Dataset** : utilise un petit jeu d'avis fictifs (5 par classe) :
+   ```python
+   avis = {
+       "positif": ["super", "parfait", "j'adore", "excellent", "top"],
+       "negatif": ["nul", "déçu", "panne", "lent", "horrible"],
+       "neutre":  ["correct", "ok", "moyen", "bof", "neutre"],
+   }
+   ```
+   Convertir en `(X, y)` avec `CountVectorizer`.
+
+3. **Tester 3 modèles** différents, **chacun dans son run** :
+   - `LogisticRegression(C=1)`
+   - `RandomForestClassifier(n_estimators=20)`
+   - `MultinomialNB()`
+
+4. Pour chaque modèle :
+   - Tags : `model_family` et `auteur`
+   - Logger le modèle avec `input_example`
+   - Calculer accuracy sur **un jeu de test fictif** simple
+
+5. **Identifier le meilleur** modèle programmatiquement et **l'enregistrer** dans le Model Registry sous le nom `techvolt-sentiment-classifier`, alias `champion`.
+
+6. **Recharger** le modèle via l'alias et faire une prédiction.
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+import mlflow
+import mlflow.sklearn
+from mlflow.tracking import MlflowClient
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import accuracy_score
+
+# Setup
+mlflow.set_tracking_uri(f"sqlite:///{MLFLOW_DIR}/mlflow_techvolt.db")
+mlflow.set_experiment("techvolt-sentiment")
+mlflow.sklearn.autolog()
+
+# Dataset
+avis = {
+    "positif": ["super", "parfait", "j'adore", "excellent", "top"],
+    "negatif": ["nul", "déçu", "panne", "lent", "horrible"],
+    "neutre":  ["correct", "ok", "moyen", "bof", "neutre"],
+}
+
+textes, labels = [], []
+for cls, mots in avis.items():
+    for m in mots:
+        textes.append(m)
+        labels.append(cls)
+
+# Vectorizer
+vect = CountVectorizer()
+X = vect.fit_transform(textes)
+y = labels
+
+# Test simple : un mot par classe (différent du train)
+X_test_texts = ["fantastique", "catastrophe", "passable"]
+y_test_labels = ["positif", "negatif", "neutre"]
+X_test_vec = vect.transform(X_test_texts)
+# Note : sur un dataset si petit, perf très variable. C'est juste pour la démo.
+
+# 3 modèles à tester
+modeles = {
+    "logreg": (LogisticRegression(C=1, max_iter=1000), "linear"),
+    "rf": (RandomForestClassifier(n_estimators=20, random_state=42), "tree"),
+    "nb": (MultinomialNB(), "bayes"),
+}
+
+run_ids = {}
+for nom, (mdl, family) in modeles.items():
+    with mlflow.start_run(run_name=f"techvolt_{nom}") as run:
+        mlflow.set_tag("model_family", family)
+        mlflow.set_tag("auteur", "data-team")
+        
+        mdl.fit(X, y)
+        preds = mdl.predict(X_test_vec)
+        acc = accuracy_score(y_test_labels, preds)
+        
+        # acc loggée manuellement EN PLUS de l'autolog (qui logue training metrics)
+        mlflow.log_metric("test_accuracy", acc)
+        
+        run_ids[nom] = run.info.run_id
+        print(f"  {nom}: test_acc = {acc:.3f}")
+
+mlflow.sklearn.autolog(disable=True)
+
+# Trouver le meilleur
+runs = mlflow.search_runs(experiment_names=["techvolt-sentiment"])
+runs_classifier = runs[runs["tags.mlflow.runName"].str.startswith("techvolt_")]
+best = runs_classifier.sort_values("metrics.test_accuracy", ascending=False).iloc[0]
+best_id = best["run_id"]
+best_name = best["tags.mlflow.runName"]
+print(f"\n🏆 Meilleur : {best_name} (acc={best['metrics.test_accuracy']:.3f})")
+
+# Enregistrer dans le registry
+result = mlflow.register_model(
+    model_uri=f"runs:/{best_id}/model",
+    name="techvolt-sentiment-classifier",
+)
+print(f"✅ Enregistré : v{result.version}")
+
+# Donner l'alias champion
+client = MlflowClient()
+client.set_registered_model_alias(
+    name="techvolt-sentiment-classifier",
+    alias="champion",
+    version=result.version,
+)
+
+# Recharger via alias
+modele_prod = mlflow.sklearn.load_model("models:/techvolt-sentiment-classifier@champion")
+nouvelle_pred = modele_prod.predict(vect.transform(["super génial"]))
+print(f"\nPrédiction sur 'super génial' : {nouvelle_pred[0]}")
+```
+
+**Tu viens d'industrialiser ton tracking** :
+- 3 modèles comparés automatiquement
+- Best model identifié programmatiquement
+- Enregistré dans le registry avec alias `champion`
+- Rechargeable depuis n'importe où en prod
+
+**Workflow équivalent à ce qui se fait dans une vraie équipe ML.** 🎉
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Tracking** | `mlflow.log_param/metric/artifact` pour tout suivre |
+| **Run** | Un entraînement individuel, identifié par `run_id` |
+| **Experiment** | Groupe de runs liés à un même problème |
+| **Backend** | SQLite (perso) ou Postgres + S3 (équipe) |
+| **MLflow UI** | Interface web pour comparer, filtrer, télécharger |
+| **`log_model`** | Sauvegarder dans un format standard, rechargeable |
+| **Model Registry** | Versioning + aliases (`champion`, `staging`...) |
+| **Autolog** | `mlflow.sklearn.autolog()` = tracking gratuit |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **`mlflow.autolog()`** au début de tout script d'entraînement
+2. **Nommer les runs** clairement (`alice_xgboost_v3`)
+3. **Tags systématiques** : auteur, dataset, env, git_commit
+4. **`input_example`** dans `log_model()` (signature auto)
+5. **Aliases** plutôt que versions fixes en prod (`@champion`)
+
+## 🚨 Les pièges à éviter
+
+1. **Ne tracker que les runs "réussis"** → biais, on perd les échecs instructifs
+2. **Pas de backend partagé en équipe** → silos
+3. **Pas de model registry** → personne ne sait ce qui est en prod
+4. **Logger un modèle sans `input_example`** → signature manquante, pas de validation
+5. **Multiplier les experiments sans nommer clairement** → l'UI devient illisible
+
+## 🚀 La suite
+
+Ton modèle est tracké, déployé, dockerisé. Maintenant : **comment savoir s'il marche bien en prod ?**
+
+Dans la [**Notion 8.5 — Monitoring**](notion_8_5_monitoring.qmd), tu vas :
+- Comprendre le **monitoring** ML (différent du monitoring système)
+- Logger les **prédictions** en prod
+- Détecter le **data drift** et le **model drift**
+- Configurer **Prometheus + Grafana** simplement
+- Mettre en place des **alertes**
+
+C'est la notion qui transforme tes modèles d'**aveugle** à **intelligent**.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+Reprends **un de tes TP précédents** (M4 fraude, M5 clustering, M6 images...) :
+
+1. Re-entraîne le modèle avec MLflow tracking
+2. Lance la MLflow UI et **explore tes runs**
+3. Enregistre ton modèle final dans le registry
+4. Charge-le via l'alias `champion`
+
+**En 30 minutes**, tu transforme ton projet "artisanal" en projet **MLOps-friendly**. Cette habitude vaut **des semaines** de gain dans les projets sérieux.
+:::

@@ -188,6 +188,7 @@ from sklearn.datasets import load_iris
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import joblib
+import tempfile
 from pathlib import Path
 
 # Charger et split
@@ -203,11 +204,12 @@ modele.fit(X_train, y_train)
 # Évaluer
 print(f"Accuracy test : {modele.score(X_test, y_test):.3f}")
 
-# Sauvegarder
-Path("/tmp/models").mkdir(exist_ok=True)
-joblib.dump(modele, "/tmp/models/iris_model.joblib")
-joblib.dump(list(data.target_names), "/tmp/models/iris_labels.joblib")
-print("✅ Modèle sauvegardé")
+# Sauvegarder (chemin portable : fonctionne sur Linux, macOS et Windows)
+MODELS_DIR = Path(tempfile.gettempdir()) / "models"
+MODELS_DIR.mkdir(parents=True, exist_ok=True)
+joblib.dump(modele, MODELS_DIR / "iris_model.joblib")
+joblib.dump(list(data.target_names), MODELS_DIR / "iris_labels.joblib")
+print(f"✅ Modèle sauvegardé dans {MODELS_DIR}")
 ```
 
 ## 📋 Schéma d'input avec Pydantic
@@ -247,8 +249,8 @@ import numpy as np
 app = FastAPI(title="Iris Classifier", version="1.0.0")
 
 # Charger le modèle au démarrage (une fois)
-modele_prod = joblib.load("/tmp/models/iris_model.joblib")
-labels_prod = joblib.load("/tmp/models/iris_labels.joblib")
+modele_prod = joblib.load(MODELS_DIR / "iris_model.joblib")
+labels_prod = joblib.load(MODELS_DIR / "iris_labels.joblib")
 MODEL_VERSION = "rf-v1.0.0"
 
 @app.get("/")
@@ -800,11 +802,16 @@ La config ne doit **pas être dans le code** (12 facteurs, Notion 8.1).
 
 ```{python}
 import os
+import tempfile
+from pathlib import Path
 from pydantic_settings import BaseSettings
+
+# Chemin par défaut portable (Linux/macOS/Windows)
+DEFAULT_MODEL_PATH = str(Path(tempfile.gettempdir()) / "models" / "iris_model.joblib")
 
 class Settings(BaseSettings):
     """Config de l'app, lue depuis .env ou variables d'env."""
-    model_path: str = "/tmp/models/iris_model.joblib"
+    model_path: str = DEFAULT_MODEL_PATH
     api_key: str = ""
     max_batch_size: int = 100
     log_level: str = "INFO"

@@ -1,0 +1,1142 @@
+---
+title: "Notion 8.3 — Conteneurisation avec Docker"
+subtitle: "« Ça marche chez moi » → « ça marche partout »"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_3_docker_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_3_docker_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notion 8.2 (FastAPI), un terminal  
+**Objectif** : containeriser une API ML, exécuter et partager des images Docker
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Comprendre ce qu'est un **container** (et pourquoi c'est génial)
+- Écrire un **Dockerfile** pour ton app FastAPI
+- **Construire et lancer** une image Docker
+- Comprendre **volumes**, **networks**, **ports**
+- Utiliser **Docker Compose** pour orchestrer plusieurs services
+- **Optimiser** la taille de tes images (multi-stage build)
+- **Partager** tes images sur Docker Hub
+
+## 🎯 Pourquoi cette notion ?
+
+Tu as construit une API FastAPI dans la Notion 8.2. Elle marche sur **ta machine**. Mais :
+
+- Si tu donnes ton code à un collègue → il a Python 3.10, toi 3.12 → ça plante
+- Si tu déploies sur un serveur Linux → des libs manquent, des versions diffèrent
+- Si l'API plante en prod → tu peux pas reproduire localement la même config
+
+**Docker résout tout ça** en encapsulant ton app dans un **container** : un mini environnement isolé qui contient **TOUT** ce dont ton app a besoin (Python, libs, code, modèle...).
+
+::: {.callout-important}
+## 💼 Compétence n°1 demandée en MLOps
+Sur **9 offres MLOps Engineer sur 10**, "Docker" apparaît dans les compétences requises. Sans Docker, **pas d'embauche** sur ce type de poste.
+:::
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import subprocess
+import json
+from pathlib import Path
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Installation de Docker
+
+**Cette notion nécessite Docker installé sur ta machine** :
+
+- **Windows / Mac** : télécharge **Docker Desktop** sur [docker.com](https://www.docker.com/products/docker-desktop)
+- **Linux** : suis [docs.docker.com/engine/install](https://docs.docker.com/engine/install) selon ta distribution
+
+Vérifie l'installation :
+```bash
+docker --version
+```
+
+Tu dois voir quelque chose comme `Docker version 24.0.x`.
+:::
+
+# 1. Container vs VM vs venv : les différences
+
+## 🥚 L'analogie des œufs
+
+- **Virtual Machine (VM)** : une **maison** complète, fondations, murs, toit, plomberie. Lourd, lent à démarrer (minutes).
+- **Container** : un **appartement** dans un immeuble. Tu partages les fondations (l'OS), mais tu as ta propre porte et tes meubles. Léger, démarre en **secondes**.
+- **venv** : une **étagère** dans une pièce commune. Bonne isolation des libs Python, mais **pas du système** (l'OS, les libs C, les outils).
+
+```{python}
+#| label: fig-container-vs-vm
+#| fig-cap: "Container vs VM : la différence d'architecture"
+
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+def boite(ax, x, y, w, h, color, text, fontsize=10):
+    ax.add_patch(mpatches.Rectangle((x, y), w, h, facecolor=color,
+                                      edgecolor='black', linewidth=1.5))
+    ax.text(x + w/2, y + h/2, text, ha='center', va='center',
+             fontsize=fontsize, fontweight='bold')
+
+# === VM ===
+ax = axes[0]
+ax.set_xlim(0, 10); ax.set_ylim(0, 10); ax.axis('off')
+ax.set_title("Virtual Machine (lourd)", fontsize=14, fontweight='bold')
+
+boite(ax, 0.5, 0.5, 9, 1, "#374151", "Hardware physique")
+boite(ax, 0.5, 1.7, 9, 0.8, "#6b7280", "Hyperviseur (VMware, VirtualBox)")
+for i, x in enumerate([0.5, 3.5, 6.5]):
+    boite(ax, x, 2.7, 2.8, 0.8, "#2563eb", f"OS #{i+1}\n(2-4 GB)", 9)
+    boite(ax, x, 3.6, 2.8, 0.8, "#3b82f6", "Libs", 9)
+    boite(ax, x, 4.5, 2.8, 0.8, "#60a5fa", "App", 9)
+
+ax.text(5, 7, "🐌 Démarre en MINUTES", ha='center', fontsize=11, color='#ef4444')
+ax.text(5, 6.4, "📦 Plusieurs GB", ha='center', fontsize=11, color='#ef4444')
+ax.text(5, 5.8, "Chaque VM = OS complet", ha='center', fontsize=10, style='italic')
+
+# === Container ===
+ax = axes[1]
+ax.set_xlim(0, 10); ax.set_ylim(0, 10); ax.axis('off')
+ax.set_title("Container (léger)", fontsize=14, fontweight='bold')
+
+boite(ax, 0.5, 0.5, 9, 1, "#374151", "Hardware physique")
+boite(ax, 0.5, 1.7, 9, 0.8, "#6b7280", "OS host (Linux kernel partagé)")
+boite(ax, 0.5, 2.7, 9, 0.8, "#dc2626", "Docker Engine")
+for i, x in enumerate([0.5, 3.5, 6.5]):
+    boite(ax, x, 3.7, 2.8, 0.8, "#3b82f6", "Libs", 9)
+    boite(ax, x, 4.6, 2.8, 0.8, "#60a5fa", f"App #{i+1}", 9)
+
+ax.text(5, 7, "⚡ Démarre en SECONDES", ha='center', fontsize=11, color='#10b981')
+ax.text(5, 6.4, "📦 Quelques MB-100MB", ha='center', fontsize=11, color='#10b981')
+ax.text(5, 5.8, "Pas d'OS dupliqué", ha='center', fontsize=10, style='italic')
+
+plt.tight_layout()
+plt.show()
+```
+
+**Conséquence pratique** : tu peux faire tourner **des dizaines de containers** sur une machine où tu ne ferais tenir que **3-4 VMs**.
+
+## 🔑 Vocabulaire à retenir
+
+| Terme | Définition |
+|---|---|
+| **Image** | Le "modèle" figé : ton code + ses deps + l'OS de base |
+| **Container** | Une **instance** lancée d'une image (comme une VM allumée) |
+| **Dockerfile** | La **recette** pour construire une image |
+| **Registry** | Un dépôt où stocker des images (Docker Hub, GitHub Container Registry, ECR) |
+| **Volume** | Un dossier partagé entre l'host et le container (pour persister) |
+
+**Analogie cuisine** :
+- Dockerfile = recette
+- Image = plat préparé (figé)
+- Container = plat servi (en train d'être mangé)
+
+# 2. Ton premier Dockerfile
+
+## 🎯 Le scénario
+
+On va containeriser l'API FastAPI Iris de la Notion 8.2.
+
+**Structure projet** :
+```
+mon_api/
+├── app.py              # ton API FastAPI
+├── requirements.txt    # deps Python
+├── models/
+│   └── iris_model.joblib
+└── Dockerfile          # ← on va l'écrire
+```
+
+## 📝 Premier Dockerfile (basique mais fonctionnel)
+
+```{python}
+DOCKERFILE_BASIQUE = """
+# Image de base : Python 3.12 sur Linux léger
+FROM python:3.12-slim
+
+# Dossier de travail dans le container
+WORKDIR /app
+
+# Copier requirements et installer
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code source
+COPY app.py .
+COPY models/ ./models/
+
+# Port exposé (info pour Docker)
+EXPOSE 8000
+
+# Commande lancée au démarrage
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+"""
+print(DOCKERFILE_BASIQUE)
+```
+
+## 🔍 Décortiquons chaque ligne
+
+### `FROM python:3.12-slim`
+- Image **de base** : on part d'une image Python officielle
+- **`-slim`** : version légère (~150 MB vs ~1 GB pour la full)
+- Alternatives : `python:3.12` (full), `python:3.12-alpine` (encore plus léger mais parfois galère avec scipy/torch)
+
+### `WORKDIR /app`
+- Définit le **répertoire de travail** dans le container
+- Toutes les commandes suivantes (COPY, RUN, CMD) s'exécutent depuis là
+
+### `COPY requirements.txt .`
+- Copie le fichier depuis ton ordi vers `/app/` du container
+- Le `.` = "ici", càd `/app/`
+
+### `RUN pip install ...`
+- Exécute une commande **pendant le build** de l'image
+- `--no-cache-dir` : ne garde pas le cache pip (image plus légère)
+
+### `COPY app.py .` et `COPY models/ ./models/`
+- Copie ton code et tes modèles dans le container
+
+### `EXPOSE 8000`
+- Documentation : ce container expose le port 8000
+- **Important** : ne suffit pas pour qu'on puisse y accéder de l'extérieur, il faudra `-p` au `docker run`
+
+### `CMD [...]`
+- La **commande lancée** quand le container démarre
+- Format JSON-array (recommandé)
+
+## 🏗️ Construire l'image
+
+```bash
+# Dans le dossier qui contient le Dockerfile
+docker build -t iris-api:v1 .
+```
+
+- **`-t iris-api:v1`** : nom de l'image avec tag (`v1`)
+- **`.`** : contexte de build = dossier courant
+
+**Sortie typique** (ton Dockerfile va être lu ligne par ligne) :
+```
+[1/5] FROM python:3.12-slim
+[2/5] WORKDIR /app
+[3/5] COPY requirements.txt . 
+[4/5] RUN pip install ...           ← l'étape la plus longue
+[5/5] COPY app.py .
+=> exporting to image
+=> => writing image sha256:abc123...
+=> => naming to docker.io/library/iris-api:v1
+```
+
+## 🚀 Lancer un container
+
+```bash
+docker run -p 8000:8000 iris-api:v1
+```
+
+- **`-p 8000:8000`** : mapper le port 8000 du **container** au port 8000 de **ta machine**
+- **`iris-api:v1`** : nom de l'image à lancer
+
+Ton API tourne ! Teste avec :
+```bash
+curl http://localhost:8000/health
+```
+
+## 💡 Options utiles de `docker run`
+
+```bash
+# Mode détaché (background)
+docker run -d -p 8000:8000 --name iris-prod iris-api:v1
+
+# Variables d'environnement
+docker run -e API_KEY=secret -p 8000:8000 iris-api:v1
+
+# Plusieurs variables via fichier
+docker run --env-file .env -p 8000:8000 iris-api:v1
+
+# Auto-restart si crash
+docker run --restart=unless-stopped -p 8000:8000 iris-api:v1
+```
+
+# 3. Commandes Docker essentielles
+
+## 📋 Le top 10 à mémoriser
+
+```{python}
+COMMANDES_DOCKER = {
+    "docker build -t monapp:v1 .": "Construire une image",
+    "docker run -p 8000:8000 monapp:v1": "Lancer un container",
+    "docker ps": "Lister les containers en cours",
+    "docker ps -a": "Lister TOUS les containers (même stoppés)",
+    "docker images": "Lister les images en local",
+    "docker logs <container_id>": "Voir les logs d'un container",
+    "docker exec -it <container_id> bash": "Ouvrir un shell DANS le container (debug)",
+    "docker stop <container_id>": "Arrêter un container",
+    "docker rm <container_id>": "Supprimer un container stoppé",
+    "docker rmi <image_id>": "Supprimer une image",
+}
+
+for cmd, desc in COMMANDES_DOCKER.items():
+    print(f"  {cmd:50s} → {desc}")
+```
+
+## 💡 Astuce : nettoyer régulièrement
+
+Docker accumule des images et containers inutilisés. Pour faire du ménage :
+
+```bash
+# Supprimer tout ce qui n'est pas utilisé
+docker system prune -a
+
+# Voir l'espace utilisé
+docker system df
+```
+
+**Sans ça**, Docker peut bouffer **50-100 GB** sur ton disque sans prévenir.
+
+# 4. Volumes : persister les données
+
+## 🤔 Le problème
+
+Par défaut, **tout disparaît** quand un container s'arrête :
+- Logs écrits dans le container
+- Données saisies
+- Modèles téléchargés
+
+## 💡 La solution : volumes
+
+Un **volume** = un dossier de l'host monté dans le container.
+
+```bash
+# Volume bind mount (dossier de l'host)
+docker run -v /tmp/logs:/app/logs -p 8000:8000 iris-api:v1
+
+# Volume nommé Docker (géré par Docker)
+docker run -v iris_data:/app/data -p 8000:8000 iris-api:v1
+```
+
+## 🎯 Cas d'usage en ML
+
+### Cas 1 : ne **pas embarquer** les modèles dans l'image (trop lourd)
+
+```bash
+# Modèles sur l'host, montés dans le container
+docker run -v /var/models:/app/models -p 8000:8000 iris-api:v1
+```
+
+**Avantage** : changer de modèle = changer le fichier sur l'host, **pas besoin de rebuild**.
+
+### Cas 2 : logs persistants
+
+```bash
+docker run -v /var/log/iris:/app/logs -p 8000:8000 iris-api:v1
+```
+
+Tes logs survivent même si le container crashe.
+
+### Cas 3 : développement avec hot reload
+
+```bash
+# Monter ton code source pour modif live
+docker run -v $(pwd):/app -p 8000:8000 iris-api:v1
+```
+
+Tu modifies un fichier → uvicorn `--reload` détecte → recharge sans rebuild.
+
+# 5. Variables d'environnement et secrets
+
+## 🔐 La règle d'or (rappel)
+
+**Jamais** de secrets dans :
+- Le code
+- Le Dockerfile
+- Le repo Git
+
+Toujours dans des **variables d'environnement** ou des secrets de plateforme.
+
+## 📋 3 façons de passer des variables
+
+### 1. Au lancement avec `-e`
+
+```bash
+docker run -e API_KEY=secret123 -e LOG_LEVEL=DEBUG iris-api:v1
+```
+
+### 2. Via fichier `.env`
+
+`.env` (ne JAMAIS commiter) :
+```
+API_KEY=secret123
+LOG_LEVEL=DEBUG
+DB_HOST=postgres
+```
+
+```bash
+docker run --env-file .env iris-api:v1
+```
+
+### 3. Dans le Dockerfile (uniquement pour défauts non-secrets !)
+
+```dockerfile
+ENV LOG_LEVEL=INFO
+ENV PORT=8000
+```
+
+::: {.callout-warning}
+## ⚠️ Piège classique
+Mettre `ENV API_KEY=secret` dans le Dockerfile **commit la clé dans l'image**. Quiconque télécharge l'image peut la lire avec `docker history`. **Jamais** de secrets dans Dockerfile.
+:::
+
+# 6. Optimiser la taille des images ML
+
+Les images ML ont tendance à devenir **énormes** (PyTorch + transformers + ... = 5-10 GB).
+
+## 📏 Mesurer la taille
+
+```bash
+docker images
+```
+
+Sortie :
+```
+REPOSITORY    TAG     SIZE
+iris-api      v1      850 MB
+chatbot-rag   v1      4.2 GB    ← énorme !
+```
+
+## ⚡ Technique 1 : choisir la bonne image de base
+
+| Image | Taille de base | Quand l'utiliser |
+|---|:---:|---|
+| `python:3.12` | ~1 GB | Débogage, dev |
+| `python:3.12-slim` | ~150 MB | **Recommandé** par défaut |
+| `python:3.12-alpine` | ~50 MB | Ultra léger, mais parfois galère avec scipy/torch |
+
+**90% du temps**, `slim` est le bon choix.
+
+## ⚡ Technique 2 : ordre des `COPY` et caching
+
+Docker **cache** chaque étape. Si tu modifies une étape, **toutes les étapes suivantes** sont re-buildées.
+
+❌ **Mauvais ordre** :
+
+```dockerfile
+COPY . /app           # ← change à chaque modif de code
+RUN pip install ...   # ← se relance à chaque fois (LENT !)
+```
+
+✅ **Bon ordre** :
+
+```dockerfile
+COPY requirements.txt /app/   # ← change rarement
+RUN pip install ...           # ← cache utilisé tant que requirements n'a pas bougé
+
+COPY . /app                   # ← peut changer souvent, ok
+```
+
+**Économie** : passer de 3 minutes par build à 10 secondes.
+
+## ⚡ Technique 3 : `.dockerignore`
+
+Crée un fichier `.dockerignore` à côté du Dockerfile pour **exclure** des fichiers :
+
+```{python}
+DOCKERIGNORE = """
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Logs et data
+*.log
+data/raw/
+*.csv
+
+# Notebooks
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+"""
+print(DOCKERIGNORE)
+```
+
+**Sans `.dockerignore`**, ton image peut contenir **plusieurs GB** de fichiers inutiles (notebooks, datasets, virtualenv...).
+
+## ⚡ Technique 4 : Multi-stage build
+
+Pour des projets ML lourds, **build et runtime** peuvent être séparés :
+
+```{python}
+DOCKERFILE_MULTISTAGE = """
+# === Stage 1 : Builder ===
+FROM python:3.12 AS builder
+
+WORKDIR /build
+
+# Installer les outils de compilation (gcc...)
+RUN apt-get update && apt-get install -y build-essential
+
+COPY requirements.txt .
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+
+# === Stage 2 : Runtime (final) ===
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Récupérer SEULEMENT les libs installées (pas les outils de compilation)
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
+
+COPY app.py .
+COPY models/ ./models/
+
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+"""
+print(DOCKERFILE_MULTISTAGE)
+```
+
+**Gain typique** : 800 MB → 300 MB sur une app ML.
+
+## ⚡ Technique 5 : utiliser des wheels précompilés
+
+Pour PyTorch, NumPy, etc. : **toujours** prendre les wheels précompilés (par défaut), pas la compilation source.
+
+## ✏️ Exercice 1 — Analyser un Dockerfile
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Voici un Dockerfile **mauvais**. Identifie **5 problèmes** et propose une version corrigée.
+
+```dockerfile
+FROM python:3.12
+
+WORKDIR /app
+
+COPY . /app
+
+RUN pip install --upgrade pip
+RUN pip install fastapi
+RUN pip install uvicorn
+RUN pip install scikit-learn
+RUN pip install numpy
+RUN pip install pandas
+RUN pip install joblib
+
+ENV API_KEY=mySuperSecretKey123
+
+CMD uvicorn app:app
+```
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+**5 problèmes** :
+
+1. **`python:3.12` (full)** au lieu de `slim` → image 6× plus grosse
+2. **`COPY . /app` AVANT `pip install`** → cache invalidé à chaque modif de code, builds super lents
+3. **6 `RUN pip install` séparés** → 6 layers Docker au lieu d'un + pas de versions fixées + pas de `requirements.txt`
+4. **`ENV API_KEY=...`** → secret en dur dans l'image, **catastrophe sécurité**
+5. **`CMD uvicorn app:app`** sans port ni host → tourne sur 127.0.0.1 dans le container, pas accessible de l'extérieur
+
+**Version corrigée** :
+
+```dockerfile
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# 1. Copier requirements EN PREMIER pour caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 2. Copier le code APRÈS
+COPY app.py .
+COPY models/ ./models/
+
+# 3. Pas de secrets ! Ils seront passés au run avec -e ou --env-file
+
+EXPOSE 8000
+
+# 4. Host 0.0.0.0 pour accès externe
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+Et `requirements.txt` à part :
+```
+fastapi==0.104.1
+uvicorn==0.24.0
+scikit-learn==1.3.2
+numpy==1.26.0
+pandas==2.1.0
+joblib==1.3.2
+```
+
+**Résultat** : image **300 MB** au lieu de 2 GB, build incremental rapide, pas de secret leak.
+:::
+
+# 7. Docker Compose : orchestrer plusieurs services
+
+## 🤔 Le problème
+
+Une vraie app ML a souvent **plusieurs services** :
+- L'**API** (ton FastAPI)
+- Une **base de données** (Postgres, Redis)
+- Un **vector store** (ChromaDB, Qdrant)
+- Un **dashboard** (Grafana)
+
+Lancer chaque container avec `docker run` à la main = **galère**.
+
+## 💡 La solution : Docker Compose
+
+**Docker Compose** = un fichier YAML qui décrit **tous tes services** + comment ils communiquent.
+
+## 📝 Exemple : API + Postgres
+
+`docker-compose.yml` :
+
+```{python}
+DOCKER_COMPOSE = """
+version: '3.9'
+
+services:
+  # === Service 1 : ton API ===
+  api:
+    build: .                       # build depuis le Dockerfile local
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_URL=postgresql://user:pass@db:5432/mydb
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./models:/app/models       # modèles partagés depuis l'host
+    depends_on:
+      - db                         # attend que db soit prête
+    restart: unless-stopped
+
+  # === Service 2 : base PostgreSQL ===
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=mydb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # === Service 3 : Redis pour cache ===
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+# Volumes nommés
+volumes:
+  postgres_data:
+"""
+print(DOCKER_COMPOSE)
+```
+
+## ▶️ Lancer toute la stack
+
+```bash
+# Lancer tous les services
+docker compose up
+
+# En détaché
+docker compose up -d
+
+# Reconstruire les images si besoin
+docker compose up --build
+
+# Voir les logs
+docker compose logs -f api
+
+# Arrêter tout
+docker compose down
+
+# Tout supprimer (attention aux volumes !)
+docker compose down -v
+```
+
+**Magique** : un seul `docker compose up` lance les **3 services**, configure leur **réseau interne** (l'API peut joindre `db:5432` directement), et gère les dépendances.
+
+## 🌐 Réseau interne
+
+Compose crée **automatiquement un réseau** entre les services. Dans le code de l'API :
+
+```python
+# Pour joindre la BDD, on utilise le NOM du service dans compose
+DB_URL = "postgresql://user:pass@db:5432/mydb"
+#                                ^^^ nom du service "db" !
+```
+
+Pas besoin d'IP, juste le **nom du service**. Très pratique.
+
+## ✏️ Exercice 2 — Compose pour le chatbot TechVolt
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Tu veux containeriser **le chatbot TechVolt** du TP M7 avec :
+
+1. **Service `chatbot`** : ton API FastAPI exposant le chatbot, port 8000
+2. **Service `chromadb`** : la base vectorielle (image officielle `chromadb/chroma:latest`, port 8001)
+3. Variables d'env via `.env` pour la clé Groq
+
+Écris :
+- Un **Dockerfile** pour le service chatbot (slim, multi-couche)
+- Un **`docker-compose.yml`** orchestrant les 2 services
+- Un **`.dockerignore`** approprié
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+**Dockerfile** :
+
+```dockerfile
+FROM python:3.12-slim
+
+# Installer les deps système nécessaires (sentence-transformers a besoin de quelques libs)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Cache layer pip
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Code et data
+COPY app.py .
+COPY src/ ./src/
+COPY data/ ./data/
+
+EXPOSE 8000
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**docker-compose.yml** :
+
+```yaml
+version: '3.9'
+
+services:
+  chatbot:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+    depends_on:
+      - chromadb
+    restart: unless-stopped
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+    environment:
+      - IS_PERSISTENT=TRUE
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+```
+
+**.dockerignore** :
+
+```
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.log
+.env
+.ipynb_checkpoints/
+.vscode/
+.idea/
+```
+
+**`.env`** (à NE PAS commiter !) :
+
+```
+GROQ_API_KEY=gsk_ta_vraie_cle
+```
+
+**Lancement** :
+
+```bash
+docker compose up --build -d
+
+# Tester
+curl http://localhost:8000/chat -X POST -H "Content-Type: application/json" \
+  -d '{"question": "C est quoi le code E04 ?"}'
+```
+
+**Tu viens d'orchestrer un système IA complet** : ton chatbot peut être déployé **n'importe où** avec un seul `docker compose up`.
+:::
+
+# 8. Partager une image : Docker Hub
+
+## 🌍 Pourquoi Docker Hub ?
+
+Pour **partager** ton image (avec un collègue, un serveur de prod, ou la communauté), il faut la **pousser** dans un **registry**.
+
+**Le plus connu** : [Docker Hub](https://hub.docker.com) (gratuit pour images publiques).
+
+## 📤 Push une image
+
+```bash
+# 1. Se connecter (une fois)
+docker login
+
+# 2. Tagger l'image avec ton username
+docker tag iris-api:v1 monusername/iris-api:v1
+
+# 3. Push
+docker push monusername/iris-api:v1
+```
+
+## 📥 Pull une image
+
+Sur n'importe quelle machine :
+
+```bash
+docker pull monusername/iris-api:v1
+docker run -p 8000:8000 monusername/iris-api:v1
+```
+
+## 🔒 Alternatives privées
+
+Pour des images **privées** (code propriétaire) :
+- **GitHub Container Registry** (GHCR) — gratuit, intégré à GitHub
+- **AWS ECR** — pour AWS
+- **Google Artifact Registry** — pour GCP
+- **Self-hosted Harbor** — solution open source
+
+# 9. Bonnes pratiques production
+
+Quelques réflexes finaux :
+
+## ✅ 1. Toujours **versionner** tes images
+
+```bash
+# Mauvais (toujours "latest")
+docker build -t iris-api .
+
+# Bon
+docker build -t iris-api:1.0.0 -t iris-api:latest .
+```
+
+Permet de **rollback** facilement si une nouvelle version casse.
+
+## ✅ 2. Utiliser un **utilisateur non-root**
+
+Par défaut, ton container tourne en `root` → risque sécu si compromis.
+
+```dockerfile
+# Créer un user
+RUN useradd -m -u 1000 apiuser
+USER apiuser
+
+# Maintenant uvicorn tourne en apiuser, pas root
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+## ✅ 3. Healthcheck
+
+Indique à Docker comment tester si le container va bien :
+
+```dockerfile
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD curl -f http://localhost:8000/health || exit 1
+```
+
+Docker peut alors **redémarrer** automatiquement un container en panne.
+
+## ✅ 4. Logs sur stdout
+
+(Voir Notion 8.1, 12 facteurs.) Ton app doit logger sur **stdout/stderr**, pas dans un fichier.
+
+```python
+import logging
+logging.basicConfig(level=logging.INFO)  # ← stdout par défaut, parfait
+```
+
+## ✅ 5. Limiter les ressources
+
+En prod, limite la RAM/CPU :
+
+```bash
+docker run --memory=2g --cpus=2 iris-api:v1
+```
+
+Évite qu'un container fou fasse tomber le serveur entier.
+
+# 🏁 Exercice bilan — Containeriser ton modèle Iris
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Construis un **projet Docker complet** pour l'API Iris de la Notion 8.2 :
+
+1. **Structure** :
+```
+iris_dockerized/
+├── app.py
+├── requirements.txt
+├── models/iris_model.joblib
+├── Dockerfile
+├── .dockerignore
+├── docker-compose.yml
+└── tests/test_api.py
+```
+
+2. **Dockerfile** propre :
+   - Image `python:3.12-slim`
+   - User non-root
+   - Healthcheck sur `/health`
+   - Cache optimisé (requirements avant code)
+
+3. **docker-compose.yml** :
+   - Service `api` qui build local
+   - Volume pour modèles (depuis l'host)
+   - Variable d'environnement `LOG_LEVEL`
+   - Restart auto
+
+4. **`.dockerignore`** complet
+
+5. **Tester localement** :
+   - `docker compose up --build`
+   - `curl http://localhost:8000/health`
+   - `pytest tests/test_api.py` (depuis l'host, contre l'API qui tourne dans Docker)
+
+6. **Bonus** : push l'image sur Docker Hub
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction (templates)
+
+**Dockerfile** :
+
+```dockerfile
+FROM python:3.12-slim
+
+# User non-root pour la sécurité
+RUN useradd -m -u 1000 apiuser
+
+WORKDIR /app
+
+# Cache pip
+COPY --chown=apiuser:apiuser requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Code
+COPY --chown=apiuser:apiuser app.py .
+COPY --chown=apiuser:apiuser models/ ./models/
+
+# Switcher en non-root
+USER apiuser
+
+EXPOSE 8000
+
+# Healthcheck (curl est dispo dans l'image slim ? non. On utilise python directement)
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+**docker-compose.yml** :
+
+```yaml
+version: '3.9'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./models:/app/models:ro    # ro = read-only (sécurité)
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 3s
+      start_period: 10s
+      retries: 3
+```
+
+**.dockerignore** :
+
+```
+.git
+.gitignore
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.venv/
+venv/
+*.log
+.env
+.ipynb_checkpoints/
+notebooks/
+data/raw/
+*.csv
+.vscode/
+.idea/
+README.md
+```
+
+**Commandes** :
+
+```bash
+# Build et lancement
+docker compose up --build -d
+
+# Vérifier que ça tourne
+docker compose ps
+
+# Voir les logs
+docker compose logs -f api
+
+# Tester
+curl http://localhost:8000/health
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sepal_length": 5.1, "sepal_width": 3.5, "petal_length": 1.4, "petal_width": 0.2}'
+
+# Lancer les tests depuis l'host
+pytest tests/test_api.py
+
+# Arrêter
+docker compose down
+
+# === Bonus : Docker Hub ===
+docker login
+docker tag iris_dockerized-api:latest monusername/iris-api:v1.0.0
+docker push monusername/iris-api:v1.0.0
+```
+
+**Tu viens de containeriser une vraie app ML production-ready.** 🎉
+
+Avec un **simple `docker compose up`**, n'importe qui peut faire tourner ton API.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Container** | Process isolé avec ses libs, partage l'OS |
+| **Image** | Modèle figé, instantiable en containers |
+| **Dockerfile** | Recette pour construire une image |
+| **Volume** | Dossier partagé host ↔ container |
+| **Compose** | Orchestrer plusieurs services (YAML) |
+| **Multi-stage** | Build vs runtime séparés (taille réduite) |
+| **`.dockerignore`** | Exclure du contexte de build |
+| **Registry** | Dépôt d'images (Docker Hub, GHCR) |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Toujours** `slim` ou `alpine` (pas `python:3.12` full)
+2. **Requirements avant code** dans le Dockerfile (cache)
+3. **`.dockerignore`** dès le début (taille image)
+4. **Versionner** les tags (pas que `latest`)
+5. **User non-root** + **healthcheck** en prod
+
+## 🚨 Les pièges à éviter
+
+1. **Secrets dans Dockerfile** → catastrophe sécu
+2. **`COPY .` en premier** → cache flingué, builds lents
+3. **Pas de `.dockerignore`** → images de plusieurs GB
+4. **Tout en `latest`** → impossible de rollback
+5. **Tourner en root** → risque sécu si compromis
+
+## 🚀 La suite
+
+Ton app est **portable**, prête à tourner partout. Mais comment **suivre** tes expériences ML (qui a entraîné quel modèle avec quels hyperparams) ?
+
+Dans la [**Notion 8.4 — MLflow**](notion_8_4_mlflow.qmd), tu vas :
+- Comprendre **pourquoi** tracker les expériences
+- Utiliser **MLflow** pour logger params, métriques, modèles
+- Comparer des **runs** côte à côte
+- Mettre en place un **Model Registry**
+- Voir ce que **Weights & Biases** apporte en plus
+
+C'est la notion qui transforme ton workflow ML d'**artisanal** à **industriel**.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+**Containerise ton chatbot TechVolt** (TP Module 7) :
+
+1. Écris un Dockerfile + docker-compose.yml
+2. Build l'image
+3. Lance le tout avec `docker compose up`
+4. Teste que ça marche (`/chat` fonctionne)
+5. Push l'image sur Docker Hub avec un nom du genre `monusername/techvolt-chatbot:v1`
+6. Sur **une autre machine** (PC d'un ami, VM cloud...), fais `docker pull monusername/techvolt-chatbot:v1 && docker run ...` → ton chatbot tourne **ailleurs sans modif**
+
+**C'est le moment où tu réalises** la magie de Docker. ✨
+:::
