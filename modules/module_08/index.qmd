@@ -36,7 +36,7 @@ En 2026, **tous les data scientists** savent entraîner des modèles. Mais **peu
 |:---:|---|:---:|
 | **8.1** | [Introduction au MLOps](notion_8_1_intro_mlops.qmd) | 2-3 h |
 | **8.2** | [Déployer un modèle avec FastAPI](notion_8_2_fastapi.qmd) | 3-4 h |
-| **8.3** | Conteneurisation avec Docker _(à venir)_ | 3 h |
+| **8.3** | [Conteneurisation avec Docker](notion_8_3_docker.qmd) | 3 h |
 | **8.4** | Tracking d'expériences avec MLflow _(à venir)_ | 3-4 h |
 | **8.5** | Monitoring en production _(à venir)_ | 3 h |
 | **8.6** | CI/CD pour le ML _(à venir)_ | 3 h |
