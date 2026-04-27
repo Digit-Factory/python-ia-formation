@@ -1,0 +1,978 @@
+---
+title: "Notion 8.5 — Monitoring en production"
+subtitle: "Garder l'œil sur ton modèle quand il tourne sans toi"
+author: "Plan de cours Python IA"
+format:
+  html:
+    code-tools: true
+    code-fold: false
+  pdf:
+    documentclass: scrartcl
+    number-sections: true
+jupyter: python3
+---
+<!-- RESOURCES_BANNER_START -->
+
+::: {.callout-note appearance="simple" icon=false}
+## 📚 Tes ressources pour cette notion
+
+<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; margin-bottom: 10px;">
+  <a href="../../ressources_eleves/module_08/notion_8_5_monitoring_ELEVE.ipynb" class="btn btn-primary btn-sm" download>📥 Télécharger le notebook</a>
+  <a href="https://colab.research.google.com/github/Digit-Factory/python-ia-formation/blob/main/ressources_eleves/module_08/notion_8_5_monitoring_ELEVE.ipynb" class="btn btn-outline-primary btn-sm" target="_blank">☁️ Ouvrir dans Colab</a>
+  <a href="../../ressources_eleves/module_08_ressources_eleve.zip" class="btn btn-outline-secondary btn-sm" download>📦 Pack du module complet</a>
+</div>
+
+💡 **Workflow conseillé** : lis la théorie ici, puis ouvre le notebook pour faire les exercices. Quand tu bloques, reviens déplier « Voir la correction ».
+:::
+
+<!-- RESOURCES_BANNER_END -->
+
+
+
+::: {.callout-note appearance="simple"}
+**Durée estimée** : 3 heures  
+**Prérequis** : Notions 8.1 (concepts MLOps), 8.2 (FastAPI)  
+**Objectif** : surveiller un système ML en prod, détecter les dérives, déclencher des alertes
+:::
+
+## 📋 Ce que tu sauras faire à la fin
+
+- Distinguer **monitoring système** et **monitoring ML**
+- Logger les **prédictions** de façon structurée (JSON)
+- Calculer des **métriques** (latence, throughput, taux d'erreur)
+- Détecter le **data drift** et le **model drift**
+- Comprendre **Prometheus + Grafana** (mention)
+- Configurer des **alertes** simples (Discord webhook)
+- Connaître **Evidently AI** et **NannyML**
+
+## 🎯 Pourquoi cette notion ?
+
+Imagine : ton modèle de scoring crédit tourne en prod depuis 6 mois. **Personne** ne l'a regardé. Un jour, le boss te demande :
+
+> *« Au fait, ton modèle, il marche toujours bien ? »*
+
+Tu réponds quoi ? Si tu n'as **pas de monitoring**, tu n'en sais **rien**. Et c'est **catastrophique** parce que :
+
+- Les **données changent** au fil du temps (nouveaux types de clients, nouvelles fraudes...)
+- Le modèle **se dégrade silencieusement** : ses prédictions deviennent moins bonnes
+- Une bonne accuracy **au déploiement** ne garantit **rien** 6 mois plus tard
+- Sans alertes, tu découvres le problème **quand le client se plaint** (trop tard)
+
+::: {.callout-important}
+## 💼 Le constat industriel
+**70% des modèles ML en production se dégradent significativement après 6 mois** sans qu'on s'en aperçoive. Le monitoring n'est **pas optionnel**, c'est ce qui te permet de **dormir tranquille**.
+:::
+
+## 🛠️ Mise en route
+
+```{python}
+#| label: setup
+import warnings
+warnings.filterwarnings('ignore')
+
+import os
+import json
+import time
+import random
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+sns.set_theme(style="whitegrid")
+plt.rcParams['figure.figsize'] = (10, 5)
+np.random.seed(42)
+
+LOG_DIR = Path("/tmp/monitoring_tutorial")
+LOG_DIR.mkdir(exist_ok=True)
+
+print("✅ Environnement prêt")
+```
+
+::: {.callout-important}
+## 📦 Librairies nécessaires
+
+```bash
+pip install loguru evidently scipy
+```
+:::
+
+# 1. Monitoring système vs monitoring ML
+
+## 🔧 Monitoring système : ce que toute API surveille
+
+Pour **n'importe quelle** API (ML ou pas), tu surveilles :
+
+| Métrique | Question | Outils typiques |
+|---|---|---|
+| **Latence (p50, p95, p99)** | Combien de temps prend une requête ? | Prometheus, Datadog |
+| **Throughput** | Combien de requêtes/seconde ? | Prometheus |
+| **Taux d'erreur** | % de requêtes en erreur (4xx, 5xx) | Logs + alertes |
+| **CPU / RAM** | Le serveur tient-il la charge ? | Prometheus, Grafana |
+| **Uptime** | Le service est-il up ? | Pingdom, UptimeRobot |
+
+Ces métriques sont **bien connues** depuis 20 ans. Côté outils, **Prometheus + Grafana** est le standard open source.
+
+## 🤖 Monitoring ML : ce qui est SPÉCIFIQUE
+
+Pour un modèle ML, tu dois en plus surveiller :
+
+| Métrique | Question | Pourquoi crucial |
+|---|---|---|
+| **Distribution des inputs** | Les données d'entrée ressemblent-elles au train set ? | **Data drift** |
+| **Distribution des prédictions** | Les sorties suivent-elles le pattern attendu ? | **Concept drift** |
+| **Performance** (si feedback dispo) | Accuracy/F1 reste-t-elle bonne ? | **Model drift** |
+| **Cas limites** | Inputs hors distribution ? | Outliers, attaques |
+| **Biais** | Les groupes minoritaires sont-ils bien servis ? | Fairness |
+
+**C'est ÇA qui distingue le MLOps du DevOps classique.**
+
+```{python}
+#| label: fig-monitoring-types
+#| fig-cap: "Monitoring système vs monitoring ML"
+
+import matplotlib.patches as mpatches
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+def boite(ax, x, y, w, h, color, text, fontsize=10):
+    ax.add_patch(mpatches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.05",
+                                           facecolor=color, edgecolor='black', linewidth=1.2))
+    ax.text(x + w/2, y + h/2, text, ha='center', va='center',
+             fontsize=fontsize, fontweight='bold')
+
+# Système
+ax = axes[0]
+ax.set_xlim(0, 10); ax.set_ylim(0, 10); ax.axis('off')
+ax.set_title("Monitoring SYSTÈME\n(toute API)", fontsize=13, fontweight='bold', color='#3b82f6')
+items = ["⚡ Latence", "📊 Throughput", "❌ Erreurs (4xx/5xx)",
+         "💻 CPU / RAM", "🟢 Uptime"]
+for i, txt in enumerate(items):
+    boite(ax, 1, 8 - i*1.5, 8, 1, "#dbeafe", txt, 11)
+
+# ML
+ax = axes[1]
+ax.set_xlim(0, 10); ax.set_ylim(0, 10); ax.axis('off')
+ax.set_title("Monitoring ML\n(en PLUS)", fontsize=13, fontweight='bold', color='#10b981')
+items = ["📥 Distribution des inputs (drift)",
+         "📤 Distribution des prédictions",
+         "🎯 Performance si feedback",
+         "🌪️  Cas limites / outliers",
+         "⚖️  Biais et fairness"]
+for i, txt in enumerate(items):
+    boite(ax, 0.5, 8 - i*1.5, 9, 1, "#dcfce7", txt, 11)
+
+plt.tight_layout()
+plt.show()
+```
+
+# 2. Logs structurés avec loguru
+
+## 📝 Pourquoi les logs structurés ?
+
+Les `print()` éparpillés dans ton code sont **inutilisables** en prod :
+- Tu ne peux pas filtrer
+- Tu ne peux pas agréger (« combien d'erreurs E04 hier ? »)
+- Tu ne peux pas visualiser
+
+**Solution** : logs **structurés** (JSON) avec un champ par info utile.
+
+## 🪵 loguru : le logger Python moderne
+
+`loguru` est plus simple que le module `logging` standard, et il fait du **JSON nativement** :
+
+```{python}
+from loguru import logger
+
+# Reset de la config par défaut
+logger.remove()
+
+# Logger en console (format lisible)
+logger.add(
+    lambda msg: print(msg, end=""),
+    format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | {message}",
+    level="INFO",
+)
+
+# Test
+logger.info("API démarrée")
+logger.warning("Modèle chargé avec un warning")
+logger.error("Erreur sur la prédiction")
+```
+
+## 🗂️ Logs JSON pour la prod
+
+En prod, on logge en **JSON** dans un fichier (ou sur stdout pour Docker) :
+
+```{python}
+# Reset
+logger.remove()
+
+# Logger JSON dans un fichier (1 ligne = 1 JSON)
+logger.add(
+    LOG_DIR / "predictions.jsonl",
+    serialize=True,           # ← magique : tout en JSON
+    rotation="100 MB",        # nouveau fichier tous les 100 MB
+    retention="30 days",      # garde 30 jours
+    level="INFO",
+)
+
+# Logger une prédiction avec contexte structuré
+logger.bind(
+    request_id="req-abc-123",
+    user_id="user-42",
+    model_version="v1.2.0",
+    latency_ms=45.3,
+).info("Prédiction effectuée")
+
+# Lire le JSON
+with open(LOG_DIR / "predictions.jsonl") as f:
+    for line in f:
+        record = json.loads(line)
+        # Format loguru : record.extra contient nos champs custom
+        print(json.dumps(record["record"]["extra"], indent=2))
+        break
+```
+
+## 🎯 Pattern : middleware FastAPI
+
+Pour logger **automatiquement** chaque requête de ton API :
+
+```{python}
+#| eval: false
+from fastapi import FastAPI, Request
+import time
+import uuid
+
+app = FastAPI()
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Logger automatique pour chaque requête."""
+    request_id = str(uuid.uuid4())
+    start = time.time()
+    
+    try:
+        response = await call_next(request)
+        latency_ms = (time.time() - start) * 1000
+        
+        logger.bind(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            status_code=response.status_code,
+            latency_ms=round(latency_ms, 2),
+        ).info("Request completed")
+        
+        response.headers["X-Request-ID"] = request_id
+        return response
+    
+    except Exception as e:
+        latency_ms = (time.time() - start) * 1000
+        logger.bind(
+            request_id=request_id,
+            method=request.method,
+            path=request.url.path,
+            error=str(e),
+            latency_ms=round(latency_ms, 2),
+        ).error("Request failed")
+        raise
+```
+
+**Bénéfice** : à chaque requête, **toutes les infos clés** sont loggées en JSON. Tu peux ensuite les agréger.
+
+## ✏️ Exercice 1 — Analyser des logs
+
+::: {.callout-note icon=false}
+## 📝 À faire
+
+Voici une simulation de **1000 prédictions** loggées. À toi de les analyser.
+
+Calcule :
+
+1. **Latence p50, p95, p99**
+2. **Taux d'erreur** (status_code != 200)
+3. **Distribution des `input_class`** (proportion de chaque)
+4. **Confidence moyenne** par `predicted_class`
+5. **Repère un éventuel pattern bizarre**
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+# Simulation de 1000 logs de prédictions
+np.random.seed(42)
+random.seed(42)
+
+predictions_log = []
+for i in range(1000):
+    predictions_log.append({
+        "timestamp": time.time() + i,
+        "request_id": f"req-{i}",
+        "latency_ms": float(np.random.gamma(2, 20)),
+        "input_class": random.choice(["installation", "erreur", "app", "sav"]),
+        "predicted_class": random.choice(["positif", "neutre", "negatif"]),
+        "confidence": float(np.random.beta(8, 2)),
+        "status_code": int(np.random.choice([200, 500], p=[0.97, 0.03])),
+    })
+
+df = pd.DataFrame(predictions_log)
+
+# 1. Latence p50, p95, p99
+print("=== Latence ===")
+print(f"  p50 (médiane) : {df['latency_ms'].quantile(0.5):.1f} ms")
+print(f"  p95           : {df['latency_ms'].quantile(0.95):.1f} ms")
+print(f"  p99           : {df['latency_ms'].quantile(0.99):.1f} ms")
+print(f"  max           : {df['latency_ms'].max():.1f} ms")
+
+# 2. Taux d'erreur
+err_rate = (df['status_code'] != 200).mean()
+print(f"\n=== Erreurs ===")
+print(f"  Taux d'erreur : {err_rate*100:.2f}%")
+
+# 3. Distribution input_class
+print(f"\n=== Inputs ===")
+print(df['input_class'].value_counts(normalize=True).round(3).to_string())
+
+# 4. Confidence moyenne par classe prédite
+print(f"\n=== Confidence par classe ===")
+print(df.groupby('predicted_class')['confidence'].mean().round(3).to_string())
+```
+
+**Patterns à repérer en prod** :
+- **p99 >> p95** → un cas pathologique fait des requêtes très lentes
+- **Taux d'erreur > 1%** → quelque chose cloche, alerte !
+- **Distribution déséquilibrée** → biais possible
+- **Confidence très faible** sur une classe → modèle hésitant, ré-entraîner ?
+
+**C'est exactement** ce qu'on regarde dans un dashboard Grafana.
+:::
+
+# 3. Métriques avec Prometheus
+
+## 📊 Le standard de l'industrie
+
+**Prometheus** est le système de monitoring **open source** le plus utilisé. **Grafana** est l'interface qui affiche les jolis dashboards.
+
+**Le pattern** :
+1. Ton API expose un endpoint `/metrics` au format Prometheus
+2. Prometheus **scrape** (= interroge) cet endpoint régulièrement (15s typique)
+3. Grafana lit Prometheus et affiche des graphes
+
+## 🚀 Setup minimaliste avec FastAPI
+
+```{python}
+#| eval: false
+# pip install prometheus-client
+from fastapi import FastAPI
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
+
+app = FastAPI()
+
+# Compteurs et histogrammes
+predictions_total = Counter(
+    "predictions_total",
+    "Nombre total de prédictions",
+    ["model_version", "predicted_class"],
+)
+prediction_latency = Histogram(
+    "prediction_latency_seconds",
+    "Latence des prédictions",
+    buckets=(0.01, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0),
+)
+
+@app.get("/metrics")
+def metrics():
+    """Endpoint scrappé par Prometheus."""
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+@app.post("/predict")
+def predict(features: dict):
+    with prediction_latency.time():
+        # ... logique de prédiction ...
+        predicted_class = "positif"
+        predictions_total.labels(
+            model_version="v1.2.0",
+            predicted_class=predicted_class,
+        ).inc()
+        return {"class": predicted_class}
+```
+
+Quand tu fais `curl http://localhost:8000/metrics`, tu obtiens :
+
+```
+# HELP predictions_total Nombre total de prédictions
+# TYPE predictions_total counter
+predictions_total{model_version="v1.2.0",predicted_class="positif"} 423.0
+predictions_total{model_version="v1.2.0",predicted_class="negatif"} 87.0
+
+# HELP prediction_latency_seconds Latence des prédictions
+# TYPE prediction_latency_seconds histogram
+prediction_latency_seconds_bucket{le="0.05"} 380.0
+prediction_latency_seconds_bucket{le="0.1"} 470.0
+...
+```
+
+Prometheus collecte ça toutes les 15s, Grafana affiche les courbes.
+
+## 🎨 Stack monitoring complète (docker compose)
+
+```{python}
+#| eval: false
+# docker-compose.yml
+"""
+version: '3.9'
+
+services:
+  api:
+    build: .
+    ports: ["8000:8000"]
+  
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports: ["9090:9090"]
+  
+  grafana:
+    image: grafana/grafana:latest
+    ports: ["3000:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+"""
+
+# prometheus.yml
+"""
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'mon-api'
+    static_configs:
+      - targets: ['api:8000']
+"""
+```
+
+`docker compose up` → tu as un système de monitoring **complet** sur ta machine.
+
+::: {.callout-note}
+## 🎯 Pour ce cours
+On ne va **pas** déployer Prometheus + Grafana en pratique (ça déborde du module). Les **templates** ci-dessus suffisent à savoir le faire chez toi. Concentrons-nous sur les **concepts ML** qui sont spécifiques.
+:::
+
+# 4. Data drift : la dérive des inputs
+
+## 🌊 Qu'est-ce que le data drift ?
+
+Ton modèle a été entraîné sur des données de **2024**. En **2026**, les données d'entrée peuvent avoir changé :
+
+- **Population différente** : nouveaux types de clients
+- **Comportement différent** : tendances qui évoluent
+- **Format différent** : un capteur a changé d'unité
+- **Saison** : hiver vs été pour la consommation électrique
+
+**Conséquence** : ton modèle **n'a jamais vu** ces nouvelles données → il prédit mal.
+
+## 🔍 Détecter le drift : tests statistiques
+
+L'idée : comparer la distribution **récente** (production) à la distribution **de référence** (train set).
+
+### Pour des features numériques : **test KS** (Kolmogorov-Smirnov)
+
+```{python}
+from scipy import stats
+
+# Distribution de référence (train set)
+ref = np.random.normal(loc=100, scale=15, size=1000)
+
+# Distribution actuelle en prod (DRIFT : moyenne plus élevée)
+prod_drift = np.random.normal(loc=110, scale=15, size=500)
+
+# Distribution actuelle en prod (PAS DRIFT)
+prod_no_drift = np.random.normal(loc=100, scale=15, size=500)
+
+# Test KS
+ks_stat_drift, p_drift = stats.ks_2samp(ref, prod_drift)
+ks_stat_no, p_no = stats.ks_2samp(ref, prod_no_drift)
+
+print(f"Avec drift  : KS={ks_stat_drift:.3f}, p-value={p_drift:.4f}")
+print(f"Sans drift  : KS={ks_stat_no:.3f}, p-value={p_no:.4f}")
+
+# Règle simple : p-value < 0.05 → drift détecté
+print(f"\nDrift ? {p_drift < 0.05}")
+print(f"Pas de drift ? {p_no >= 0.05}")
+```
+
+**Lecture** :
+- p-value **petite** (< 0.05) → distributions **différentes** → drift
+- p-value **grande** → pas de différence statistique → ok
+
+### Visualisation
+
+```{python}
+#| label: fig-drift
+#| fig-cap: "Visualiser un data drift"
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+# Pas de drift
+axes[0].hist(ref, bins=30, alpha=0.5, label="Référence (train)", color="#3b82f6")
+axes[0].hist(prod_no_drift, bins=30, alpha=0.5, label="Prod actuelle", color="#10b981")
+axes[0].set_title(f"Pas de drift (p={p_no:.3f})", fontweight='bold')
+axes[0].legend()
+axes[0].set_xlabel("Valeur")
+
+# Drift
+axes[1].hist(ref, bins=30, alpha=0.5, label="Référence (train)", color="#3b82f6")
+axes[1].hist(prod_drift, bins=30, alpha=0.5, label="Prod actuelle", color="#ef4444")
+axes[1].set_title(f"DRIFT détecté (p={p_drift:.4f})", fontweight='bold', color='#ef4444')
+axes[1].legend()
+axes[1].set_xlabel("Valeur")
+
+plt.tight_layout()
+plt.show()
+```
+
+### Pour des features catégorielles : **test du chi-2**
+
+```{python}
+# Distribution de référence (% de chaque catégorie au train)
+ref_counts = pd.Series([400, 300, 200, 100], index=["A", "B", "C", "D"])
+
+# Distribution en prod (DRIFT : la catégorie A explose)
+prod_counts = pd.Series([600, 200, 150, 50], index=["A", "B", "C", "D"])
+
+# Aligner
+df_chi = pd.DataFrame({"ref": ref_counts, "prod": prod_counts})
+
+# Test chi-2
+chi2, p, dof, expected = stats.chi2_contingency(df_chi.T.values)
+
+print(f"Chi² : {chi2:.2f}")
+print(f"p-value : {p:.5f}")
+print(f"DRIFT détecté : {p < 0.05}")
+```
+
+## 🚨 Stratégie d'alerting drift
+
+En production, on ne lance **pas** un test à chaque requête. On agrège :
+
+1. **Toutes les heures** (ou jours), prendre les N dernières prédictions
+2. **Comparer** aux données de référence (train set ou snapshot stable)
+3. **Si p-value < seuil** → **alerte** (Discord, email...)
+
+# 5. Model drift : la performance qui baisse
+
+## 🎯 La différence avec le data drift
+
+- **Data drift** : les **inputs** changent (détectable sans labels)
+- **Model drift** : les **prédictions deviennent moins bonnes** (nécessite des **labels** post-déploiement)
+
+## 🤔 Comment avoir des labels en prod ?
+
+Le **gros problème** du model drift : les **vrais labels** arrivent souvent **avec délai** :
+- Crédit : on saura dans **6 mois** si le client a remboursé
+- Recommandation : on saura **après 1 semaine** si le client a cliqué
+- Churn : on saura dans **3 mois** si le client est parti
+
+**Stratégies** :
+1. **Logger les prédictions** + **récupérer les labels** quand ils arrivent
+2. **Joindre** les deux pour calculer l'accuracy en différé
+3. **Comparer à la baseline** entraînement
+
+## 🧪 Simulation : performance qui se dégrade
+
+```{python}
+# Simuler 12 mois de performance d'un modèle qui drift
+np.random.seed(42)
+
+mois = np.arange(1, 13)
+# Acc commence haute, dérive lentement
+acc_par_mois = 0.92 - 0.01 * mois - 0.005 * (mois > 8) * (mois - 8) + np.random.normal(0, 0.005, 12)
+
+# Visualiser
+fig, ax = plt.subplots(figsize=(11, 5))
+ax.plot(mois, acc_par_mois, marker="o", linewidth=2, color="#3b82f6")
+ax.axhline(0.92, color="green", linestyle="--", alpha=0.5, label="Baseline déploiement (0.92)")
+ax.axhline(0.85, color="red", linestyle="--", alpha=0.5, label="Seuil d'alerte (0.85)")
+ax.set_xlabel("Mois après déploiement")
+ax.set_ylabel("Accuracy")
+ax.set_title("Évolution de l'accuracy en prod (model drift)", fontweight='bold')
+ax.legend()
+ax.set_ylim(0.7, 0.95)
+
+# Marquer le point où on franchit le seuil
+seuil = 0.85
+mois_alerte = mois[acc_par_mois < seuil]
+if len(mois_alerte) > 0:
+    ax.axvline(mois_alerte[0], color="red", alpha=0.3)
+    ax.text(mois_alerte[0] + 0.1, 0.72, f"⚠️ Alerte mois {mois_alerte[0]}",
+             color="red", fontweight='bold')
+
+plt.tight_layout()
+plt.show()
+
+print(f"Acc déploiement : {acc_par_mois[0]:.3f}")
+print(f"Acc 12 mois     : {acc_par_mois[-1]:.3f}")
+print(f"Dégradation     : {(acc_par_mois[0] - acc_par_mois[-1])*100:.1f} points")
+```
+
+## 🛠️ Que faire quand on détecte un drift ?
+
+```{python}
+#| label: fig-drift-actions
+#| fig-cap: "Décisions face à un drift détecté"
+
+actions = pd.DataFrame({
+    "Sévérité": ["Légère (1-3%)", "Moyenne (3-5%)", "Forte (>5%)"],
+    "Action": [
+        "Surveiller, pas d'action immédiate",
+        "Investiguer la cause, préparer un re-train",
+        "Re-entraîner immédiatement, hot-fix",
+    ],
+    "Délai": ["1 mois", "1 semaine", "Quelques heures"],
+})
+print(actions.to_string(index=False))
+```
+
+# 6. Evidently AI : la lib spécialisée
+
+**Evidently** est la lib open source la plus populaire pour le monitoring ML. Elle calcule **automatiquement** des dizaines de métriques de drift et génère des **rapports HTML**.
+
+## 🚀 Exemple minimal
+
+```{python}
+import warnings
+warnings.filterwarnings('ignore')
+import evidently
+print(f"Evidently {evidently.__version__}")
+```
+
+Evidently 0.7+ a une nouvelle API (depuis fin 2024). Voici l'utilisation typique :
+
+```{python}
+#| eval: false
+# Pseudo-code Evidently moderne (l'API évolue, vérifier la doc à jour)
+from evidently import Report
+from evidently.presets import DataDriftPreset, DataSummaryPreset
+
+# Créer un rapport de drift
+report = Report(metrics=[DataDriftPreset(), DataSummaryPreset()])
+
+# Calculer sur les données
+result = report.run(reference_data=ref_df, current_data=prod_df)
+
+# Sauvegarder en HTML
+result.save_html("drift_report.html")
+```
+
+Le rapport HTML contient :
+- Distribution de chaque feature
+- Tests statistiques (KS, Chi², Wasserstein...)
+- Indicateur drift / pas de drift par feature
+- Visualisations interactives
+
+::: {.callout-tip}
+## 📚 La doc évolue
+L'API d'Evidently a beaucoup changé entre 0.4 et 0.7. **Toujours vérifier** [docs.evidentlyai.com](https://docs.evidentlyai.com) avant de coder.
+:::
+
+## 🔍 Alternatives à Evidently
+
+| Outil | Forces | Quand utiliser |
+|---|---|---|
+| **Evidently** | Open source, riche, facile | **Premier choix** pour la plupart des cas |
+| **NannyML** | Estimation perf sans labels | Quand les labels arrivent en différé |
+| **Arize** | SaaS complet, équipes data-product | Production scale, budget |
+| **WhyLabs** | Profiling de données | Très gros volumes |
+| **Fiddler** | Explainability + monitoring | Cas réglementaires (banque) |
+
+# 7. Alertes : être prévenu·e quand ça va mal
+
+Détecter un problème **n'est pas suffisant**. Il faut **être prévenu** rapidement.
+
+## 🔔 Les 3 niveaux d'alertes
+
+| Niveau | Critère | Canal | Réaction |
+|---|---|---|---|
+| **🟢 Info** | Métrique normale ou tendance | Dashboard | Aucune |
+| **🟡 Warning** | Drift léger, latence un peu haute | Slack/Discord | Investigation |
+| **🔴 Critical** | API down, erreurs > 5%, drift fort | PagerDuty + SMS | Action immédiate |
+
+## 💬 Webhook Discord (gratuit, simple)
+
+Le moyen le plus rapide de mettre en place des alertes : un **webhook Discord**.
+
+```{python}
+import requests
+
+def envoyer_alerte_discord(webhook_url: str, message: str, severite: str = "warning"):
+    """Envoie une alerte Discord via webhook."""
+    couleurs = {"info": 0x3b82f6, "warning": 0xf59e0b, "critical": 0xef4444}
+    emojis = {"info": "ℹ️", "warning": "⚠️", "critical": "🚨"}
+    
+    payload = {
+        "embeds": [{
+            "title": f"{emojis.get(severite, '🔔')} Alerte ML — {severite.upper()}",
+            "description": message,
+            "color": couleurs.get(severite, 0x6b7280),
+            "footer": {"text": f"Émis à {time.strftime('%H:%M:%S')}"},
+        }]
+    }
+    
+    # En prod, on POSTerait à webhook_url
+    # Pour la démo, on affiche le payload
+    print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+# Démo (pas de vrai webhook ici)
+envoyer_alerte_discord(
+    webhook_url="https://discord.com/api/webhooks/...",
+    message="Le data drift KS est passé à 0.42 (seuil: 0.20). À investiguer.",
+    severite="warning",
+)
+```
+
+**En vrai** : tu créerais un webhook dans Discord (Server Settings > Integrations > Webhooks), tu copierais l'URL, et tu remplacerais le `print()` par un vrai `requests.post(webhook_url, json=payload)`.
+
+## 📧 Email avec smtplib
+
+Pour des alertes plus formelles :
+
+```{python}
+#| eval: false
+import smtplib
+from email.message import EmailMessage
+
+def envoyer_alerte_email(destinataire: str, sujet: str, corps: str):
+    msg = EmailMessage()
+    msg["From"] = "ml-alerts@example.com"
+    msg["To"] = destinataire
+    msg["Subject"] = sujet
+    msg.set_content(corps)
+    
+    with smtplib.SMTP("smtp.example.com", 587) as smtp:
+        smtp.starttls()
+        smtp.login("user", os.getenv("SMTP_PASSWORD"))
+        smtp.send_message(msg)
+```
+
+## 📟 PagerDuty pour le critique
+
+Pour les problèmes **vraiment** critiques (à 3h du matin), **PagerDuty** appelle directement la personne d'astreinte. Service payant mais incontournable en grosse boîte.
+
+# 🏁 Exercice bilan — Système de monitoring TechVolt
+
+::: {.callout-note icon=false}
+## 📝 Énoncé
+
+Tu déploies le **classifier d'avis TechVolt** (de la Notion 7.3). Construis un mini-système de monitoring :
+
+1. **Logger structuré** loguru en JSON dans `/tmp/techvolt_predictions.jsonl`
+
+2. **Simuler 500 prédictions** sur 2 périodes :
+   - 250 prédictions **"semaine 1"** (distribution normale)
+   - 250 prédictions **"semaine 4"** avec **drift** (les avis sont devenus plus négatifs)
+
+3. **Détecter le drift** :
+   - Sur la distribution des `predicted_class`
+   - Avec un test **chi-2**
+
+4. **Si drift détecté** → simuler une alerte Discord (juste afficher le payload)
+
+5. **Calculer les métriques système** :
+   - Latence p50, p95, p99
+   - Taux de "negatif" prédits par semaine
+
+6. **Visualiser** la dérive sur un graphe
+:::
+
+::: {.callout-tip collapse="true"}
+## ✅ Voir la correction
+
+```{python}
+from loguru import logger
+from scipy import stats
+
+# Reset logger
+logger.remove()
+log_path = LOG_DIR / "techvolt_predictions.jsonl"
+if log_path.exists():
+    log_path.unlink()
+
+logger.add(log_path, serialize=True, level="INFO")
+
+# === Simuler 500 prédictions ===
+np.random.seed(42)
+predictions = []
+
+# Semaine 1 : distribution normale (60% positif, 25% neutre, 15% négatif)
+for i in range(250):
+    cls = np.random.choice(["positif", "neutre", "negatif"], p=[0.6, 0.25, 0.15])
+    pred = {
+        "request_id": f"req-w1-{i}",
+        "semaine": 1,
+        "predicted_class": cls,
+        "confidence": float(np.random.beta(8, 2)),
+        "latency_ms": float(np.random.gamma(2, 20)),
+        "model_version": "v1.0.0",
+    }
+    predictions.append(pred)
+    logger.bind(**pred).info("Prédiction effectuée")
+
+# Semaine 4 : DRIFT (40% positif, 20% neutre, 40% négatif)
+for i in range(250):
+    cls = np.random.choice(["positif", "neutre", "negatif"], p=[0.4, 0.2, 0.4])
+    pred = {
+        "request_id": f"req-w4-{i}",
+        "semaine": 4,
+        "predicted_class": cls,
+        "confidence": float(np.random.beta(8, 2)),
+        "latency_ms": float(np.random.gamma(2, 20)),
+        "model_version": "v1.0.0",
+    }
+    predictions.append(pred)
+    logger.bind(**pred).info("Prédiction effectuée")
+
+df_preds = pd.DataFrame(predictions)
+print(f"✅ {len(df_preds)} prédictions loggées dans {log_path}")
+
+# === Détecter le drift sur les classes ===
+counts_w1 = df_preds[df_preds["semaine"] == 1]["predicted_class"].value_counts()
+counts_w4 = df_preds[df_preds["semaine"] == 4]["predicted_class"].value_counts()
+
+# Aligner les indices
+classes = ["positif", "neutre", "negatif"]
+counts_w1 = counts_w1.reindex(classes, fill_value=0)
+counts_w4 = counts_w4.reindex(classes, fill_value=0)
+
+ct = np.array([counts_w1.values, counts_w4.values])
+chi2, p, dof, expected = stats.chi2_contingency(ct)
+
+print(f"\n=== Test de drift Chi² ===")
+print(f"Distribution W1 : {dict(counts_w1)}")
+print(f"Distribution W4 : {dict(counts_w4)}")
+print(f"Chi² : {chi2:.2f}, p-value : {p:.6f}")
+print(f"DRIFT : {'OUI' if p < 0.05 else 'NON'}")
+
+# === Si drift, simuler alerte ===
+if p < 0.05:
+    print("\n🚨 DRIFT DÉTECTÉ → envoi alerte Discord...")
+    envoyer_alerte_discord(
+        webhook_url="https://discord.com/...",
+        message=f"Drift détecté sur le classifier TechVolt.\n"
+                f"% négatif W1: {counts_w1['negatif']/250*100:.0f}% → "
+                f"W4: {counts_w4['negatif']/250*100:.0f}% (chi²={chi2:.1f}, p={p:.4f})",
+        severite="warning",
+    )
+
+# === Métriques système ===
+print(f"\n=== Métriques système ===")
+print(f"Latence p50 : {df_preds['latency_ms'].quantile(0.5):.1f} ms")
+print(f"Latence p95 : {df_preds['latency_ms'].quantile(0.95):.1f} ms")
+print(f"Latence p99 : {df_preds['latency_ms'].quantile(0.99):.1f} ms")
+
+# === Taux negatif par semaine ===
+print(f"\n=== Taux 'negatif' par semaine ===")
+taux_neg = df_preds.groupby("semaine")["predicted_class"].apply(
+    lambda s: (s == "negatif").mean()
+)
+print(taux_neg.round(3).to_string())
+
+# === Visualisation ===
+fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+# Distribution par semaine
+df_pivot = df_preds.groupby(["semaine", "predicted_class"]).size().unstack(fill_value=0)
+df_pivot = df_pivot[classes]  # ordre fixe
+df_pivot.plot(kind="bar", ax=axes[0], color=["#10b981", "#f59e0b", "#ef4444"])
+axes[0].set_title("Distribution des prédictions par semaine", fontweight='bold')
+axes[0].set_xlabel("Semaine")
+axes[0].set_ylabel("Nombre de prédictions")
+axes[0].legend(title="Classe")
+axes[0].tick_params(axis='x', rotation=0)
+
+# Taux 'negatif' par semaine
+taux_neg.plot(kind="bar", ax=axes[1], color="#ef4444")
+axes[1].axhline(0.20, color="orange", linestyle="--", label="Seuil normal (20%)")
+axes[1].set_title("Taux de 'negatif' (drift visible)", fontweight='bold')
+axes[1].set_xlabel("Semaine")
+axes[1].set_ylabel("% negatif")
+axes[1].legend()
+axes[1].tick_params(axis='x', rotation=0)
+
+plt.tight_layout()
+plt.show()
+```
+
+**Tu viens de construire** un système de monitoring **mini mais complet** :
+- ✅ Logs structurés JSON
+- ✅ Détection automatique de drift (chi²)
+- ✅ Alerte conditionnelle
+- ✅ Métriques système (latence)
+- ✅ Visualisation
+
+C'est **exactement** le pattern industriel, version simplifiée.
+:::
+
+# 🎓 Récapitulatif
+
+## 📋 Ce que tu dois retenir
+
+| Concept | Résumé |
+|---|---|
+| **Monitoring système** | Latence, throughput, erreurs, CPU, uptime |
+| **Monitoring ML** | Distribution inputs/outputs, performance, drift, fairness |
+| **Logs structurés** | JSON avec champs custom (loguru `serialize=True`) |
+| **Prometheus + Grafana** | Standard open source pour métriques + dashboards |
+| **Data drift** | Inputs changent (test KS pour numérique, Chi² pour catégoriel) |
+| **Model drift** | Performance baisse (nécessite des labels) |
+| **Evidently AI** | Lib spécialisée monitoring ML, génère des rapports HTML |
+| **Alertes** | Discord webhook (rapide), email, PagerDuty (critique) |
+
+## 🧠 Les 5 réflexes à prendre
+
+1. **Logs structurés JSON** dès le départ (pas juste `print`)
+2. **Latence p95/p99** plutôt que moyenne (la moyenne cache les outliers)
+3. **Snapshot des données train** comme référence pour le drift
+4. **Alertes seulement** sur des événements **critiques** (sinon fatigue d'alerte)
+5. **Réagir** au drift : enquêter avant de blâmer le modèle
+
+## 🚨 Les pièges à éviter
+
+1. **Logger trop** → coûts de stockage, lenteur d'analyse
+2. **Alertes pour tout** → fatigue, on finit par les ignorer
+3. **Ignorer le drift** → modèle devient une bombe à retardement
+4. **Métriques sans contexte** → "latence 200ms" : grave ou pas ?
+5. **Pas de runbook** → quand l'alerte sonne, personne ne sait quoi faire
+
+## 🚀 La suite
+
+Ton modèle est tracké, déployé, monitoré. **Comment automatiser tout ça ?**
+
+Dans la [**Notion 8.6 — CI/CD**](notion_8_6_cicd.qmd), tu vas :
+- Comprendre **CI** (Continuous Integration) et **CD** (Continuous Deployment)
+- Configurer **GitHub Actions** pour tes projets ML
+- Tester automatiquement à chaque push
+- Déployer automatiquement vers **Hugging Face Spaces**
+- Versionner les modèles et faire du **A/B testing**
+
+C'est la notion qui rend ton workflow **vraiment industriel**.
+
+::: {.callout-tip}
+## 💡 Défi pour consolider
+
+**Ajoute du monitoring** à ton chatbot TechVolt (TP Module 7) :
+
+1. Logger structuré (loguru JSON) sur chaque appel `/chat`
+2. Logger : question, réponse, sources utilisées, latence, model_version
+3. Après 100 conversations, calcule :
+   - Latence moyenne et p95
+   - Taux de "Je ne trouve pas cette information..." (signal de mauvaise couverture)
+   - Top 5 questions sans réponse
+4. **Bonus** : webhook Discord si taux d'échec > 20%
+
+Tu auras alors un **chatbot observable**, pas une boîte noire.
+:::
